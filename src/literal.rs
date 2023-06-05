@@ -11,6 +11,7 @@ pub trait Num:
     + BitXor<Output = Self>
     + Add<Output = Self>
     + From<u32>
+    + Copy
 {
 }
 
@@ -73,6 +74,11 @@ impl Lit {
         Lit { a: self.a & !2u32 }
     }
 
+    /// Set the flag
+    pub(crate) fn with_flag(&self) -> Lit {
+        Lit { a: self.a | 2u32 }
+    }
+
     /// Convert the polarity to a word for bitwise operations
     pub(crate) fn pol_to_word<T: Num>(&self) -> T {
         let pol = self.a & 1;
@@ -93,8 +99,14 @@ impl Lit {
 
 impl Not for Lit {
     type Output = Lit;
+    fn not(self) -> Lit {
+        Lit { a: self.a ^ 1u32 }
+    }
+}
 
-    fn not(self) -> Self {
+impl Not for &'_ Lit {
+    type Output = Lit;
+    fn not(self) -> Lit {
         Lit { a: self.a ^ 1u32 }
     }
 }
