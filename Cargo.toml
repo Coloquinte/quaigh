@@ -5,4 +5,9 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+authors = ["Gabriel Gouvine <gabriel.gouvine_cargo@m4x.org>"]
+description = "Boolean functions implementation, represented as lookup tables"
+license = "MIT OR Apache-2.0"
+keywords = ["boolean function", "logic function", "lut", "lookup table", "truth table"]
+
 [dependencies]

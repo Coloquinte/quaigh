@@ -34,6 +34,19 @@ enum BasicGate {
     Maj(Lit, Lit, Lit),
 }
 
+fn sort_2_lits(lits: (Lit, Lit)) -> (Lit, Lit) {
+    let (i1, i0) = lits;
+    (cmp::max(i1, i0), cmp::min(i1, i0))
+}
+
+fn sort_3_lits(lits: (Lit, Lit, Lit)) -> (Lit, Lit, Lit) {
+    let (mut i2, mut i1, mut i0) = lits;
+    (i2, i1) = sort_2_lits((i2, i1));
+    (i1, i0) = sort_2_lits((i1, i0));
+    (i2, i1) = sort_2_lits((i2, i1));
+    (i2, i1, i0)
+}
+
 impl AigNode {
     /// Return the input literals, with internal flags removed
     fn lits(&self) -> (Lit, Lit, Lit) {
@@ -120,11 +133,11 @@ impl AigNode {
 
     fn is_canonical_maj(&self) -> bool {
         let (a, b, c) = self.lits();
-        if a <= b || b <= c {
+        if a.ind() <= b.ind() || b.ind() <= c.ind() {
             // Force strict ordering on the inputs, a > b > c
             return false;
         }
-        if c == Lit::zero() {
+        if c == Lit::one() {
             // Only constant one on the last input, representing an And
             return false;
         }
@@ -151,7 +164,7 @@ impl AigNode {
         NormalizationResult::PosNode(AigNode {
             a: mx,
             b: mn,
-            c: Lit::one(),
+            c: Lit::zero(),
         })
     }
 
@@ -172,7 +185,8 @@ impl AigNode {
         if mn == !mx {
             return NormalizationResult::Literal(Lit::one());
         }
-        // TODO: handling the polarities
+        let pol = mn.pol() ^ mx.pol();
+        // TODO: handling polarities
         NormalizationResult::PosNode(AigNode {
             a: mn.with_flag(),
             b: !mx,
@@ -202,6 +216,7 @@ impl AigNode {
         // Sort the inputs
         // Two inputs constant
         // One input constant
+        let (i2, i1, i0) = sort_3_lits((a, b, c));
         NormalizationResult::PosNode(AigNode { a: a, b: b, c: c })
     }
 
@@ -223,7 +238,7 @@ impl AigNode {
             } else {
                 BasicGate::Mux(a, b, c)
             }
-        } else if c == Lit::one() {
+        } else if c == Lit::zero() {
             BasicGate::And(a, b)
         } else {
             BasicGate::Maj(a, b, c)
@@ -233,18 +248,19 @@ impl AigNode {
 
 impl fmt::Display for AigNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use BasicGate::*;
         let g = self.as_gate();
         match g {
-            BasicGate::And(a, b) => {
+            And(a, b) => {
                 write!(f, "And({a}, {b})")
             }
-            BasicGate::Xor(a, b) => {
+            Xor(a, b) => {
                 write!(f, "Xor({a}, {b})")
             }
-            BasicGate::Mux(a, b, c) => {
+            Mux(a, b, c) => {
                 write!(f, "Mux({a}, {b}, {c})")
             }
-            BasicGate::Maj(a, b, c) => {
+            Maj(a, b, c) => {
                 write!(f, "Maj({a}, {b}, {c})")
             }
         }
@@ -278,14 +294,19 @@ mod tests {
         // Duplication
         assert!(!AigNode::maj(i1, i1, i0).is_canonical());
         assert!(!AigNode::maj(i1, i0, i0).is_canonical());
+        assert!(!AigNode::maj(!i1, i1, i0).is_canonical());
+        assert!(!AigNode::maj(i1, !i0, i0).is_canonical());
 
         // Canonical and
-        assert!(AigNode::maj(i2, i1, l1).is_canonical());
+        assert!(AigNode::maj(i2, i1, l0).is_canonical());
         // Bad constants
-        assert!(!AigNode::maj(i2, i1, l0).is_canonical());
+        assert!(!AigNode::maj(i2, l1, l0).is_canonical());
+        assert!(!AigNode::maj(i2, i1, l1).is_canonical());
         assert!(!AigNode::maj(i2, l1, l1).is_canonical());
         // Duplication
-        assert!(!AigNode::maj(i2, i2, l1).is_canonical());
+        assert!(!AigNode::maj(i2, i2, i1).is_canonical());
+        assert!(!AigNode::maj(i2, !i2, i1).is_canonical());
+        assert!(!AigNode::maj(i2, i1, !i2).is_canonical());
 
         // Canonical muxes
         assert!(AigNode::mux(i2, i1, i0).is_canonical());
@@ -338,12 +359,12 @@ mod tests {
 
     #[test]
     fn test_format() {
-        let l1 = Lit::one();
+        let l0 = Lit::zero();
         let i0 = Lit::from_var(0);
         let i1 = Lit::from_var(1);
         let i2 = Lit::from_var(2);
         assert_eq!(format!("{}", AigNode::maj(i2, i1, i0)), "Maj(v2, v1, v0)");
-        assert_eq!(format!("{}", AigNode::maj(i2, i1, l1)), "And(v2, v1)");
+        assert_eq!(format!("{}", AigNode::maj(i2, i1, l0)), "And(v2, v1)");
         assert_eq!(format!("{}", AigNode::mux(i2, i1, i0)), "Mux(v2, v1, v0)");
         assert_eq!(format!("{}", AigNode::mux(i0, !i1, i1)), "Xor(v0, v1)");
     }
