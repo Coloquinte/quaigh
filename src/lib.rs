@@ -1,8 +1,15 @@
-//! Logic-Inverter Graph for logic simplification
+//! Implementation of And-Inverter-Graph for logic simplification (AIG).
 //!
-//! A crate to manipulate and simplify logic graphs.
+//! This crate provides a flexible representation for logic graphs based on And, Mux and Majority gates with implicit inverters.
+//! It provides utilities to manipulate and simplify logic functions, check for equivalence, ...
 //!
-//! This create uses a compact representation that generalizes on majority-inverter-graphs (MIG) and Mux-inverter-graphs. It provides AIG and XIG representations as special cases.
+//! It is inspired by the logic synthesis tools ABC and Mockturtle.
+//! Our goal is to become competitive with ABC for industrial applications, but with ease-of-use as a primary goal.
 
 mod aig_node;
 mod literal;
+mod aig;
+
+
+pub use literal::Lit;
+pub use aig::Aig;

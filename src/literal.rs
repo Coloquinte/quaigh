@@ -3,7 +3,7 @@ use std::{
     ops::{Add, BitAnd, BitOr, BitXor, Not},
 };
 
-pub trait Num:
+pub(crate) trait Num:
     Sized
     + Not<Output = Self>
     + BitOr<Output = Self>
@@ -47,6 +47,8 @@ impl Lit {
     }
 
     /// Obtain the variable ID associated with the literal
+    /// 
+    /// Synonym of [`var`]
     pub fn variable(&self) -> u32 {
         let v = self.a >> 2;
         assert!(v > 0);
@@ -59,6 +61,8 @@ impl Lit {
     }
 
     /// Obtain the polarity of the literal (True for an inversion)
+    /// 
+    /// Synonym of [`pol`]
     pub fn polarity(&self) -> bool {
         self.a & 1 != 0
     }
@@ -69,7 +73,7 @@ impl Lit {
         self.a & 2 != 0
     }
 
-    /// Remove the flag for processing
+    /// Clear the flag
     pub(crate) fn without_flag(&self) -> Lit {
         Lit { a: self.a & !2u32 }
     }
@@ -77,6 +81,16 @@ impl Lit {
     /// Set the flag
     pub(crate) fn with_flag(&self) -> Lit {
         Lit { a: self.a | 2u32 }
+    }
+
+    /// Clear the polarity
+    pub(crate) fn without_pol(&self) -> Lit {
+        Lit { a: self.a & !1u32 }
+    }
+
+    /// Set the polarity
+    pub(crate) fn with_pol(&self) -> Lit {
+        Lit { a: self.a | 1u32 }
     }
 
     /// Convert the polarity to a word for bitwise operations
@@ -91,8 +105,10 @@ impl Lit {
         !T::from(flag) + T::from(1)
     }
 
-    /// Obtain ID associated with the literal, including 0 for a constant
-    pub(crate) fn ind(&self) -> u32 {
+    /// Obtain ID associated with the literal
+    /// 
+    /// 0 for a constant, otherwise var() + 1
+    pub fn ind(&self) -> u32 {
         self.a >> 2
     }
 }

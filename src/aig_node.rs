@@ -5,14 +5,14 @@ use crate::literal::Num;
 
 /// Representation of an AIG node
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
-struct AigNode {
+pub struct AigNode {
     a: Lit,
     b: Lit,
     c: Lit,
 }
 
 /// Possible types for the AIG node
-enum NodeType {
+pub enum NodeType {
     Maj,
     Mux,
 }
@@ -20,14 +20,14 @@ enum NodeType {
 /// Represent the result of the normalization of a node.
 /// Either a literal if it can be simplified, or a canonical representation of an AIG node
 enum NormalizationResult {
-    /// Directly a literal
+    /// Only a literal after normalization
     Literal(Lit),
-    PosNode(AigNode),
-    NegNode(AigNode),
+    /// An AigNode, with possible complementation
+    Node(AigNode, bool),
 }
 
 /// Represent the different basic gates that can be represented
-enum BasicGate {
+pub enum BasicGate {
     And(Lit, Lit),
     Xor(Lit, Lit),
     Mux(Lit, Lit, Lit),
@@ -77,7 +77,7 @@ impl AigNode {
         }
     }
 
-    pub fn simulate<T: Num>(&self, a_val: T, b_val: T, c_val: T) -> T {
+    fn simulate<T: Num>(&self, a_val: T, b_val: T, c_val: T) -> T {
         // Convert boolean flags to full-width words
         let toggle_a: T = self.a.pol_to_word();
         let toggle_b: T = self.b.pol_to_word();
@@ -87,7 +87,7 @@ impl AigNode {
         let bv: T = b_val ^ toggle_b;
         let cv: T = c_val ^ toggle_c;
         let mux: T = (av & bv) | (!av & cv);
-        let maj: T = (av & bv) | (av & cv) | (bv & cv);
+        let maj: T = (av & bv) | ((av | bv) & cv);
         (!sel_mux & maj) | (sel_mux & mux)
     }
 
@@ -135,10 +135,12 @@ impl AigNode {
         let (a, b, c) = self.lits();
         if a.ind() <= b.ind() || b.ind() <= c.ind() {
             // Force strict ordering on the inputs, a > b > c
+            // No duplicate variables either
             return false;
         }
-        if c == Lit::one() {
-            // Only constant one on the last input, representing an And
+        if c.pol() {
+            // Force no inversion on the third input
+            // With constant zero, this is an And
             return false;
         }
         return true;
@@ -147,8 +149,7 @@ impl AigNode {
     /// Normalize an and gate
     fn make_canonical_and(a: Lit, b: Lit) -> NormalizationResult {
         assert!(!a.flag() && !b.flag());
-        let mn = cmp::min(a, b);
-        let mx = cmp::max(a, b);
+        let (mx, mn) = sort_2_lits((a, b));
         if mn == Lit::zero() {
             return NormalizationResult::Literal(Lit::zero());
         }
@@ -161,18 +162,20 @@ impl AigNode {
         if mn == !mx {
             return NormalizationResult::Literal(Lit::zero());
         }
-        NormalizationResult::PosNode(AigNode {
-            a: mx,
-            b: mn,
-            c: Lit::zero(),
-        })
+        NormalizationResult::Node(
+            AigNode {
+                a: mx,
+                b: mn,
+                c: Lit::zero(),
+            },
+            false,
+        )
     }
 
     /// Normalize a xor gate
     fn make_canonical_xor(a: Lit, b: Lit) -> NormalizationResult {
         assert!(!a.flag() && !b.flag());
-        let mn = cmp::min(a, b);
-        let mx = cmp::max(a, b);
+        let (mx, mn) = sort_2_lits((a, b));
         if mn == Lit::zero() {
             return NormalizationResult::Literal(mx);
         }
@@ -185,13 +188,14 @@ impl AigNode {
         if mn == !mx {
             return NormalizationResult::Literal(Lit::one());
         }
+        let a = mn.without_pol();
+        let b = mx.without_pol();
         let pol = mn.pol() ^ mx.pol();
-        // TODO: handling polarities
-        NormalizationResult::PosNode(AigNode {
-            a: mn.with_flag(),
-            b: !mx,
-            c: mx,
-        })
+        if pol {
+            NormalizationResult::Node(AigNode::mux(a, !b, b), true)
+        } else {
+            NormalizationResult::Node(AigNode::mux(a, !b, b), false)
+        }
     }
 
     // Normalize a mux gate
@@ -203,12 +207,38 @@ impl AigNode {
         if s == Lit::one() {
             return NormalizationResult::Literal(a);
         }
-        let (i1, i0) = if s.pol() { (a, b) } else { (b, a) };
-        NormalizationResult::PosNode(AigNode {
-            a: s.with_flag(),
-            b: a,
-            c: b,
-        })
+        if a == b {
+            return NormalizationResult::Literal(a);
+        }
+        // Pick the selector polarity
+        let (mut i_true, mut i_false) = if s.pol() { (b, a) } else { (a, b) };
+        let sel = s.without_pol();
+
+        // Remove duplicates with the selector
+        if sel == i_true {
+            i_true = Lit::one();
+        }
+        if sel == !i_true {
+            i_true = Lit::zero();
+        }
+        if sel == i_false {
+            i_false = Lit::zero();
+        }
+        if sel == !i_false {
+            i_false = Lit::one();
+        }
+
+        // Detect constant input on selected
+        // TODO: And or Or gate
+
+        NormalizationResult::Node(
+            AigNode {
+                a: s.with_flag(),
+                b: a,
+                c: b,
+            },
+            false,
+        )
     }
 
     // Normalize a maj gate
@@ -217,13 +247,17 @@ impl AigNode {
         // Two inputs constant
         // One input constant
         let (i2, i1, i0) = sort_3_lits((a, b, c));
-        NormalizationResult::PosNode(AigNode { a: a, b: b, c: c })
+        if i0.pol() {
+            // Complement input/output
+            // TODO
+        }
+        NormalizationResult::Node(AigNode { a: a, b: b, c: c }, false)
     }
 
     fn make_canonical(&self) -> NormalizationResult {
         // Normalize a majority
 
-        NormalizationResult::PosNode(self.clone())
+        NormalizationResult::Node(self.clone(), false)
     }
 
     /// Return the basic gate corresponding to a node
@@ -233,7 +267,7 @@ impl AigNode {
         let (a, b, c) = self.lits();
         if self.a.flag() {
             // Mux/Xor
-            if b == !c {
+            if b.pol() && b == !c {
                 BasicGate::Xor(a, c)
             } else {
                 BasicGate::Mux(a, b, c)
@@ -283,11 +317,7 @@ mod tests {
         assert!(AigNode::maj(i2, i1, i0).is_canonical());
         assert!(AigNode::maj(!i2, i1, i0).is_canonical());
         assert!(AigNode::maj(i2, !i1, i0).is_canonical());
-        assert!(AigNode::maj(i2, i1, !i0).is_canonical());
-        assert!(AigNode::maj(i2, !i1, !i0).is_canonical());
-        assert!(AigNode::maj(!i2, i1, !i0).is_canonical());
         assert!(AigNode::maj(!i2, !i1, i0).is_canonical());
-        assert!(AigNode::maj(!i2, !i1, !i0).is_canonical());
         // Bad orders
         assert!(!AigNode::maj(i1, i2, i0).is_canonical());
         assert!(!AigNode::maj(i2, i0, i1).is_canonical());
@@ -296,6 +326,11 @@ mod tests {
         assert!(!AigNode::maj(i1, i0, i0).is_canonical());
         assert!(!AigNode::maj(!i1, i1, i0).is_canonical());
         assert!(!AigNode::maj(i1, !i0, i0).is_canonical());
+        // Polarity
+        assert!(!AigNode::maj(i2, i1, !i0).is_canonical());
+        assert!(!AigNode::maj(i2, !i1, !i0).is_canonical());
+        assert!(!AigNode::maj(!i2, i1, !i0).is_canonical());
+        assert!(!AigNode::maj(!i2, !i1, !i0).is_canonical());
 
         // Canonical and
         assert!(AigNode::maj(i2, i1, l0).is_canonical());
@@ -360,12 +395,19 @@ mod tests {
     #[test]
     fn test_format() {
         let l0 = Lit::zero();
+        let l1 = Lit::one();
         let i0 = Lit::from_var(0);
         let i1 = Lit::from_var(1);
         let i2 = Lit::from_var(2);
+
+        // Typical cases
         assert_eq!(format!("{}", AigNode::maj(i2, i1, i0)), "Maj(v2, v1, v0)");
         assert_eq!(format!("{}", AigNode::maj(i2, i1, l0)), "And(v2, v1)");
         assert_eq!(format!("{}", AigNode::mux(i2, i1, i0)), "Mux(v2, v1, v0)");
         assert_eq!(format!("{}", AigNode::mux(i0, !i1, i1)), "Xor(v0, v1)");
+
+        // No undue simplification when something is not in canonical form
+        assert_eq!(format!("{}", AigNode::maj(i2, i1, l1)), "Maj(v2, v1, 1)");
+        assert_eq!(format!("{}", AigNode::mux(i0, i1, !i1)), "Mux(v0, v1, !v1)");
     }
 }
