@@ -17,6 +17,14 @@ pub enum NodeType {
     Mux,
 }
 
+/// Represent the different basic gates that can be represented
+pub enum BasicGate {
+    And(Lit, Lit),
+    Xor(Lit, Lit),
+    Mux(Lit, Lit, Lit),
+    Maj(Lit, Lit, Lit),
+}
+
 /// Represent the result of the normalization of a node.
 /// Either a literal if it can be simplified, or a canonical representation of an AIG node
 enum NormalizationResult {
@@ -24,14 +32,6 @@ enum NormalizationResult {
     Literal(Lit),
     /// An AigNode, with possible complementation
     Node(AigNode, bool),
-}
-
-/// Represent the different basic gates that can be represented
-pub enum BasicGate {
-    And(Lit, Lit),
-    Xor(Lit, Lit),
-    Mux(Lit, Lit, Lit),
-    Maj(Lit, Lit, Lit),
 }
 
 fn sort_2_lits(lits: (Lit, Lit)) -> (Lit, Lit) {
@@ -49,7 +49,7 @@ fn sort_3_lits(lits: (Lit, Lit, Lit)) -> (Lit, Lit, Lit) {
 
 impl AigNode {
     /// Return the input literals, with internal flags removed
-    fn lits(&self) -> (Lit, Lit, Lit) {
+    pub fn lits(&self) -> (Lit, Lit, Lit) {
         (
             self.a.without_flag(),
             self.b.without_flag(),
@@ -57,7 +57,7 @@ impl AigNode {
         )
     }
 
-    fn node_type(&self) -> NodeType {
+    pub fn node_type(&self) -> NodeType {
         if self.a.flag() {
             NodeType::Mux
         } else {
@@ -191,11 +191,7 @@ impl AigNode {
         let a = mn.without_pol();
         let b = mx.without_pol();
         let pol = mn.pol() ^ mx.pol();
-        if pol {
-            NormalizationResult::Node(AigNode::mux(a, !b, b), true)
-        } else {
-            NormalizationResult::Node(AigNode::mux(a, !b, b), false)
-        }
+        NormalizationResult::Node(AigNode::mux(a, !b, b), pol)
     }
 
     // Normalize a mux gate

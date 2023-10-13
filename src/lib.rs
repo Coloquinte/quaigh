@@ -12,4 +12,5 @@ mod aig;
 
 
 pub use literal::Lit;
+pub use aig_node::AigNode;
 pub use aig::Aig;
