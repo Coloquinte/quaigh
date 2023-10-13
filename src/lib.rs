@@ -6,11 +6,11 @@
 //! It is inspired by the logic synthesis tools ABC and Mockturtle.
 //! Our goal is to become competitive with ABC for industrial applications, but with ease-of-use as a primary goal.
 
+mod aig;
 mod aig_node;
 mod literal;
-mod aig;
+mod normalization;
 
-
-pub use literal::Lit;
-pub use aig_node::AigNode;
 pub use aig::Aig;
+pub use aig_node::AigNode;
+pub use literal::Lit;
