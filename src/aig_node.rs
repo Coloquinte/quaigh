@@ -1,7 +1,6 @@
 use std::{cmp, fmt};
 
 use crate::literal::Lit;
-use crate::literal::Num;
 
 /// Representation of an AIG node
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
@@ -77,17 +76,17 @@ impl AigNode {
         }
     }
 
-    fn simulate<T: Num>(&self, a_val: T, b_val: T, c_val: T) -> T {
+    fn simulate(&self, a_val: u64, b_val: u64, c_val: u64) -> u64 {
         // Convert boolean flags to full-width words
-        let toggle_a: T = self.a.pol_to_word();
-        let toggle_b: T = self.b.pol_to_word();
-        let toggle_c: T = self.c.pol_to_word();
-        let sel_mux: T = self.a.flag_to_word();
-        let av: T = a_val ^ toggle_a;
-        let bv: T = b_val ^ toggle_b;
-        let cv: T = c_val ^ toggle_c;
-        let mux: T = (av & bv) | (!av & cv);
-        let maj: T = (av & bv) | ((av | bv) & cv);
+        let toggle_a: u64 = self.a.pol_to_word();
+        let toggle_b: u64 = self.b.pol_to_word();
+        let toggle_c: u64 = self.c.pol_to_word();
+        let sel_mux: u64 = self.a.flag_to_word();
+        let av: u64 = a_val ^ toggle_a;
+        let bv: u64 = b_val ^ toggle_b;
+        let cv: u64 = c_val ^ toggle_c;
+        let mux: u64 = (av & bv) | (!av & cv);
+        let maj: u64 = (av & bv) | ((av | bv) & cv);
         (!sel_mux & maj) | (sel_mux & mux)
     }
 

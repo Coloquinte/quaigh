@@ -1,19 +1,4 @@
-use std::{
-    fmt,
-    ops::{Add, BitAnd, BitOr, BitXor, Not},
-};
-
-pub(crate) trait Num:
-    Sized
-    + Not<Output = Self>
-    + BitOr<Output = Self>
-    + BitAnd<Output = Self>
-    + BitXor<Output = Self>
-    + Add<Output = Self>
-    + From<u32>
-    + Copy
-{
-}
+use std::{fmt, ops::{Not, BitXorAssign, BitXor}};
 
 /// Representation of a literal
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Debug, Default)]
@@ -36,20 +21,24 @@ impl Lit {
         Lit { a: (v + 1) << 2 }
     }
 
+    pub(crate) fn from_ind(v: u32) -> Lit {
+        Lit { a: v << 2 }
+    }
+
+    /// Obtain ID associated with the literal
+    ///
+    /// 0 for a constant, otherwise var() + 1
+    pub fn ind(&self) -> u32 {
+        self.a >> 2
+    }
+
     // Returns true if the literal represents a constant
     pub fn is_constant(&self) -> bool {
-        self.a >> 2 == 0
+        self.ind() == 0
     }
 
     /// Obtain the variable ID associated with the literal
     pub fn var(&self) -> u32 {
-        self.variable()
-    }
-
-    /// Obtain the variable ID associated with the literal
-    /// 
-    /// Synonym of [`var`]
-    pub fn variable(&self) -> u32 {
         let v = self.a >> 2;
         assert!(v > 0);
         v - 1u32
@@ -57,13 +46,6 @@ impl Lit {
 
     /// Obtain the polarity of the literal (True for an inversion)
     pub fn pol(&self) -> bool {
-        self.polarity()
-    }
-
-    /// Obtain the polarity of the literal (True for an inversion)
-    /// 
-    /// Synonym of [`pol`]
-    pub fn polarity(&self) -> bool {
         self.a & 1 != 0
     }
 
@@ -94,22 +76,15 @@ impl Lit {
     }
 
     /// Convert the polarity to a word for bitwise operations
-    pub(crate) fn pol_to_word<T: Num>(&self) -> T {
+    pub(crate) fn pol_to_word(&self) -> u64 {
         let pol = self.a & 1;
-        !T::from(pol) + T::from(1)
+        !(pol as u64) + 1
     }
 
     /// Convert the flag to a word for bitwise operations
-    pub(crate) fn flag_to_word<T: Num>(&self) -> T {
+    pub(crate) fn flag_to_word(&self) -> u64 {
         let flag = (self.a >> 1) & 1;
-        !T::from(flag) + T::from(1)
-    }
-
-    /// Obtain ID associated with the literal
-    /// 
-    /// 0 for a constant, otherwise var() + 1
-    pub fn ind(&self) -> u32 {
-        self.a >> 2
+        !(flag as u64) + 1
     }
 }
 
@@ -127,10 +102,34 @@ impl Not for &'_ Lit {
     }
 }
 
+impl BitXorAssign<bool> for Lit {
+    fn bitxor_assign(&mut self, rhs: bool) {
+        self.a ^= rhs as u32;
+    }
+}
+
+impl BitXor<bool> for Lit {
+    type Output = Lit;
+    fn bitxor(self, rhs: bool) -> Self::Output {
+        let mut l = self;
+        l ^= rhs;
+        l
+    }
+}
+
+impl BitXor<bool> for &'_ Lit {
+    type Output = Lit;
+    fn bitxor(self, rhs: bool) -> Self::Output {
+        let mut l = *self;
+        l ^= rhs;
+        l
+    }
+}
+
 impl fmt::Display for Lit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.is_constant() {
-            let a = self.a;
+            let a = self.a & 1;
             write!(f, "{a}")
         } else {
             if self.pol() {
@@ -152,16 +151,16 @@ mod tests {
         let l1 = Lit::one();
         assert_eq!(l0, !l1);
         assert_eq!(l1, !l0);
-        assert_eq!(l0.pol(), false);
-        assert_eq!(l1.pol(), true);
+        assert!(!l0.pol());
+        assert!(l1.pol());
         assert_eq!(format!("{l0}"), "0");
         assert_eq!(format!("{l1}"), "1");
         for v in 0u32..10u32 {
             let l = Lit::from_var(v);
             assert_eq!(l.var(), v);
             assert_eq!((!l).var(), v);
-            assert_eq!(l.pol(), false);
-            assert_eq!((!l).pol(), true);
+            assert!(!l.pol());
+            assert!((!l).pol());
             assert_eq!(format!("{l}"), format!("v{v}"));
         }
     }
