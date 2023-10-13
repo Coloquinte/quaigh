@@ -3,24 +3,12 @@ use std::cmp;
 use crate::literal::Lit;
 
 #[derive(Debug)]
-enum Normalization {
+pub enum Normalization {
     Buf(Lit, bool),
     Mux(Lit, Lit, Lit, bool),
     Maj(Lit, Lit, Lit, bool),
 }
 use Normalization::*;
-
-fn mux(s: Lit, a: Lit, b: Lit) -> Normalization {
-    Mux(s, a, b, false)
-}
-
-fn maj(a: Lit, b: Lit, c: Lit) -> Normalization {
-    Maj(a, b, c, false)
-}
-
-fn bool_maj(a: bool, b: bool, c: bool) -> bool {
-    (a && b) || (c && (a || b))
-}
 
 impl Normalization {
     pub fn is_canonical(&self) -> bool {
@@ -138,6 +126,14 @@ fn sort_3_lits(lits: (Lit, Lit, Lit)) -> (Lit, Lit, Lit) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn mux(s: Lit, a: Lit, b: Lit) -> Normalization {
+        Mux(s, a, b, false)
+    }
+
+    fn maj(a: Lit, b: Lit, c: Lit) -> Normalization {
+        Maj(a, b, c, false)
+    }
 
     #[test]
     fn test_maj_is_canonical() {

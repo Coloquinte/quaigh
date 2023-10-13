@@ -1,4 +1,7 @@
-use std::{fmt, ops::{Not, BitXorAssign, BitXor}};
+use std::{
+    fmt,
+    ops::{BitXor, BitXorAssign, Not},
+};
 
 /// Representation of a literal
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Debug, Default)]
@@ -85,6 +88,16 @@ impl Lit {
     pub(crate) fn flag_to_word(&self) -> u64 {
         let flag = (self.a >> 1) & 1;
         !(flag as u64) + 1
+    }
+}
+
+impl From<bool> for Lit {
+    fn from(b: bool) -> Lit {
+        if b {
+            Lit::one()
+        } else {
+            Lit::zero()
+        }
     }
 }
 
