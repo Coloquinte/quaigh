@@ -1,12 +1,12 @@
 use std::cmp;
 
-use crate::literal::Lit;
+use crate::signal::Signal;
 
 #[derive(Debug)]
 pub enum Normalization {
-    Buf(Lit, bool),
-    Mux(Lit, Lit, Lit, bool),
-    Maj(Lit, Lit, Lit, bool),
+    Buf(Signal, bool),
+    Mux(Signal, Signal, Signal, bool),
+    Maj(Signal, Signal, Signal, bool),
 }
 use Normalization::*;
 
@@ -77,26 +77,26 @@ impl Normalization {
                     return Mux(*s, !*a, !*b, !*inv).make_canonical();
                 }
                 debug_assert!(!b.pol());
-                if *s == Lit::zero() || a == b {
+                if *s == Signal::zero() || a == b {
                     return Buf(*b, *inv).make_canonical();
                 }
                 debug_assert!(!s.is_constant());
                 debug_assert!(a != b);
-                if *s == *a || *a == Lit::one() {
+                if *s == *a || *a == Signal::one() {
                     // s ? 1 : b ==> s | b ==> !(!s & !b)
-                    return Maj(!*s, !*b, Lit::zero(), !*inv).make_canonical();
+                    return Maj(!*s, !*b, Signal::zero(), !*inv).make_canonical();
                 }
-                if *s == !*a || *a == Lit::zero() {
+                if *s == !*a || *a == Signal::zero() {
                     // s ? 0 : b ==> !s & b
-                    return Maj(!*s, *b, Lit::zero(), *inv).make_canonical();
+                    return Maj(!*s, *b, Signal::zero(), *inv).make_canonical();
                 }
-                if *s == *b || *b == Lit::zero() {
+                if *s == *b || *b == Signal::zero() {
                     // s ? a : 0 ==> s & a
-                    return Maj(*s, *a, Lit::zero(), *inv).make_canonical();
+                    return Maj(*s, *a, Signal::zero(), *inv).make_canonical();
                 }
-                if *s == !*b || *b == Lit::one() {
+                if *s == !*b || *b == Signal::one() {
                     // s ? a : 1 ==> !s | a ==> !(s & !a)
-                    return Maj(*s, !*a, Lit::zero(), !*inv).make_canonical();
+                    return Maj(*s, !*a, Signal::zero(), !*inv).make_canonical();
                 }
                 debug_assert!(!a.is_constant());
                 debug_assert!(!b.is_constant());
@@ -110,12 +110,12 @@ impl Normalization {
     }
 }
 
-fn sort_2_lits(lits: (Lit, Lit)) -> (Lit, Lit) {
+fn sort_2_lits(lits: (Signal, Signal)) -> (Signal, Signal) {
     let (i1, i0) = lits;
     (cmp::max(i1, i0), cmp::min(i1, i0))
 }
 
-fn sort_3_lits(lits: (Lit, Lit, Lit)) -> (Lit, Lit, Lit) {
+fn sort_3_lits(lits: (Signal, Signal, Signal)) -> (Signal, Signal, Signal) {
     let (mut i2, mut i1, mut i0) = lits;
     (i2, i1) = sort_2_lits((i2, i1));
     (i1, i0) = sort_2_lits((i1, i0));
@@ -127,20 +127,20 @@ fn sort_3_lits(lits: (Lit, Lit, Lit)) -> (Lit, Lit, Lit) {
 mod tests {
     use super::*;
 
-    fn mux(s: Lit, a: Lit, b: Lit) -> Normalization {
+    fn mux(s: Signal, a: Signal, b: Signal) -> Normalization {
         Mux(s, a, b, false)
     }
 
-    fn maj(a: Lit, b: Lit, c: Lit) -> Normalization {
+    fn maj(a: Signal, b: Signal, c: Signal) -> Normalization {
         Maj(a, b, c, false)
     }
 
     #[test]
     fn test_maj_is_canonical() {
-        let l0 = Lit::zero();
-        let i0 = Lit::from_var(0);
-        let i1 = Lit::from_var(1);
-        let i2 = Lit::from_var(2);
+        let l0 = Signal::zero();
+        let i0 = Signal::from_var(0);
+        let i1 = Signal::from_var(1);
+        let i2 = Signal::from_var(2);
 
         // Everything OK
         assert!(maj(i2, i1, i0).is_canonical());
@@ -180,7 +180,7 @@ mod tests {
         let mut vars = vec![];
         for i in 0..4 {
             for b in [false, true] {
-                vars.push(Lit::from_ind(i) ^ b);
+                vars.push(Signal::from_ind(i) ^ b);
             }
         }
 
@@ -200,10 +200,10 @@ mod tests {
 
     #[test]
     fn test_mux_is_canonical() {
-        let l0 = Lit::zero();
-        let i0 = Lit::from_var(0);
-        let i1 = Lit::from_var(1);
-        let i2 = Lit::from_var(2);
+        let l0 = Signal::zero();
+        let i0 = Signal::from_var(0);
+        let i1 = Signal::from_var(1);
+        let i2 = Signal::from_var(2);
 
         // Everything OK
         assert!(mux(i2, i1, i0).is_canonical());
@@ -238,7 +238,7 @@ mod tests {
         let mut vars = vec![];
         for i in 0..4 {
             for b in [false, true] {
-                vars.push(Lit::from_ind(i) ^ b);
+                vars.push(Signal::from_ind(i) ^ b);
             }
         }
 

@@ -1,11 +1,12 @@
-use crate::aig_node::AigNode;
-use crate::literal::Lit;
+use crate::aig_node::{AigNode, Gate};
+use crate::signal::Signal;
+use crate::normalization::Normalization;
 
 #[derive(Debug, Clone)]
 pub struct Aig {
     nb_inputs: usize,
     nodes: Vec<AigNode>,
-    outputs: Vec<Lit>,
+    outputs: Vec<Signal>,
 }
 
 impl Aig {
@@ -33,51 +34,90 @@ impl Aig {
     /**
      * Get the input at index i
      */
-    pub fn input(&self, i: usize) -> Lit {
-        Lit::zero()
+    pub fn input(&self, i: usize) -> Signal {
+        Signal::from_ind(!(i as u32 + 1))
     }
 
     /**
      * Get the output at index i
      */
-    pub fn output(&self, i: usize) -> Lit {
+    pub fn output(&self, i: usize) -> Signal {
         self.outputs[i]
+    }
+
+    /**
+     * Get the gate at index i
+     */
+    pub fn node(&self, i: usize) -> Gate {
+        self.nodes[i].into()
     }
 
     /**
      * Add a new primary input
      */
-    pub fn add_input(&mut self) -> Lit {
-        Lit::zero()
+    pub fn add_input(&mut self) -> Signal {
+        self.nb_inputs += 1;
+        self.input(self.nb_inputs() - 1)
     }
 
     /**
      * Add a new primary output based on an existing literal
      */
-    pub fn add_output(&mut self, l: Lit) {
+    pub fn add_output(&mut self, l: Signal) {
         self.outputs.push(l)
     }
 
-    pub fn and(&mut self, a: Lit, b: Lit) -> Lit {
-        self.maj(a, b, Lit::zero())
+    /**
+     * Create an and gate
+     */
+    pub fn and(&mut self, a: Signal, b: Signal) -> Signal {
+        self.maj(a, b, Signal::zero())
     }
 
-    pub fn or(&mut self, a: Lit, b: Lit) -> Lit {
+    /**
+     * Create an or gate
+     */
+    pub fn or(&mut self, a: Signal, b: Signal) -> Signal {
         !self.and(!a, !b)
     }
 
-    pub fn xor(&mut self, a: Lit, b: Lit) -> Lit {
+    /**
+     * Create an xor gate
+     */
+    pub fn xor(&mut self, a: Signal, b: Signal) -> Signal {
         self.mux(a, !b, b)
     }
 
-    pub fn mux(&mut self, s: Lit, a: Lit, b: Lit) -> Lit {
-        Lit::zero()
-        // TODO
+    /**
+     * Create a mux gate
+     */
+    pub fn mux(&mut self, s: Signal, a: Signal, b: Signal) -> Signal {
+        self.add_gate(Normalization::Mux(s, a, b, false))
     }
 
-    pub fn maj(&mut self, a: Lit, b: Lit, c: Lit) -> Lit {
-        Lit::zero()
-        // TODO
+    /**
+     * Create an maj gate
+     */
+    pub fn maj(&mut self, a: Signal, b: Signal, c: Signal) -> Signal {
+        self.add_gate(Normalization::Maj(a, b, c, false))
+    }
+
+    fn add_gate(&mut self, gate: Normalization) -> Signal {
+        use Normalization::*;
+        let g = gate.make_canonical();
+        match g {
+            Buf(l, _) => l,
+            Mux(a, b, c, inv) => {
+                let node = AigNode::mux(a, b, c);
+                self.nodes.push(node);
+                Signal::from_ind(self.nodes.len() as u32) ^ inv
+            }
+            Maj(a, b, c, inv) => {
+                let node = AigNode::maj(a, b, c);
+                self.nodes.push(node);
+                Signal::from_ind(self.nodes.len() as u32) ^ inv
+            }
+        }
     }
 
     /**
@@ -88,9 +128,19 @@ impl Aig {
     }
 
     /**
-     * Cleanup the AIG with simple canonization/sorting/duplicate removal. Note that all literals will be invalidated
+     * Cleanup the AIG with simple canonization/sorting/duplicate removal
+     *
+     * Note that all literals will be invalidated, and only the number of inputs/outputs stays the same
      */
     pub fn cleanup(&self) -> Self {
+        self.clone()
+        // TODO
+    }
+
+    /**
+     * Convert the AIG to a restricted representation, replacing complex gates by And gates
+     */
+    pub fn restrict_gates(&self, allow_xor: bool, allow_mux: bool, allow_maj: bool) -> Self {
         self.clone()
         // TODO
     }

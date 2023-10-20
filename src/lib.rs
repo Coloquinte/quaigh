@@ -3,14 +3,23 @@
 //! This crate provides a flexible representation for logic graphs based on And, Mux and Majority gates with implicit inverters.
 //! It provides utilities to manipulate and simplify logic functions, check for equivalence, ...
 //!
-//! It is inspired by the logic synthesis tools ABC and Mockturtle.
-//! Our goal is to become competitive with ABC for industrial applications, but with ease-of-use as a primary goal.
+//! It is inspired by the logic synthesis tools [ABC](https://people.eecs.berkeley.edu/~alanmi/abc/) and [Mockturtle](https://mockturtle.readthedocs.io/en/latest/).
+//! Our goal is to provide an easy-to-use library for logical synthesis and technology mapping, and improve its quality over time.
+//!
+//! # Design
+//!
+//! Quaigh supports more complex logic gates than the traditional AIG representation.
+//! And2, Xor2, Mux (multiplexer) and Maj3 (majority) gates are all first class citizens.
+//! Contrary to many similar representation (MIG/XAG/MuxIG), all these gates can coexist in the same logic circuit.
+//! Circuits using complex gates will usually be much more compact as a result.
+//!
+//! # Features
+//!
+//! # Usage
+//!
+//!
 
-mod aig;
-mod aig_node;
-mod literal;
+mod signal;
 mod normalization;
 
-pub use aig::Aig;
-pub use aig_node::AigNode;
-pub use literal::Lit;
+pub use signal::Signal;

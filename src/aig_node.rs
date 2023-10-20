@@ -1,33 +1,33 @@
 use std::fmt;
 
-use crate::literal::Lit;
+use crate::signal::Signal;
 
 /// Representation of an AIG node
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct AigNode {
-    a: Lit,
-    b: Lit,
-    c: Lit,
+    a: Signal,
+    b: Signal,
+    c: Signal,
 }
-/// Represent the different gates that are supported
+/// Represent the different gates that are supported, including simpler gates
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub enum Gate {
-    And(Lit, Lit),
-    Xor(Lit, Lit),
-    Mux(Lit, Lit, Lit),
-    Maj(Lit, Lit, Lit),
+    And(Signal, Signal),
+    Xor(Signal, Signal),
+    Mux(Signal, Signal, Signal),
+    Maj(Signal, Signal, Signal),
 }
 
 /// Represent the core gates that are represented
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub enum CoreGate {
-    Mux(Lit, Lit, Lit),
-    Maj(Lit, Lit, Lit),
+    Mux(Signal, Signal, Signal),
+    Maj(Signal, Signal, Signal),
 }
 
 impl AigNode {
     /// Return the input literals, with internal flags removed
-    pub fn lits(&self) -> (Lit, Lit, Lit) {
+    pub fn lits(&self) -> (Signal, Signal, Signal) {
         (
             self.a.without_flag(),
             self.b.without_flag(),
@@ -35,15 +35,15 @@ impl AigNode {
         )
     }
 
-    fn maj(a: Lit, b: Lit, c: Lit) -> AigNode {
-        AigNode { a: a, b: b, c: c }
+    pub fn maj(a: Signal, b: Signal, c: Signal) -> AigNode {
+        AigNode { a, b, c }
     }
 
-    fn mux(a: Lit, b: Lit, c: Lit) -> AigNode {
+    pub fn mux(a: Signal, b: Signal, c: Signal) -> AigNode {
         AigNode {
             a: a.with_flag(),
-            b: b,
-            c: c,
+            b,
+            c,
         }
     }
 
@@ -72,7 +72,7 @@ impl From<AigNode> for Gate {
             } else {
                 Gate::Mux(a, b, c)
             }
-        } else if c == Lit::zero() {
+        } else if c == Signal::zero() {
             Gate::And(a, b)
         } else {
             Gate::Maj(a, b, c)
@@ -137,11 +137,11 @@ mod tests {
 
     #[test]
     fn test_format() {
-        let l0 = Lit::zero();
-        let l1 = Lit::one();
-        let i0 = Lit::from_var(0);
-        let i1 = Lit::from_var(1);
-        let i2 = Lit::from_var(2);
+        let l0 = Signal::zero();
+        let l1 = Signal::one();
+        let i0 = Signal::from_var(0);
+        let i1 = Signal::from_var(1);
+        let i2 = Signal::from_var(2);
 
         // Typical cases
         assert_eq!(format!("{}", AigNode::maj(i2, i1, i0)), "Maj(v2, v1, v0)");
