@@ -21,5 +21,5 @@
 
 mod signal;
 mod normalization;
-
+mod gates;
 pub use signal::Signal;

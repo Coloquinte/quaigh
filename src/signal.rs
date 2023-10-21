@@ -22,24 +22,24 @@ impl Signal {
 
     /// Create a literal from a boolean variable index
     pub fn from_var(v: u32) -> Signal {
-        Signal { a: (v + 1) << 2 }
+        Signal { a: (v + 1) << 1 }
     }
 
     /// Create a literal from an index
     pub(crate) fn from_ind(v: u32) -> Signal {
-        Signal { a: v << 2 }
+        Signal { a: v << 1 }
     }
 
     /// Obtain the variable number associated with the literal
     pub fn var(&self) -> u32 {
-        let v = self.a >> 2;
+        let v = self.a >> 1;
         assert!(v > 0);
         v - 1u32
     }
 
     /// Obtain the internal index associated with the literal: 0 for a constant, otherwise var() + 1
     pub fn ind(&self) -> u32 {
-        self.a >> 2
+        self.a >> 1
     }
 
     /// Obtain the polarity of the literal (True for a complemented variable)
@@ -50,22 +50,6 @@ impl Signal {
     /// Returns true if the literal represents a constant
     pub fn is_constant(&self) -> bool {
         self.ind() == 0
-    }
-
-    /// Obtain the additional flag in the literal
-    /// Should always be 0 outside of internal representations
-    pub(crate) fn flag(&self) -> bool {
-        self.a & 2 != 0
-    }
-
-    /// Clear the flag
-    pub(crate) fn without_flag(&self) -> Signal {
-        Signal { a: self.a & !2u32 }
-    }
-
-    /// Set the flag
-    pub(crate) fn with_flag(&self) -> Signal {
-        Signal { a: self.a | 2u32 }
     }
 
     /// Clear the polarity
@@ -82,12 +66,6 @@ impl Signal {
     pub(crate) fn pol_to_word(&self) -> u64 {
         let pol = self.a & 1;
         !(pol as u64) + 1
-    }
-
-    /// Convert the flag to a word for bitwise operations
-    pub(crate) fn flag_to_word(&self) -> u64 {
-        let flag = (self.a >> 1) & 1;
-        !(flag as u64) + 1
     }
 }
 
@@ -139,6 +117,20 @@ impl BitXor<bool> for &'_ Signal {
     }
 }
 
+impl BitXor<&bool> for Signal {
+    type Output = Signal;
+    fn bitxor(self, rhs: &bool) -> Self::Output {
+        self ^ *rhs
+    }
+}
+
+impl BitXor<&bool> for &'_ Signal {
+    type Output = Signal;
+    fn bitxor(self, rhs: &bool) -> Self::Output {
+        self ^ *rhs
+    }
+}
+
 impl fmt::Display for Signal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.is_constant() {
@@ -149,7 +141,7 @@ impl fmt::Display for Signal {
                 write!(f, "!")?;
             }
             let v = self.var();
-            write!(f, "v{v}")
+            write!(f, "x{v}")
         }
     }
 }
@@ -174,7 +166,9 @@ mod tests {
             assert_eq!((!l).var(), v);
             assert!(!l.pol());
             assert!((!l).pol());
-            assert_eq!(format!("{l}"), format!("v{v}"));
+            assert_eq!(l ^ false, l);
+            assert_eq!(l ^ true, !l);
+            assert_eq!(format!("{l}"), format!("x{v}"));
         }
     }
 }
