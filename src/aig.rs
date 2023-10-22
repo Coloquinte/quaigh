@@ -1,11 +1,11 @@
-use crate::aig_node::{AigNode, Gate};
+use crate::gates::Gate;
+use crate::gates::Normalization;
 use crate::signal::Signal;
-use crate::normalization::Normalization;
 
 #[derive(Debug, Clone)]
 pub struct Aig {
     nb_inputs: usize,
-    nodes: Vec<AigNode>,
+    nodes: Vec<Gate>,
     outputs: Vec<Signal>,
 }
 
@@ -71,7 +71,7 @@ impl Aig {
      * Create an and gate
      */
     pub fn and(&mut self, a: Signal, b: Signal) -> Signal {
-        self.maj(a, b, Signal::zero())
+        self.add_gate(Normalization::Node(Gate::And(a, b), false))
     }
 
     /**
@@ -85,37 +85,39 @@ impl Aig {
      * Create an xor gate
      */
     pub fn xor(&mut self, a: Signal, b: Signal) -> Signal {
-        self.mux(a, !b, b)
+        self.add_gate(Normalization::Node(Gate::Xor(a, b), false))
     }
 
     /**
      * Create a mux gate
      */
     pub fn mux(&mut self, s: Signal, a: Signal, b: Signal) -> Signal {
-        self.add_gate(Normalization::Mux(s, a, b, false))
+        self.add_gate(Normalization::Node(Gate::Mux(s, a, b), false))
     }
 
     /**
      * Create an maj gate
      */
     pub fn maj(&mut self, a: Signal, b: Signal, c: Signal) -> Signal {
-        self.add_gate(Normalization::Maj(a, b, c, false))
+        self.add_gate(Normalization::Node(Gate::Maj(a, b, c), false))
+    }
+
+    /**
+     * Create a dff gate
+     */
+    pub fn dff(&mut self, d: Signal, en: Signal, res: Signal) -> Signal {
+        self.add_gate(Normalization::Node(Gate::Dff(d, en, res), false))
     }
 
     fn add_gate(&mut self, gate: Normalization) -> Signal {
         use Normalization::*;
         let g = gate.make_canonical();
         match g {
-            Buf(l, _) => l,
-            Mux(a, b, c, inv) => {
-                let node = AigNode::mux(a, b, c);
-                self.nodes.push(node);
-                Signal::from_ind(self.nodes.len() as u32) ^ inv
-            }
-            Maj(a, b, c, inv) => {
-                let node = AigNode::maj(a, b, c);
-                self.nodes.push(node);
-                Signal::from_ind(self.nodes.len() as u32) ^ inv
+            Buf(l) => l,
+            Node(g, inv) => {
+                let l = Signal::from_var(self.nodes.len() as u32);
+                self.nodes.push(g);
+                l ^ inv
             }
         }
     }

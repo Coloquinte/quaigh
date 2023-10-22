@@ -19,7 +19,8 @@
 //!
 //!
 
-mod signal;
-mod normalization;
+mod aig;
 mod gates;
+mod signal;
+pub use aig::Aig;
 pub use signal::Signal;
