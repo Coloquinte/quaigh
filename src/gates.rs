@@ -36,6 +36,9 @@ impl Gate {
                     && a.ind() != b.ind()
                     && !s.pol()
                     && !b.pol()
+                    && !a.is_constant()
+                    && !b.is_constant()
+                    && !s.is_constant()
             }
             Dff(d, en, r_es) => *en != Signal::zero() && *d != Signal::zero(),
         }
@@ -284,7 +287,10 @@ mod tests {
 
         match (c0, c1) {
             (Buf(s0), Buf(s1)) => assert_eq!(s0, !s1),
-            (Node(g0, i0), Node(g1, i1)) => { assert_eq!(g0, g1); assert_eq!(i0, !i1); },
+            (Node(g0, i0), Node(g1, i1)) => {
+                assert_eq!(g0, g1);
+                assert_eq!(i0, !i1);
+            }
             _ => panic!("Canonization of complements resulted in different gates"),
         }
     }
@@ -311,5 +317,131 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_and_is_canonical() {
+        let l0 = Signal::zero();
+        let l1 = Signal::one();
+        let i0 = Signal::from_var(0);
+        let i1 = Signal::from_var(1);
+
+        // Everything OK
+        assert!(And(i0, i1).is_canonical());
+        assert!(And(i0, !i1).is_canonical());
+        assert!(And(!i0, i1).is_canonical());
+        assert!(And(!i0, !i1).is_canonical());
+
+        // Wrong ordering
+        assert!(!And(i1, i0).is_canonical());
+        assert!(!And(i1, !i0).is_canonical());
+        assert!(!And(!i1, i0).is_canonical());
+        assert!(!And(!i1, !i0).is_canonical());
+
+        // Constant
+        assert!(!And(l0, i1).is_canonical());
+        assert!(!And(l1, i1).is_canonical());
+
+        // Repeatition
+        assert!(!And(i0, i0).is_canonical());
+        assert!(!And(i0, !i0).is_canonical());
+    }
+
+    #[test]
+    fn test_xor_is_canonical() {
+        let l0 = Signal::zero();
+        let i0 = Signal::from_var(0);
+        let i1 = Signal::from_var(1);
+
+        // Everything OK
+        assert!(Xor(i0, i1).is_canonical());
+
+        // Wrong ordering
+        assert!(!Xor(i1, i0).is_canonical());
+
+        // Bad polarity
+        assert!(!Xor(i0, !i1).is_canonical());
+        assert!(!Xor(!i0, i1).is_canonical());
+
+        // Constant
+        assert!(!Xor(l0, i1).is_canonical());
+
+        // Repeatition
+        assert!(!Xor(i0, i0).is_canonical());
+    }
+
+    #[test]
+    fn test_maj_is_canonical() {
+        let l0 = Signal::zero();
+        let l1 = Signal::one();
+        let i0 = Signal::from_var(0);
+        let i1 = Signal::from_var(1);
+        let i2 = Signal::from_var(2);
+
+        // Everything OK
+        assert!(Maj(i0, i1, i2).is_canonical());
+        assert!(Maj(i0, !i1, i2).is_canonical());
+        assert!(Maj(i0, !i1, i2).is_canonical());
+        assert!(Maj(i0, !i1, !i2).is_canonical());
+
+        // Wrong ordering
+        assert!(!Maj(i0, i2, i1).is_canonical());
+        assert!(!Maj(i1, i0, i2).is_canonical());
+
+        // Constant
+        assert!(!Maj(l0, i1, i2).is_canonical());
+        assert!(!Maj(l1, i1, i2).is_canonical());
+
+        // Wrong polarity
+        assert!(!Maj(!i0, i1, i2).is_canonical());
+        assert!(!Maj(!i0, !i1, i2).is_canonical());
+        assert!(!Maj(!i0, !i1, i2).is_canonical());
+        assert!(!Maj(!i0, !i1, !i2).is_canonical());
+
+        // Repeatition
+        assert!(!Maj(i0, i0, i2).is_canonical());
+        assert!(!Maj(i0, !i0, i2).is_canonical());
+        assert!(!Maj(i0, i2, i2).is_canonical());
+        assert!(!Maj(i0, i2, !i2).is_canonical());
+    }
+
+    #[test]
+    fn test_mux_is_canonical() {
+        let l0 = Signal::zero();
+        let l1 = Signal::one();
+        let i0 = Signal::from_var(0);
+        let i1 = Signal::from_var(1);
+        let i2 = Signal::from_var(2);
+
+        // Everything OK
+        assert!(Mux(i2, i1, i0).is_canonical());
+        assert!(Mux(i2, !i1, i0).is_canonical());
+
+        // Bad polarity
+        assert!(!Mux(i2, i1, !i0).is_canonical());
+        assert!(!Mux(i2, !i1, !i0).is_canonical());
+        assert!(!Mux(!i2, i1, i0).is_canonical());
+        assert!(!Mux(!i2, !i1, i0).is_canonical());
+
+        // Constant anywhere
+        assert!(!Mux(l0, i1, i0).is_canonical());
+        assert!(!Mux(i2, l0, i0).is_canonical());
+        assert!(!Mux(i2, i1, l0).is_canonical());
+        assert!(!Mux(i2, i1, !l0).is_canonical());
+        assert!(!Mux(l1, i1, i0).is_canonical());
+        assert!(!Mux(i2, l1, i0).is_canonical());
+        assert!(!Mux(i2, i1, l1).is_canonical());
+        assert!(!Mux(i2, i1, !l1).is_canonical());
+
+        // Repeatition anywhere
+        assert!(!Mux(i2, i2, i0).is_canonical());
+        assert!(!Mux(i0, i2, i2).is_canonical());
+        assert!(!Mux(i2, i0, i2).is_canonical());
+        assert!(!Mux(i2, !i2, i0).is_canonical());
+        assert!(!Mux(i0, i2, !i2).is_canonical());
+        assert!(!Mux(i2, i0, !i2).is_canonical());
+        assert!(!Mux(!i2, i2, i0).is_canonical());
+        assert!(!Mux(i0, !i2, i2).is_canonical());
+        assert!(!Mux(!i2, i0, i2).is_canonical());
     }
 }
