@@ -49,7 +49,77 @@ impl Aig {
      * Get the gate at index i
      */
     pub fn node(&self, i: usize) -> Gate {
-        self.nodes[i].into()
+        self.nodes[i]
+    }
+
+    /**
+     * Number of And2 gates
+     */
+    pub fn nb_and(&self) -> usize {
+        self.nodes
+            .iter()
+            .filter(|g| matches!(g, Gate::And(_, _)))
+            .count()
+    }
+
+    /**
+     * Number of Xor2 gates
+     */
+    pub fn nb_xor(&self) -> usize {
+        self.nodes
+            .iter()
+            .filter(|g| matches!(g, Gate::Xor(_, _)))
+            .count()
+    }
+
+    /**
+     * Number of And3 gates
+     */
+    pub fn nb_and3(&self) -> usize {
+        self.nodes
+            .iter()
+            .filter(|g| matches!(g, Gate::And3(_, _, _)))
+            .count()
+    }
+
+    /**
+     * Number of Xor3 gates
+     */
+    pub fn nb_xor3(&self) -> usize {
+        self.nodes
+            .iter()
+            .filter(|g| matches!(g, Gate::Xor3(_, _, _)))
+            .count()
+    }
+
+    /**
+     * Number of Mux gates
+     */
+    pub fn nb_mux(&self) -> usize {
+        self.nodes
+            .iter()
+            .filter(|g| matches!(g, Gate::Mux(_, _, _)))
+            .count()
+    }
+
+    /**
+     * Number of Maj gates
+     */
+    pub fn nb_maj(&self) -> usize {
+        self.nodes
+            .iter()
+            .filter(|g| matches!(g, Gate::Maj(_, _, _)))
+            .count()
+    }
+
+    /**
+     * Number of Dff gates
+     */
+    pub fn nb_dff(&self) -> usize {
+        self.nodes
+            .iter()
+            .filter(|g| matches!(g, Gate::Dff(_, _, _)))
+            .count()
     }
 
     /**
@@ -68,64 +138,125 @@ impl Aig {
     }
 
     /**
-     * Create an and gate
+     * Create an And2 gate
      */
     pub fn and(&mut self, a: Signal, b: Signal) -> Signal {
-        self.add_gate(Normalization::Node(Gate::And(a, b), false))
+        self.add_gate(Gate::And(a, b))
     }
 
     /**
-     * Create an or gate
+     * Create an Or2 gate
      */
     pub fn or(&mut self, a: Signal, b: Signal) -> Signal {
         !self.and(!a, !b)
     }
 
     /**
-     * Create an xor gate
+     * Create a Xor2 gate
      */
     pub fn xor(&mut self, a: Signal, b: Signal) -> Signal {
-        self.add_gate(Normalization::Node(Gate::Xor(a, b), false))
+        self.add_gate(Gate::Xor(a, b))
     }
 
     /**
-     * Create a mux gate
+     * Create an And3 gate
+     */
+    pub fn and3(&mut self, a: Signal, b: Signal, c: Signal) -> Signal {
+        self.add_gate(Gate::And3(a, b, c))
+    }
+
+    /**
+     * Create an Or3 gate
+     */
+    pub fn or3(&mut self, a: Signal, b: Signal, c: Signal) -> Signal {
+        !self.and3(!a, !b, !c)
+    }
+
+    /**
+     * Create a Xor3 gate
+     */
+    pub fn xor3(&mut self, a: Signal, b: Signal, c: Signal) -> Signal {
+        self.add_gate(Gate::Xor3(a, b, c))
+    }
+
+    /**
+     * Create a Mux gate
      */
     pub fn mux(&mut self, s: Signal, a: Signal, b: Signal) -> Signal {
-        self.add_gate(Normalization::Node(Gate::Mux(s, a, b), false))
+        self.add_gate(Gate::Mux(s, a, b))
     }
 
     /**
-     * Create an maj gate
+     * Create a Maj gate
      */
     pub fn maj(&mut self, a: Signal, b: Signal, c: Signal) -> Signal {
-        self.add_gate(Normalization::Node(Gate::Maj(a, b, c), false))
+        self.add_gate(Gate::Maj(a, b, c))
     }
 
     /**
-     * Create a dff gate
+     * Create a Dff gate (flip flop)
      */
     pub fn dff(&mut self, d: Signal, en: Signal, res: Signal) -> Signal {
-        self.add_gate(Normalization::Node(Gate::Dff(d, en, res), false))
+        self.add_gate(Gate::Dff(d, en, res))
     }
 
-    fn add_gate(&mut self, gate: Normalization) -> Signal {
+    /**
+     * Add a new gate, normalized
+     */
+    fn add_gate(&mut self, gate: Gate) -> Signal {
         use Normalization::*;
         let g = gate.make_canonical();
         match g {
             Buf(l) => l,
-            Node(g, inv) => {
-                let l = Signal::from_var(self.nodes.len() as u32);
-                self.nodes.push(g);
-                l ^ inv
-            }
+            Node(g, inv) => self.add_raw_gate(g) ^ inv,
         }
+    }
+
+    /**
+     * Add a new gate, without normalization
+     */
+    fn add_raw_gate(&mut self, gate: Gate) -> Signal {
+        let l = Signal::from_var(self.nodes.len() as u32);
+        self.nodes.push(gate);
+        l
     }
 
     /**
      * Return whether the AIG is purely combinatorial
      */
     pub fn is_comb(&self) -> bool {
+        self.nb_dff() == 0
+    }
+
+    /**
+     * Return whether the AIG has combinatorial loops
+     */
+    pub fn has_comb_loop(&self) -> bool {
+        // TODO
+        false
+    }
+
+    /**
+     * Return whether the AIG is already topologically sorted (except for flip-flops)
+     */
+    pub fn is_topo_sorted(&self) -> bool {
+        use Gate::*;
+        for (i, g) in self.nodes.iter().enumerate() {
+            let ind = i as u32;
+            match g {
+                And(a, b) | Xor(a, b) => {
+                    if a.var() >= ind || b.var() >= ind {
+                        return false;
+                    }
+                }
+                And3(a, b, c) | Xor3(a, b, c) | Mux(a, b, c) | Maj(a, b, c) => {
+                    if a.var() >= ind || b.var() >= ind || c.var() >= ind {
+                        return false;
+                    }
+                }
+                Dff(_, _, _) => (),
+            }
+        }
         true
     }
 

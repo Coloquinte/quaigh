@@ -43,6 +43,11 @@ impl Gate {
             Dff(d, en, r_es) => *en != Signal::zero() && *d != Signal::zero(),
         }
     }
+
+    pub fn make_canonical(&self) -> Normalization {
+        use Normalization::*;
+        Node(*self, false).make_canonical()
+    }
 }
 
 fn make_and(a: Signal, b: Signal, inv: bool) -> Normalization {
