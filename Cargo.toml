@@ -12,3 +12,4 @@ keywords = ["boolean function", "logic function", "aig"]
 
 [dependencies]
 cat_solver = "3.1.1"
+volute = "1.0.3"
