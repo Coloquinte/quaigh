@@ -2,7 +2,7 @@ use crate::gates::Gate;
 use crate::gates::Normalization;
 use crate::signal::Signal;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Aig {
     nb_inputs: usize,
     nodes: Vec<Gate>,
@@ -10,6 +10,13 @@ pub struct Aig {
 }
 
 impl Aig {
+    /**
+     * Create a new Aig
+     */
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /**
      * Return the number of primary inputs of the AIG
      */
@@ -35,13 +42,15 @@ impl Aig {
      * Get the input at index i
      */
     pub fn input(&self, i: usize) -> Signal {
-        Signal::from_ind(!(i as u32 + 1))
+        assert!(i < self.nb_inputs());
+        Signal::from_input(i as u32)
     }
 
     /**
      * Get the output at index i
      */
     pub fn output(&self, i: usize) -> Signal {
+        assert!(i < self.nb_outputs());
         self.outputs[i]
     }
 
@@ -229,28 +238,29 @@ impl Aig {
     }
 
     /**
-     * Return whether the AIG has combinatorial loops
-     */
-    pub fn has_comb_loop(&self) -> bool {
-        // TODO
-        false
-    }
-
-    /**
      * Return whether the AIG is already topologically sorted (except for flip-flops)
      */
-    pub fn is_topo_sorted(&self) -> bool {
+    fn is_topo_sorted(&self) -> bool {
         use Gate::*;
         for (i, g) in self.nodes.iter().enumerate() {
             let ind = i as u32;
             match g {
                 And(a, b) | Xor(a, b) => {
-                    if a.var() >= ind || b.var() >= ind {
+                    if a.is_var() && a.ind() > ind {
+                        return false;
+                    }
+                    if b.is_var() && b.ind() > ind {
                         return false;
                     }
                 }
                 And3(a, b, c) | Xor3(a, b, c) | Mux(a, b, c) | Maj(a, b, c) => {
-                    if a.var() >= ind || b.var() >= ind || c.var() >= ind {
+                    if a.is_var() && a.ind() > ind {
+                        return false;
+                    }
+                    if b.is_var() && b.ind() > ind {
+                        return false;
+                    }
+                    if c.is_var() && c.ind() > ind {
                         return false;
                     }
                 }
@@ -259,22 +269,49 @@ impl Aig {
         }
         true
     }
+}
 
-    /**
-     * Cleanup the AIG with simple canonization/sorting/duplicate removal
-     *
-     * Note that all literals will be invalidated, and only the number of inputs/outputs stays the same
-     */
-    pub fn cleanup(&self) -> Self {
-        self.clone()
-        // TODO
+#[cfg(test)]
+mod tests {
+    use crate::{Aig, Signal};
+
+    #[test]
+    fn test_basic() {
+        let mut aig = Aig::default();
+        let i0 = aig.add_input();
+        let i1 = aig.add_input();
+        let x = aig.xor(i0, i1);
+        aig.add_output(x);
+
+        // Basic properties
+        assert_eq!(aig.nb_inputs(), 2);
+        assert_eq!(aig.nb_outputs(), 1);
+        assert_eq!(aig.nb_nodes(), 1);
+        assert!(aig.is_comb());
+        assert!(aig.is_topo_sorted());
+
+        // Access
+        assert_eq!(aig.input(0), i0);
+        assert_eq!(aig.input(1), i1);
+        assert_eq!(aig.output(1), x);
     }
 
-    /**
-     * Convert the AIG to a restricted representation, replacing complex gates by And gates
-     */
-    pub fn restrict_gates(&self, allow_xor: bool, allow_mux: bool, allow_maj: bool) -> Self {
-        self.clone()
-        // TODO
+    #[test]
+    fn test_dff() {
+        let mut aig = Aig::default();
+        let i0 = aig.add_input();
+        let i1 = aig.add_input();
+        let i2 = aig.add_input();
+        let c0 = Signal::zero();
+        let c1 = Signal::one();
+        // Useful Dff
+        assert_eq!(aig.dff(i0, i1, i2), Signal::from_var(0));
+        assert_eq!(aig.dff(i0, i1, c0), Signal::from_var(1));
+        // Dff that reduces to 0
+        assert_eq!(aig.dff(c0, i1, i2), c0);
+        assert_eq!(aig.dff(i0, c0, i2), c0);
+        assert_eq!(aig.dff(i0, i1, c1), c0);
+        assert!(!aig.is_comb());
+        assert!(aig.is_topo_sorted());
     }
 }

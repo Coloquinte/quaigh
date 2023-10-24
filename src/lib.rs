@@ -15,6 +15,8 @@
 //!
 //! # Features
 //!
+//! Quaigh features basic equivalence checking and AIG simplification.
+//!
 //! # Usage
 //!
 //!
@@ -22,5 +24,6 @@
 mod aig;
 mod gates;
 mod signal;
+
 pub use aig::Aig;
 pub use signal::Signal;

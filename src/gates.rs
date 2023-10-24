@@ -40,7 +40,9 @@ impl Gate {
                     && !b.is_constant()
                     && !s.is_constant()
             }
-            Dff(d, en, r_es) => *en != Signal::zero() && *d != Signal::zero(),
+            Dff(d, en, res) => {
+                *en != Signal::zero() && *d != Signal::zero() && *res != Signal::one()
+            }
         }
     }
 
@@ -159,7 +161,7 @@ fn make_maj(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
 fn make_dff(d: Signal, en: Signal, res: Signal, inv: bool) -> Normalization {
     use Gate::*;
     use Normalization::*;
-    if d == Signal::zero() || en == Signal::zero() {
+    if d == Signal::zero() || en == Signal::zero() || res == Signal::one() {
         Buf(Signal::zero() ^ inv)
     } else {
         Node(Dff(d, en, res), inv)
