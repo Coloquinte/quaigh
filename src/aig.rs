@@ -55,9 +55,16 @@ impl Aig {
     }
 
     /**
+     * Get the variable at index i
+     */
+    pub fn node(&self, i: usize) -> Signal {
+        Signal::from_var(i as u32)
+    }
+
+    /**
      * Get the gate at index i
      */
-    pub fn node(&self, i: usize) -> Gate {
+    pub fn gate(&self, i: usize) -> Gate {
         self.nodes[i]
     }
 

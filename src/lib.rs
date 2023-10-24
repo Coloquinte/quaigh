@@ -25,5 +25,7 @@ mod aig;
 mod gates;
 mod signal;
 
+pub mod equiv;
+
 pub use aig::Aig;
 pub use signal::Signal;
