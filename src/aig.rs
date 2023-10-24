@@ -300,7 +300,7 @@ mod tests {
         // Access
         assert_eq!(aig.input(0), i0);
         assert_eq!(aig.input(1), i1);
-        assert_eq!(aig.output(1), x);
+        assert_eq!(aig.output(0), x);
     }
 
     #[test]

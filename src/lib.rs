@@ -9,17 +9,14 @@
 //! # Design
 //!
 //! Quaigh supports more complex logic gates than the traditional AIG representation.
-//! And2, Xor2, Mux (multiplexer) and Maj3 (majority) gates are all first class citizens.
+//! And2, Xor2, And3, Xor3, Mux (multiplexer) and Maj3 (majority) gates are all first class citizens.
 //! Contrary to many similar representation (MIG/XAG/MuxIG), all these gates can coexist in the same logic circuit.
 //! Circuits using complex gates will usually be much more compact as a result.
 //!
 //! # Features
 //!
-//! Quaigh features basic equivalence checking and AIG simplification.
-//!
-//! # Usage
-//!
-//!
+//! Quaigh features bounded equivalence checking and AIG simplification.
+//! At the moment, these are far from state of the art: for production designs, please use ABC.
 
 mod aig;
 mod gates;
