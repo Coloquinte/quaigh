@@ -1,3 +1,5 @@
+use core::fmt;
+
 use crate::gates::Gate;
 use crate::gates::Normalization;
 use crate::signal::Signal;
@@ -147,6 +149,13 @@ impl Aig {
     }
 
     /**
+     * Add multiple primary inputs
+     */
+    pub fn add_inputs(&mut self, nb: usize) {
+        self.nb_inputs += nb;
+    }
+
+    /**
      * Add a new primary output based on an existing literal
      */
     pub fn add_output(&mut self, l: Signal) {
@@ -210,6 +219,48 @@ impl Aig {
     }
 
     /**
+     * Create an n-ary And as a tree
+     */
+    pub fn and_n(&mut self, sigs: &Vec<Signal>) -> Signal {
+        if sigs.is_empty() {
+            Signal::one()
+        } else if sigs.len() == 1 {
+            sigs[0]
+        } else {
+            let mut next_sigs = Vec::new();
+            for i in (0..sigs.len()).step_by(2) {
+                next_sigs.push(self.and(sigs[i], sigs[i + 1]));
+            }
+            self.and_n(&next_sigs)
+        }
+    }
+
+    /**
+     * Create an n-ary Or as a tree
+     */
+    pub fn or_n(&mut self, sigs: &Vec<Signal>) -> Signal {
+        let ands = sigs.iter().cloned().map(|s| !s).collect();
+        !self.and_n(&ands)
+    }
+
+    /**
+     * Create an n-ary Xor as a tree
+     */
+    pub fn xor_n(&mut self, sigs: &Vec<Signal>) -> Signal {
+        if sigs.is_empty() {
+            Signal::zero()
+        } else if sigs.len() == 1 {
+            sigs[0]
+        } else {
+            let mut next_sigs = Vec::new();
+            for i in (0..sigs.len()).step_by(2) {
+                next_sigs.push(self.xor(sigs[i], sigs[i + 1]));
+            }
+            self.xor_n(&next_sigs)
+        }
+    }
+
+    /**
      * Create a Dff gate (flip flop)
      */
     pub fn dff(&mut self, d: Signal, en: Signal, res: Signal) -> Signal {
@@ -219,7 +270,7 @@ impl Aig {
     /**
      * Add a new gate, normalized
      */
-    fn add_gate(&mut self, gate: Gate) -> Signal {
+    pub fn add_gate(&mut self, gate: Gate) -> Signal {
         use Normalization::*;
         let g = gate.make_canonical();
         match g {
@@ -247,7 +298,7 @@ impl Aig {
     /**
      * Return whether the AIG is already topologically sorted (except for flip-flops)
      */
-    fn is_topo_sorted(&self) -> bool {
+    pub(crate) fn is_topo_sorted(&self) -> bool {
         use Gate::*;
         for (i, g) in self.nodes.iter().enumerate() {
             let ind = i as u32;
@@ -275,6 +326,24 @@ impl Aig {
             }
         }
         true
+    }
+}
+
+impl fmt::Display for Aig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "Aig with {} inputs, {} outputs:",
+            self.nb_inputs(),
+            self.nb_outputs()
+        )?;
+        for i in 0..self.nb_nodes() {
+            writeln!(f, "\t{} = {}", self.node(i), self.gate(i))?;
+        }
+        for i in 0..self.nb_outputs() {
+            writeln!(f, "\to{} = {}", i, self.output(i))?;
+        }
+        Ok(())
     }
 }
 

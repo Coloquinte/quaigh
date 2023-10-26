@@ -25,4 +25,5 @@ mod signal;
 pub mod equiv;
 
 pub use aig::Aig;
+pub use gates::Gate;
 pub use signal::Signal;
