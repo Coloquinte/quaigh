@@ -229,7 +229,11 @@ impl Aig {
         } else {
             let mut next_sigs = Vec::new();
             for i in (0..sigs.len()).step_by(2) {
-                next_sigs.push(self.and(sigs[i], sigs[i + 1]));
+                if i + 1 < sigs.len() {
+                    next_sigs.push(self.and(sigs[i], sigs[i + 1]));
+                } else {
+                    next_sigs.push(sigs[i]);
+                }
             }
             self.and_n(&next_sigs)
         }
@@ -254,7 +258,11 @@ impl Aig {
         } else {
             let mut next_sigs = Vec::new();
             for i in (0..sigs.len()).step_by(2) {
-                next_sigs.push(self.xor(sigs[i], sigs[i + 1]));
+                if i + 1 < sigs.len() {
+                    next_sigs.push(self.xor(sigs[i], sigs[i + 1]));
+                } else {
+                    next_sigs.push(sigs[i]);
+                }
             }
             self.xor_n(&next_sigs)
         }
@@ -389,5 +397,36 @@ mod tests {
         assert_eq!(aig.dff(i0, i1, c1), c0);
         assert!(!aig.is_comb());
         assert!(aig.is_topo_sorted());
+    }
+
+    #[test]
+    fn test_nary() {
+        let mut aig = Aig::default();
+        let i0 = aig.add_input();
+        let i1 = aig.add_input();
+        let i2 = aig.add_input();
+        let i3 = aig.add_input();
+        let i4 = aig.add_input();
+
+        aig.and_n(&Vec::new());
+        aig.and_n(&vec![i0]);
+        aig.and_n(&vec![i0, i1]);
+        aig.and_n(&vec![i0, i1, i2]);
+        aig.and_n(&vec![i0, i1, i2, i3]);
+        aig.and_n(&vec![i0, i1, i2, i3, i4]);
+
+        aig.or_n(&Vec::new());
+        aig.or_n(&vec![i0]);
+        aig.or_n(&vec![i0, i1]);
+        aig.or_n(&vec![i0, i1, i2]);
+        aig.or_n(&vec![i0, i1, i2, i3]);
+        aig.or_n(&vec![i0, i1, i2, i3, i4]);
+
+        aig.xor_n(&Vec::new());
+        aig.xor_n(&vec![i0]);
+        aig.xor_n(&vec![i0, i1]);
+        aig.xor_n(&vec![i0, i1, i2]);
+        aig.xor_n(&vec![i0, i1, i2, i3]);
+        aig.xor_n(&vec![i0, i1, i2, i3, i4]);
     }
 }

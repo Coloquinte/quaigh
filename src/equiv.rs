@@ -61,10 +61,10 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
                 // 6 clauses, 18 literals
                 ret.push(vec![!a, !b, n]);
                 ret.push(vec![!b, !c, n]);
-                ret.push(vec![!a, !b, n]);
+                ret.push(vec![!a, !c, n]);
                 ret.push(vec![a, b, !n]);
                 ret.push(vec![b, c, !n]);
-                ret.push(vec![a, b, !n]);
+                ret.push(vec![a, c, !n]);
             }
             Dff(_, _, _) => panic!("Combinatorial Aig expected"),
         }
@@ -88,6 +88,8 @@ fn extend_aig(a: &mut Aig, b: &Aig) -> HashMap<Signal, Signal> {
     assert!(b.is_topo_sorted());
 
     let mut t = HashMap::<Signal, Signal>::new();
+    t.insert(Signal::zero(), Signal::zero());
+    t.insert(Signal::one(), Signal::one());
     for i in 0..b.nb_inputs() {
         let s = Signal::from_input(i as u32);
         t.insert(s, s);
@@ -161,10 +163,13 @@ fn prove(a: &Aig) -> Option<Vec<bool>> {
         println!("{:?}", clause);
         solver.add_clause(clause);
     }
-    for o in 0..a.nb_outputs() {
-        println!("{:?}", vec![t[&a.output(o)]]);
-        solver.add_clause([t[&a.output(o)]]);
+    let out = a.output(0);
+    if out == Signal::one() {
+        return Some(vec![false; a.nb_inputs()]);
+    } else if out == Signal::zero() {
+        return None;
     }
+    solver.add_clause([t[&out]]);
 
     match solver.solve() {
         None => panic!("Couldn't solve SAT problem"),
@@ -239,7 +244,7 @@ pub fn check_equivalence_bounded(a: &Aig, b: &Aig, nb_steps: usize) -> Result<()
 
 #[cfg(test)]
 mod tests {
-    use crate::Aig;
+    use crate::{Aig, Signal};
 
     use super::check_equivalence_comb;
 
@@ -255,6 +260,140 @@ mod tests {
         b.add_input();
         let ab = b.and(l1, l2);
         b.add_output(ab);
+        check_equivalence_comb(&a, &b).unwrap();
+    }
+
+    #[test]
+    fn test_not_equiv_and_zero() {
+        let mut a = Aig::new();
+        let l1 = a.add_input();
+        let l2 = a.add_input();
+        let aa = a.and(l1, l2);
+        a.add_output(aa);
+        let mut b = Aig::new();
+        b.add_input();
+        b.add_input();
+        b.add_output(Signal::zero());
+        let res = check_equivalence_comb(&a, &b);
+        assert_eq!(res, Err(vec![true, true]));
+    }
+
+    #[test]
+    fn test_not_equiv_one_zero() {
+        let mut a = Aig::new();
+        a.add_input();
+        a.add_input();
+        a.add_output(Signal::one());
+        let mut b = Aig::new();
+        b.add_input();
+        b.add_input();
+        b.add_output(Signal::zero());
+        let res = check_equivalence_comb(&a, &b);
+        assert_ne!(res, Ok(()));
+    }
+
+    #[test]
+    fn test_equiv_xor() {
+        let mut a = Aig::new();
+        let l1 = a.add_input();
+        let l2 = a.add_input();
+        let a1 = a.and(l1, !l2);
+        let a2 = a.and(!l1, l2);
+        let ax = a.or(a1, a2);
+        a.add_output(ax);
+        let mut b = Aig::new();
+        b.add_input();
+        b.add_input();
+        let bx = b.xor(l1, l2);
+        b.add_output(bx);
+        check_equivalence_comb(&a, &b).unwrap();
+    }
+
+    #[test]
+    fn test_equiv_mux() {
+        let mut a = Aig::new();
+        let l1 = a.add_input();
+        let l2 = a.add_input();
+        let l3 = a.add_input();
+        let a1 = a.and(l1, l2);
+        let a2 = a.and(!l1, l3);
+        let ax = a.or(a1, a2);
+        a.add_output(ax);
+        let mut b = Aig::new();
+        b.add_input();
+        b.add_input();
+        b.add_input();
+        let bx = b.mux(l1, l2, l3);
+        b.add_output(bx);
+        check_equivalence_comb(&a, &b).unwrap();
+    }
+
+    #[test]
+    fn test_equiv_maj() {
+        let mut a = Aig::new();
+        let l1 = a.add_input();
+        let l2 = a.add_input();
+        let l3 = a.add_input();
+        let a1 = a.and(l1, l2);
+        let a2 = a.and(l1, l3);
+        let a3 = a.and(l2, l3);
+        let ax = a.or3(a1, a2, a3);
+        a.add_output(ax);
+        let mut b = Aig::new();
+        b.add_input();
+        b.add_input();
+        b.add_input();
+        let bx = b.maj(l1, l2, l3);
+        b.add_output(bx);
+        check_equivalence_comb(&a, &b).unwrap();
+    }
+
+    #[test]
+    fn test_equiv_and3() {
+        let mut a = Aig::new();
+        let l1 = a.add_input();
+        let l2 = a.add_input();
+        let l3 = a.add_input();
+        let a1 = a.and(l1, l2);
+        let a2 = a.and(a1, l3);
+        a.add_output(a2);
+        let mut b = Aig::new();
+        b.add_input();
+        b.add_input();
+        b.add_input();
+        let b2 = b.and3(l1, l2, l3);
+        b.add_output(b2);
+        check_equivalence_comb(&a, &b).unwrap();
+    }
+
+    #[test]
+    fn test_equiv_xor3() {
+        let mut a = Aig::new();
+        let l1 = a.add_input();
+        let l2 = a.add_input();
+        let l3 = a.add_input();
+        let a1 = a.xor(l1, l2);
+        let a2 = a.xor(a1, l3);
+        a.add_output(a2);
+        let mut b = Aig::new();
+        b.add_input();
+        b.add_input();
+        b.add_input();
+        let b2 = b.xor3(l1, l2, l3);
+        b.add_output(b2);
+        check_equivalence_comb(&a, &b).unwrap();
+    }
+
+    #[test]
+    fn test_equiv_inputs() {
+        let mut a = Aig::new();
+        let mut b = Aig::new();
+        for _ in 0..3 {
+            let la = a.add_input();
+            a.add_output(la);
+            let lb = b.add_input();
+            b.add_output(lb);
+        }
         check_equivalence_comb(&a, &b).unwrap();
     }
 }
