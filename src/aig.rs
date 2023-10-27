@@ -408,22 +408,22 @@ mod tests {
         let i3 = aig.add_input();
         let i4 = aig.add_input();
 
-        aig.and_n(&Vec::new());
-        aig.and_n(&vec![i0]);
+        assert_eq!(aig.and_n(&Vec::new()), Signal::one());
+        assert_eq!(aig.and_n(&vec![i0]), i0);
         aig.and_n(&vec![i0, i1]);
         aig.and_n(&vec![i0, i1, i2]);
         aig.and_n(&vec![i0, i1, i2, i3]);
         aig.and_n(&vec![i0, i1, i2, i3, i4]);
 
-        aig.or_n(&Vec::new());
-        aig.or_n(&vec![i0]);
+        assert_eq!(aig.or_n(&Vec::new()), Signal::zero());
+        assert_eq!(aig.or_n(&vec![i0]), i0);
         aig.or_n(&vec![i0, i1]);
         aig.or_n(&vec![i0, i1, i2]);
         aig.or_n(&vec![i0, i1, i2, i3]);
         aig.or_n(&vec![i0, i1, i2, i3, i4]);
 
-        aig.xor_n(&Vec::new());
-        aig.xor_n(&vec![i0]);
+        assert_eq!(aig.xor_n(&Vec::new()), Signal::zero());
+        assert_eq!(aig.xor_n(&vec![i0]), i0);
         aig.xor_n(&vec![i0, i1]);
         aig.xor_n(&vec![i0, i1, i2]);
         aig.xor_n(&vec![i0, i1, i2, i3]);

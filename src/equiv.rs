@@ -4,7 +4,11 @@ use std::collections::HashMap;
 
 use cat_solver::Solver;
 
-use crate::{aig::Aig, gates::Gate, signal::Signal};
+use crate::{
+    aig::Aig,
+    gates::Gate,
+    signal::{self, Signal},
+};
 
 /**
  * Export a combinatorial Aig to a CNF formula
@@ -113,6 +117,84 @@ fn extend_aig(a: &mut Aig, b: &Aig) -> HashMap<Signal, Signal> {
 }
 
 /**
+ * Create the initial, all zero translation of an unrolling
+ */
+fn initial_translation(aig: &Aig) -> HashMap<Signal, Signal> {
+    let mut t_prev = HashMap::new();
+    // Fill previous values with dummy zeros for the first flip-flop step
+    for i in 0..aig.nb_inputs() {
+        let s = aig.input(i);
+        t_prev.insert(s, Signal::zero());
+        t_prev.insert(!s, Signal::zero());
+    }
+
+    for i in 0..aig.nb_nodes() {
+        let s = aig.node(i);
+        t_prev.insert(s, Signal::zero());
+        t_prev.insert(!s, Signal::zero());
+    }
+    t_prev
+}
+
+/**
+ * Unroll a sequential Aig over a fixed number of steps
+ */
+fn unroll(aig: &Aig, nb_steps: usize) -> Aig {
+    use Gate::*;
+    let mut ret = Aig::new();
+    ret.add_inputs(aig.nb_inputs() * nb_steps);
+
+    let mut t_prev = initial_translation(aig);
+
+    for _ in 0..nb_steps {
+        let mut t = HashMap::new();
+        for i in 0..aig.nb_nodes() {
+            // Convert flip-flops for this step
+            if let Dff(d, en, res) = aig.gate(i) {
+                let ff = aig.node(i);
+                let mx = ret.mux(t_prev[&en], t_prev[&d], t_prev[&ff]);
+                let and = ret.and(mx, !t_prev[&res]);
+                t.insert(ff, and);
+                t.insert(!ff, !and);
+            }
+        }
+
+        // Convert inputs for this step
+        t.insert(Signal::zero(), Signal::zero());
+        t.insert(Signal::one(), Signal::one());
+        for i in 0..aig.nb_inputs() {
+            let aig_in = Signal::from_input(i as u32);
+            let unroll_in = ret.add_input();
+            t.insert(aig_in, unroll_in);
+            t.insert(!aig_in, !unroll_in);
+        }
+
+        // Convert combinatorial gates for this step
+        for i in 0..aig.nb_nodes() {
+            let g = match aig.gate(i) {
+                And(a, b) => And(t[&a], t[&b]),
+                Xor(a, b) => Xor(t[&a], t[&b]),
+                And3(a, b, c) => And3(t[&a], t[&b], t[&c]),
+                Xor3(a, b, c) => Xor3(t[&a], t[&b], t[&c]),
+                Mux(a, b, c) => Mux(t[&a], t[&b], t[&c]),
+                Maj(a, b, c) => Maj(t[&a], t[&b], t[&c]),
+                Dff(_, _, _) => continue,
+            };
+            let s = ret.add_gate(g);
+            t.insert(aig.node(i), s);
+            t.insert(!aig.node(i), !s);
+        }
+
+        for o in 0..aig.nb_outputs() {
+            ret.add_output(t[&aig.output(o)]);
+        }
+        std::mem::swap(&mut t, &mut t_prev);
+        t_prev.clear();
+    }
+    ret
+}
+
+/**
  * Create an AIG with a single output, representing the equivalence of two combinatorial Aigs
  */
 fn difference(a: &Aig, b: &Aig) -> Aig {
@@ -190,14 +272,6 @@ fn prove(a: &Aig) -> Option<Vec<bool>> {
             Some(v)
         }
     }
-}
-
-/**
- * Unroll a sequential Aig over a fixed number of steps
- */
-fn unroll(aig: &Aig, nb_steps: usize) -> Aig {
-    // TODO
-    aig.clone()
 }
 
 /**
@@ -395,5 +469,34 @@ mod tests {
             b.add_output(lb);
         }
         check_equivalence_comb(&a, &b).unwrap();
+    }
+
+    #[test]
+    fn test_not_equiv_inputs() {
+        let mut a = Aig::new();
+        let mut b = Aig::new();
+        for _ in 0..3 {
+            let la = a.add_input();
+            a.add_output(la);
+            let lb = b.add_input();
+            b.add_output(!lb);
+        }
+        let res = check_equivalence_comb(&a, &b);
+        assert_ne!(res, Ok(()));
+    }
+
+    #[test]
+    fn test_unused_inputs() {
+        let mut a = Aig::new();
+        let mut b = Aig::new();
+        for _ in 0..3 {
+            a.add_input();
+            b.add_input();
+        }
+        let l = Signal::from_input(0);
+        a.add_output(l);
+        b.add_output(!l);
+        let res = check_equivalence_comb(&a, &b);
+        assert_ne!(res, Ok(()));
     }
 }
