@@ -472,9 +472,28 @@ mod tests {
         let un = unroll(&a, nb_steps);
         assert_eq!(un.nb_inputs(), nb_steps);
         assert_eq!(un.nb_outputs(), nb_steps);
+        assert_eq!(un.nb_nodes(), 0);
         assert_eq!(un.output(0), Signal::zero());
         for i in 1..nb_steps {
             assert_eq!(un.output(i), un.input(i - 1));
         }
+    }
+
+    #[test]
+    fn test_enable_unrolling() {
+        let mut a = Aig::new();
+        let i0 = a.add_input();
+        let i1 = a.add_input();
+        let d = a.dff(i0, i1, Signal::zero());
+        a.add_output(d);
+
+        let nb_steps = 3;
+        let un = unroll(&a, nb_steps);
+        assert_eq!(un.nb_inputs(), 2 * nb_steps);
+        assert_eq!(un.nb_outputs(), nb_steps);
+        assert_eq!(un.nb_nodes(), nb_steps - 1);
+        assert_eq!(un.nb_mux(), nb_steps - 2);
+        assert_eq!(un.nb_and(), 1);
+        assert_eq!(un.output(0), Signal::zero());
     }
 }
