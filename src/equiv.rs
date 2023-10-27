@@ -1,6 +1,6 @@
 //! Bounded equivalence checking on Aigs
 
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 use cat_solver::Solver;
 
@@ -83,21 +83,24 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
 }
 
 /**
- * Copy the gates from one Aig to another and fill the translation table
+ * Copy the gates from one Aig to another and fill the existing translation table
  */
-fn extend_aig(a: &mut Aig, b: &Aig) -> HashMap<Signal, Signal> {
+fn extend_aig_helper(a: &mut Aig, b: &Aig, t: &mut HashMap<Signal, Signal>, same_inputs: bool) {
     use Gate::*;
-    assert_eq!(a.nb_inputs(), b.nb_inputs());
-    assert!(b.is_comb());
     assert!(b.is_topo_sorted());
+    assert!(!same_inputs || a.nb_inputs() == b.nb_inputs());
 
-    let mut t = HashMap::<Signal, Signal>::new();
     t.insert(Signal::zero(), Signal::zero());
     t.insert(Signal::one(), Signal::one());
     for i in 0..b.nb_inputs() {
-        let s = Signal::from_input(i as u32);
-        t.insert(s, s);
-        t.insert(!s, !s);
+        let sa = if same_inputs {
+            a.input(i)
+        } else {
+            a.add_input()
+        };
+        let sb = b.input(i);
+        t.insert(sb, sa);
+        t.insert(!sb, !sa);
     }
     for i in 0..b.nb_nodes() {
         let g = match b.gate(i) {
@@ -107,33 +110,21 @@ fn extend_aig(a: &mut Aig, b: &Aig) -> HashMap<Signal, Signal> {
             Xor3(a, b, c) => Xor3(t[&a], t[&b], t[&c]),
             Mux(a, b, c) => Mux(t[&a], t[&b], t[&c]),
             Maj(a, b, c) => Maj(t[&a], t[&b], t[&c]),
-            Dff(_, _, _) => panic!("Unexpected flip-flop"),
+            Dff(_, _, _) => continue,
         };
         let s = a.add_gate(g);
         t.insert(b.node(i), s);
         t.insert(!b.node(i), !s);
     }
-    t
 }
 
 /**
- * Create the initial, all zero translation of an unrolling
+ * Copy the gates from one Aig to another and fill the translation table
  */
-fn initial_translation(aig: &Aig) -> HashMap<Signal, Signal> {
-    let mut t_prev = HashMap::new();
-    // Fill previous values with dummy zeros for the first flip-flop step
-    for i in 0..aig.nb_inputs() {
-        let s = aig.input(i);
-        t_prev.insert(s, Signal::zero());
-        t_prev.insert(!s, Signal::zero());
-    }
-
-    for i in 0..aig.nb_nodes() {
-        let s = aig.node(i);
-        t_prev.insert(s, Signal::zero());
-        t_prev.insert(!s, Signal::zero());
-    }
-    t_prev
+fn extend_aig(a: &mut Aig, b: &Aig) -> HashMap<Signal, Signal> {
+    let mut t = HashMap::<Signal, Signal>::new();
+    extend_aig_helper(a, b, &mut t, true);
+    t
 }
 
 /**
@@ -144,46 +135,28 @@ fn unroll(aig: &Aig, nb_steps: usize) -> Aig {
     let mut ret = Aig::new();
     ret.add_inputs(aig.nb_inputs() * nb_steps);
 
-    let mut t_prev = initial_translation(aig);
+    let mut t_prev = HashMap::new();
 
-    for _ in 0..nb_steps {
+    for step in 0..nb_steps {
         let mut t = HashMap::new();
+
+        // Convert flip-flops for this step
         for i in 0..aig.nb_nodes() {
-            // Convert flip-flops for this step
             if let Dff(d, en, res) = aig.gate(i) {
                 let ff = aig.node(i);
-                let mx = ret.mux(t_prev[&en], t_prev[&d], t_prev[&ff]);
-                let and = ret.and(mx, !t_prev[&res]);
-                t.insert(ff, and);
-                t.insert(!ff, !and);
+                let unroll_ff = if step == 0 {
+                    Signal::zero()
+                } else {
+                    let mx = ret.mux(t_prev[&en], t_prev[&d], t_prev[&ff]);
+                    ret.and(mx, !t_prev[&res])
+                };
+                t.insert(ff, unroll_ff);
+                t.insert(!ff, !unroll_ff);
             }
         }
 
-        // Convert inputs for this step
-        t.insert(Signal::zero(), Signal::zero());
-        t.insert(Signal::one(), Signal::one());
-        for i in 0..aig.nb_inputs() {
-            let aig_in = Signal::from_input(i as u32);
-            let unroll_in = ret.add_input();
-            t.insert(aig_in, unroll_in);
-            t.insert(!aig_in, !unroll_in);
-        }
-
-        // Convert combinatorial gates for this step
-        for i in 0..aig.nb_nodes() {
-            let g = match aig.gate(i) {
-                And(a, b) => And(t[&a], t[&b]),
-                Xor(a, b) => Xor(t[&a], t[&b]),
-                And3(a, b, c) => And3(t[&a], t[&b], t[&c]),
-                Xor3(a, b, c) => Xor3(t[&a], t[&b], t[&c]),
-                Mux(a, b, c) => Mux(t[&a], t[&b], t[&c]),
-                Maj(a, b, c) => Maj(t[&a], t[&b], t[&c]),
-                Dff(_, _, _) => continue,
-            };
-            let s = ret.add_gate(g);
-            t.insert(aig.node(i), s);
-            t.insert(!aig.node(i), !s);
-        }
+        // Convert inputs and nodes
+        extend_aig_helper(&mut ret, aig, &mut t, false);
 
         for o in 0..aig.nb_outputs() {
             ret.add_output(t[&aig.output(o)]);
