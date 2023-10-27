@@ -212,7 +212,6 @@ fn prove(a: &Aig) -> Option<Vec<bool>> {
     let mut solver = Solver::new();
     for c in clauses {
         let clause: Vec<i32> = c.iter().map(|s| t[s]).collect();
-        println!("{:?}", clause);
         solver.add_clause(clause);
     }
     let out = a.output(0);
@@ -227,12 +226,7 @@ fn prove(a: &Aig) -> Option<Vec<bool>> {
         None => panic!("Couldn't solve SAT problem"),
         Some(false) => None,
         Some(true) => {
-            // TODO: check what happens if some inputs are unused
             let mut v = Vec::new();
-            for lit in 1..i {
-                print!("{}, ", solver.value(lit).unwrap_or(false));
-            }
-            println!();
             for inp in 0..a.nb_inputs() {
                 let b = solver
                     .value(t[&Signal::from_input(inp as u32)])
@@ -250,9 +244,6 @@ fn prove(a: &Aig) -> Option<Vec<bool>> {
 pub fn check_equivalence_comb(a: &Aig, b: &Aig) -> Result<(), Vec<bool>> {
     assert!(a.is_comb() && b.is_comb());
     let eq = difference(a, b);
-    println!("A: {a}");
-    println!("B: {b}");
-    println!("Eq: {eq}");
     let res = prove(&eq);
     match res {
         None => Ok(()),
