@@ -271,8 +271,8 @@ impl Aig {
     /**
      * Create a Dff gate (flip flop)
      */
-    pub fn dff(&mut self, d: Signal, en: Signal, res: Signal) -> Signal {
-        self.add_gate(Gate::Dff(d, en, res))
+    pub fn dff(&mut self, data: Signal, enable: Signal, reset: Signal) -> Signal {
+        self.add_gate(Gate::Dff(data, enable, reset))
     }
 
     /**

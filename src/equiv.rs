@@ -133,10 +133,8 @@ fn extend_aig(a: &mut Aig, b: &Aig) -> HashMap<Signal, Signal> {
 fn unroll(aig: &Aig, nb_steps: usize) -> Aig {
     use Gate::*;
     let mut ret = Aig::new();
-    ret.add_inputs(aig.nb_inputs() * nb_steps);
 
     let mut t_prev = HashMap::new();
-
     for step in 0..nb_steps {
         let mut t = HashMap::new();
 
@@ -162,7 +160,6 @@ fn unroll(aig: &Aig, nb_steps: usize) -> Aig {
             ret.add_output(t[&aig.output(o)]);
         }
         std::mem::swap(&mut t, &mut t_prev);
-        t_prev.clear();
     }
     ret
 }
@@ -291,7 +288,7 @@ pub fn check_equivalence_bounded(a: &Aig, b: &Aig, nb_steps: usize) -> Result<()
 
 #[cfg(test)]
 mod tests {
-    use crate::{Aig, Signal};
+    use crate::{equiv::unroll, Aig, Signal};
 
     use super::check_equivalence_comb;
 
@@ -471,5 +468,22 @@ mod tests {
         b.add_output(!l);
         let res = check_equivalence_comb(&a, &b);
         assert_ne!(res, Ok(()));
+    }
+
+    #[test]
+    fn test_simple_unrolling() {
+        let mut a = Aig::new();
+        let i0 = a.add_input();
+        let d = a.dff(i0, Signal::one(), Signal::zero());
+        a.add_output(d);
+
+        let nb_steps = 3;
+        let un = unroll(&a, nb_steps);
+        assert_eq!(un.nb_inputs(), nb_steps);
+        assert_eq!(un.nb_outputs(), nb_steps);
+        assert_eq!(un.output(0), Signal::zero());
+        for i in 1..nb_steps {
+            assert_eq!(un.output(i), un.input(i - 1));
+        }
     }
 }
