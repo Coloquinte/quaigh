@@ -34,6 +34,7 @@ mod gates;
 mod signal;
 
 pub mod equiv;
+pub mod io;
 
 pub use aig::Aig;
 pub use gates::Gate;
