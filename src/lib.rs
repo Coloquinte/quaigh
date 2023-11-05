@@ -18,6 +18,8 @@
 //! Quaigh features bounded equivalence checking and AIG simplification.
 //! At the moment, these are far from state of the art: for production designs, please use ABC.
 
+#![warn(missing_docs)]
+
 mod aig;
 mod gates;
 mod signal;
