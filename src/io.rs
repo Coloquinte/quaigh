@@ -1,4 +1,4 @@
-use std::{io::{BufRead, BufReader, Read}, collections::HashSet};
+use std::{io::{BufRead, BufReader, Read}, collections::{HashSet, HashMap}};
 
 use crate::Aig;
 
@@ -35,7 +35,32 @@ fn aig_from_statements(statements: &Vec<(String, GateType, Vec<String>)>, output
     }
 
     // Perform a topological sort
-    Aig::new()
+    //let order = Vec::new();
+    /*
+    let mut out_edges = HashMap::new();
+    for (_, _, deps) in statements {
+        for dep in deps {
+            if out_edges.contains_key(dep) {
+                out_edges[dep] += 1;
+            }
+            else {
+                out_edges.insert(dep, 1);
+            }
+        }
+    }*/
+    // Insert
+    
+    let mut ret = Aig::new();
+    /*
+    let mut mapping = HashMap::new();
+    for (gate, gate_type, deps) in statements {
+        match gate_type {
+            Input => mapping.insert(gate, ret.add_input()),
+            Dff => mapping.insert(),
+        }
+    }
+    */
+    ret
 }
 
 /**
