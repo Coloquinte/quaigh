@@ -1,14 +1,11 @@
 //! Bounded equivalence checking on Aigs
 
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 
 use cat_solver::Solver;
 
-use crate::{
-    aig::Aig,
-    gates::Gate,
-    signal::{self, Signal},
-};
+use crate::{aig::Aig, gates::Gate, signal::Signal};
+
 /// Export a combinatorial Aig to a CNF formula
 fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
     use Gate::*;

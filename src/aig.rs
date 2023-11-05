@@ -118,7 +118,6 @@ impl Aig {
     }
 
     /// Add multiple primary inputs
-
     pub fn add_inputs(&mut self, nb: usize) {
         self.nb_inputs += nb;
     }
@@ -241,7 +240,6 @@ impl Aig {
 
     /// Return whether the Aig is already topologically sorted (except for flip-flops)
     pub(crate) fn is_topo_sorted(&self) -> bool {
-        use Gate::*;
         for (i, g) in self.nodes.iter().enumerate() {
             let ind = i as u32;
             for v in g.vars() {

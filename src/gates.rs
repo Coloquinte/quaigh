@@ -5,12 +5,19 @@ use crate::signal::Signal;
 /// Logic gate
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Gate {
+    /// 2-input And gate
     And(Signal, Signal),
+    /// 2-input Xor gate
     Xor(Signal, Signal),
+    /// 3-input And gate
     And3(Signal, Signal, Signal),
+    /// 3-input Xor gate
     Xor3(Signal, Signal, Signal),
+    /// Majority gate
     Maj(Signal, Signal, Signal),
+    /// Multiplexer
     Mux(Signal, Signal, Signal),
+    /// D flip-flop
     Dff(Signal, Signal, Signal),
 }
 
