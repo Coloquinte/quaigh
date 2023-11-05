@@ -22,6 +22,7 @@ pub enum Normalization {
 }
 
 impl Gate {
+    /// Returns whether the gate is in canonical form
     pub fn is_canonical(&self) -> bool {
         use Gate::*;
         match self {
@@ -46,12 +47,36 @@ impl Gate {
         }
     }
 
+    /// Obtain the canonical form of the gate
     pub fn make_canonical(&self) -> Normalization {
         use Normalization::*;
         Node(*self, false).make_canonical()
     }
+
+    /// Obtain all signals feeding this gate
+    pub fn dependencies(&self) -> Vec<Signal> {
+        use Gate::*;
+        match self {
+            And(a, b) | Xor(a, b) => {
+                vec![*a, *b]
+            }
+            Mux(a, b, c) | And3(a, b, c) | Xor3(a, b, c) | Maj(a, b, c) | Dff(a, b, c) => {
+                vec![*a, *b, *c]
+            }
+        }
+    }
+
+    /// Obtain all internal variables feeding this gate (not inputs or constants)
+    pub fn vars(&self) -> Vec<u32> {
+        self.dependencies()
+            .iter()
+            .filter(|s| s.is_var())
+            .map(|s| s.var())
+            .collect()
+    }
 }
 
+/// Normalize an And
 fn make_and(a: Signal, b: Signal, inv: bool) -> Normalization {
     use Gate::*;
     use Normalization::*;
@@ -65,6 +90,7 @@ fn make_and(a: Signal, b: Signal, inv: bool) -> Normalization {
     }
 }
 
+/// Normalize a Xor
 fn make_xor(a: Signal, b: Signal, inv: bool) -> Normalization {
     use Gate::*;
     use Normalization::*;
@@ -79,6 +105,7 @@ fn make_xor(a: Signal, b: Signal, inv: bool) -> Normalization {
     }
 }
 
+/// Normalize an And3
 fn make_and3(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
     use Gate::*;
     use Normalization::*;
@@ -94,6 +121,7 @@ fn make_and3(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
     }
 }
 
+/// Normalize a Xor3
 fn make_xor3(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
     use Gate::*;
     use Normalization::*;
@@ -110,6 +138,7 @@ fn make_xor3(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
     }
 }
 
+/// Normalize a Mux
 fn make_mux(s: Signal, a: Signal, b: Signal, inv: bool) -> Normalization {
     use Gate::*;
     use Normalization::*;
@@ -139,6 +168,7 @@ fn make_mux(s: Signal, a: Signal, b: Signal, inv: bool) -> Normalization {
     }
 }
 
+/// Normalize a Maj
 fn make_maj(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
     use Gate::*;
     use Normalization::*;
@@ -158,6 +188,7 @@ fn make_maj(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
     }
 }
 
+/// Normalize a Dff
 fn make_dff(d: Signal, en: Signal, res: Signal, inv: bool) -> Normalization {
     use Gate::*;
     use Normalization::*;
@@ -169,6 +200,7 @@ fn make_dff(d: Signal, en: Signal, res: Signal, inv: bool) -> Normalization {
 }
 
 impl Normalization {
+    /// Returns whether the normalization is canonical
     pub fn is_canonical(&self) -> bool {
         use Normalization::*;
         match self {
@@ -177,6 +209,7 @@ impl Normalization {
         }
     }
 
+    /// Apply the normalization algorithm
     pub fn make_canonical(&self) -> Self {
         use Gate::*;
         use Normalization::*;

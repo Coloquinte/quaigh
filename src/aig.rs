@@ -4,6 +4,7 @@ use crate::gates::Gate;
 use crate::gates::Normalization;
 use crate::signal::Signal;
 
+/// Representation of a logic network as a gate-inverter-graph, used as the main representation for all logic manipulations
 #[derive(Debug, Clone, Default)]
 pub struct Aig {
     nb_inputs: usize,
@@ -12,67 +13,49 @@ pub struct Aig {
 }
 
 impl Aig {
-    /**
-     * Create a new Aig
-     */
+    /// Create a new Aig
     pub fn new() -> Self {
         Self::default()
     }
 
-    /**
-     * Return the number of primary inputs of the AIG
-     */
+    /// Return the number of primary inputs of the Aig
     pub fn nb_inputs(&self) -> usize {
         self.nb_inputs
     }
 
-    /**
-     * Return the number of primary outputs of the AIG
-     */
+    /// Return the number of primary outputs of the Aig
     pub fn nb_outputs(&self) -> usize {
         self.outputs.len()
     }
 
-    /**
-     * Return the number of nodes in the AIG
-     */
+    /// Return the number of nodes in the Aig
     pub fn nb_nodes(&self) -> usize {
         self.nodes.len()
     }
 
-    /**
-     * Get the input at index i
-     */
+    /// Get the input at index i
     pub fn input(&self, i: usize) -> Signal {
         assert!(i < self.nb_inputs());
         Signal::from_input(i as u32)
     }
 
-    /**
-     * Get the output at index i
-     */
+    /// Get the output at index i
     pub fn output(&self, i: usize) -> Signal {
         assert!(i < self.nb_outputs());
         self.outputs[i]
     }
 
-    /**
-     * Get the variable at index i
-     */
+    /// Get the variable at index i
     pub fn node(&self, i: usize) -> Signal {
         Signal::from_var(i as u32)
     }
 
-    /**
-     * Get the gate at index i
-     */
+    /// Get the gate at index i
     pub fn gate(&self, i: usize) -> Gate {
         self.nodes[i]
     }
 
-    /**
-     * Number of And2 gates
-     */
+    /// Number of And2 gates
     pub fn nb_and(&self) -> usize {
         self.nodes
             .iter()
@@ -80,9 +63,7 @@ impl Aig {
             .count()
     }
 
-    /**
-     * Number of Xor2 gates
-     */
+    /// Number of Xor2 gates
     pub fn nb_xor(&self) -> usize {
         self.nodes
             .iter()
@@ -90,9 +71,7 @@ impl Aig {
             .count()
     }
 
-    /**
-     * Number of And3 gates
-     */
+    /// Number of And3 gates
     pub fn nb_and3(&self) -> usize {
         self.nodes
             .iter()
@@ -100,9 +79,7 @@ impl Aig {
             .count()
     }
 
-    /**
-     * Number of Xor3 gates
-     */
+    /// Number of Xor3 gates
     pub fn nb_xor3(&self) -> usize {
         self.nodes
             .iter()
@@ -110,9 +87,7 @@ impl Aig {
             .count()
     }
 
-    /**
-     * Number of Mux gates
-     */
+    /// Number of Mux gates
     pub fn nb_mux(&self) -> usize {
         self.nodes
             .iter()
@@ -120,9 +95,7 @@ impl Aig {
             .count()
     }
 
-    /**
-     * Number of Maj gates
-     */
+    /// Number of Maj gates
     pub fn nb_maj(&self) -> usize {
         self.nodes
             .iter()
@@ -130,9 +103,7 @@ impl Aig {
             .count()
     }
 
-    /**
-     * Number of Dff gates
-     */
+    /// Number of Dff gates
     pub fn nb_dff(&self) -> usize {
         self.nodes
             .iter()
@@ -140,87 +111,64 @@ impl Aig {
             .count()
     }
 
-    /**
-     * Add a new primary input
-     */
+    /// Add a new primary input
     pub fn add_input(&mut self) -> Signal {
         self.nb_inputs += 1;
         self.input(self.nb_inputs() - 1)
     }
 
-    /**
-     * Add multiple primary inputs
-     */
+    /// Add multiple primary inputs
+
     pub fn add_inputs(&mut self, nb: usize) {
         self.nb_inputs += nb;
     }
 
-    /**
-     * Add a new primary output based on an existing literal
-     */
+    /// Add a new primary output based on an existing literal
     pub fn add_output(&mut self, l: Signal) {
         self.outputs.push(l)
     }
 
-    /**
-     * Create an And2 gate
-     */
+    /// Create an And2 gate
     pub fn and(&mut self, a: Signal, b: Signal) -> Signal {
         self.add_gate(Gate::And(a, b))
     }
 
-    /**
-     * Create an Or2 gate
-     */
+    /// Create an Or2 gate
     pub fn or(&mut self, a: Signal, b: Signal) -> Signal {
         !self.and(!a, !b)
     }
 
-    /**
-     * Create a Xor2 gate
-     */
+    /// Create a Xor2 gate
     pub fn xor(&mut self, a: Signal, b: Signal) -> Signal {
         self.add_gate(Gate::Xor(a, b))
     }
 
-    /**
-     * Create an And3 gate
-     */
+    /// Create an And3 gate
     pub fn and3(&mut self, a: Signal, b: Signal, c: Signal) -> Signal {
         self.add_gate(Gate::And3(a, b, c))
     }
 
-    /**
-     * Create an Or3 gate
-     */
+    /// Create an Or3 gate
     pub fn or3(&mut self, a: Signal, b: Signal, c: Signal) -> Signal {
         !self.and3(!a, !b, !c)
     }
 
-    /**
-     * Create a Xor3 gate
-     */
+    /// Create a Xor3 gate
     pub fn xor3(&mut self, a: Signal, b: Signal, c: Signal) -> Signal {
         self.add_gate(Gate::Xor3(a, b, c))
     }
 
-    /**
-     * Create a Mux gate
-     */
+    /// Create a Mux gate
     pub fn mux(&mut self, s: Signal, a: Signal, b: Signal) -> Signal {
         self.add_gate(Gate::Mux(s, a, b))
     }
 
-    /**
-     * Create a Maj gate
-     */
+    /// Create a Maj gate
     pub fn maj(&mut self, a: Signal, b: Signal, c: Signal) -> Signal {
         self.add_gate(Gate::Maj(a, b, c))
     }
 
-    /**
-     * Create an n-ary And as a tree
-     */
+    /// Create an n-ary And as a tree
     pub fn and_n(&mut self, sigs: &Vec<Signal>) -> Signal {
         if sigs.is_empty() {
             Signal::one()
@@ -239,17 +187,13 @@ impl Aig {
         }
     }
 
-    /**
-     * Create an n-ary Or as a tree
-     */
+    /// Create an n-ary Or as a tree
     pub fn or_n(&mut self, sigs: &Vec<Signal>) -> Signal {
         let ands = sigs.iter().cloned().map(|s| !s).collect();
         !self.and_n(&ands)
     }
 
-    /**
-     * Create an n-ary Xor as a tree
-     */
+    /// Create an n-ary Xor as a tree
     pub fn xor_n(&mut self, sigs: &Vec<Signal>) -> Signal {
         if sigs.is_empty() {
             Signal::zero()
@@ -268,16 +212,12 @@ impl Aig {
         }
     }
 
-    /**
-     * Create a Dff gate (flip flop)
-     */
+    /// Create a Dff gate (flip flop)
     pub fn dff(&mut self, data: Signal, enable: Signal, reset: Signal) -> Signal {
         self.add_gate(Gate::Dff(data, enable, reset))
     }
 
-    /**
-     * Add a new gate, normalized
-     */
+    /// Add a new gate, normalized
     pub fn add_gate(&mut self, gate: Gate) -> Signal {
         use Normalization::*;
         let g = gate.make_canonical();
@@ -287,25 +227,19 @@ impl Aig {
         }
     }
 
-    /**
-     * Add a new gate, without normalization
-     */
+    /// Add a new gate, without normalization
     fn add_raw_gate(&mut self, gate: Gate) -> Signal {
         let l = Signal::from_var(self.nodes.len() as u32);
         self.nodes.push(gate);
         l
     }
 
-    /**
-     * Return whether the AIG is purely combinatorial
-     */
+    /// Return whether the Aig is purely combinatorial
     pub fn is_comb(&self) -> bool {
         self.nb_dff() == 0
     }
 
-    /**
-     * Return whether the AIG is already topologically sorted (except for flip-flops)
-     */
+    /// Return whether the Aig is already topologically sorted (except for flip-flops)
     pub(crate) fn is_topo_sorted(&self) -> bool {
         use Gate::*;
         for (i, g) in self.nodes.iter().enumerate() {

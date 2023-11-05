@@ -9,10 +9,7 @@ use crate::{
     gates::Gate,
     signal::{self, Signal},
 };
-
-/**
- * Export a combinatorial Aig to a CNF formula
- */
+/// Export a combinatorial Aig to a CNF formula
 fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
     use Gate::*;
     assert!(aig.is_comb());
@@ -82,9 +79,7 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
     ret
 }
 
-/**
- * Copy the gates from one Aig to another and fill the existing translation table
- */
+/// Copy the gates from one Aig to another and fill the existing translation table
 fn extend_aig_helper(a: &mut Aig, b: &Aig, t: &mut HashMap<Signal, Signal>, same_inputs: bool) {
     use Gate::*;
     assert!(b.is_topo_sorted());
@@ -118,18 +113,14 @@ fn extend_aig_helper(a: &mut Aig, b: &Aig, t: &mut HashMap<Signal, Signal>, same
     }
 }
 
-/**
- * Copy the gates from one Aig to another and fill the translation table
- */
+/// Copy the gates from one Aig to another and fill the translation table
 fn extend_aig(a: &mut Aig, b: &Aig) -> HashMap<Signal, Signal> {
     let mut t = HashMap::<Signal, Signal>::new();
     extend_aig_helper(a, b, &mut t, true);
     t
 }
 
-/**
- * Unroll a sequential Aig over a fixed number of steps
- */
+/// Unroll a sequential Aig over a fixed number of steps
 fn unroll(aig: &Aig, nb_steps: usize) -> Aig {
     use Gate::*;
     let mut ret = Aig::new();
@@ -164,9 +155,7 @@ fn unroll(aig: &Aig, nb_steps: usize) -> Aig {
     ret
 }
 
-/**
- * Create an AIG with a single output, representing the equivalence of two combinatorial Aigs
- */
+/// Create an AIG with a single output, representing the equivalence of two combinatorial Aigs
 fn difference(a: &Aig, b: &Aig) -> Aig {
     assert!(a.is_comb() && b.is_comb());
     assert_eq!(a.nb_inputs(), b.nb_inputs());
@@ -189,9 +178,7 @@ fn difference(a: &Aig, b: &Aig) -> Aig {
     eq
 }
 
-/**
- * Find an assignment of the inputs that sets the single output to 1
- */
+/// Find an assignment of the inputs that sets the single output to 1
 fn prove(a: &Aig) -> Option<Vec<bool>> {
     assert_eq!(a.nb_outputs(), 1);
 
@@ -238,9 +225,7 @@ fn prove(a: &Aig) -> Option<Vec<bool>> {
     }
 }
 
-/**
- * Perform equivalence checking on two combinatorial AIGs
- */
+/// Perform equivalence checking on two combinatorial AIGs
 pub fn check_equivalence_comb(a: &Aig, b: &Aig) -> Result<(), Vec<bool>> {
     assert!(a.is_comb() && b.is_comb());
     let eq = difference(a, b);
@@ -251,9 +236,7 @@ pub fn check_equivalence_comb(a: &Aig, b: &Aig) -> Result<(), Vec<bool>> {
     }
 }
 
-/**
- * Perform bounded equivalence checking on two sequential AIGs
- */
+/// Perform bounded equivalence checking on two sequential AIGs
 pub fn check_equivalence_bounded(a: &Aig, b: &Aig, nb_steps: usize) -> Result<(), Vec<Vec<bool>>> {
     assert_eq!(a.nb_inputs(), b.nb_inputs());
     assert_eq!(a.nb_outputs(), b.nb_outputs());
