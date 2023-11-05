@@ -294,6 +294,22 @@ mod tests {
     }
 
     #[test]
+    fn test_not_equiv_and_or() {
+        let mut a = Aig::new();
+        let l1 = a.add_input();
+        let l2 = a.add_input();
+        let aa = a.and(l1, l2);
+        a.add_output(aa);
+        let mut b = Aig::new();
+        b.add_input();
+        b.add_input();
+        let ab = b.or(l1, l2);
+        b.add_output(ab);
+        let res = check_equivalence_comb(&a, &b);
+        assert_ne!(res, Ok(()));
+    }
+
+    #[test]
     fn test_not_equiv_one_zero() {
         let mut a = Aig::new();
         a.add_input();

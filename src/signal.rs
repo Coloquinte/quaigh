@@ -83,6 +83,15 @@ impl Signal {
         let pol = self.a & 1;
         !(pol as u64) + 1
     }
+
+    /// Apply a variable remapping to the signal
+    pub(crate) fn remap(&self, t: &[Signal]) -> Signal {
+        if !self.is_var() {
+            *self
+        } else {
+            t[self.var() as usize] ^ self.pol()
+        }
+    }
 }
 
 impl From<bool> for Signal {

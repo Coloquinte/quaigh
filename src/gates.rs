@@ -81,6 +81,20 @@ impl Gate {
             .map(|s| s.var())
             .collect()
     }
+
+    /// Apply a variable remapping to the gate
+    pub(crate) fn remap(&self, t: &[Signal]) -> Gate {
+        use Gate::*;
+        match self {
+            And(a, b) => And(a.remap(t), b.remap(t)),
+            Xor(a, b) => Xor(a.remap(t), b.remap(t)),
+            And3(a, b, c) => And3(a.remap(t), b.remap(t), c.remap(t)),
+            Xor3(a, b, c) => Xor3(a.remap(t), b.remap(t), c.remap(t)),
+            Maj(a, b, c) => Maj(a.remap(t), b.remap(t), c.remap(t)),
+            Mux(a, b, c) => Mux(a.remap(t), b.remap(t), c.remap(t)),
+            Dff(a, b, c) => Dff(a.remap(t), b.remap(t), c.remap(t)),
+        }
+    }
 }
 
 /// Normalize an And

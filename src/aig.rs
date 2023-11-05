@@ -250,6 +250,57 @@ impl Aig {
         }
         true
     }
+
+    /// Remove unused logic; this will invalidate all signals
+    ///
+    /// Returns the mapping of old variable indices to signals, if needed.
+    /// Removed signals are mapped to zero.
+    pub fn sweep(&mut self) -> Vec<Signal> {
+        // Mark unused logic
+        let mut visited = vec![false; self.nb_nodes()];
+        let mut to_visit = Vec::<u32>::new();
+        for o in 0..self.nb_outputs() {
+            let output = self.output(o);
+            if output.is_var() {
+                to_visit.push(output.var());
+            }
+        }
+        while !to_visit.is_empty() {
+            let node = to_visit.pop().unwrap() as usize;
+            if visited[node] {
+                continue;
+            }
+            visited[node] = true;
+            to_visit.extend(self.gate(node).vars().iter());
+        }
+
+        // Now compute a mapping for all nodes that are reachable
+        let mut translation = vec![Signal::zero(); self.nb_nodes()];
+        let mut ind: u32 = 0;
+        for i in 0..self.nb_nodes() {
+            if visited[i] {
+                translation[i] = Signal::from_var(ind);
+                ind += 1;
+            }
+        }
+
+        // Apply the mapping
+        let mut new_nodes = Vec::new();
+        for (i, g) in self.nodes.iter().enumerate() {
+            if visited[i] {
+                new_nodes.push(g.remap(translation.as_slice()));
+            }
+        }
+        let new_outputs = self
+            .outputs
+            .iter()
+            .map(|s| s.remap(translation.as_slice()))
+            .collect();
+
+        self.nodes = new_nodes;
+        self.outputs = new_outputs;
+        translation
+    }
 }
 
 impl fmt::Display for Aig {
@@ -343,5 +394,30 @@ mod tests {
         aig.xor_n(&vec![i0, i1, i2]);
         aig.xor_n(&vec![i0, i1, i2, i3]);
         aig.xor_n(&vec![i0, i1, i2, i3, i4]);
+    }
+
+    #[test]
+    fn test_sweep() {
+        let mut aig = Aig::default();
+        let i0 = aig.add_input();
+        let i1 = aig.add_input();
+        let x0 = aig.and(i0, i1);
+        let x1 = aig.or(i0, i1);
+        let _ = aig.and(x0, i1);
+        let x3 = aig.or(x1, i1);
+        aig.add_output(x3);
+        let t = aig.sweep();
+        assert_eq!(t.len(), 4);
+        assert_eq!(aig.nb_nodes(), 2);
+        assert_eq!(aig.nb_outputs(), 1);
+        assert_eq!(
+            t,
+            vec![
+                Signal::zero(),
+                Signal::from_var(0),
+                Signal::zero(),
+                Signal::from_var(1)
+            ]
+        );
     }
 }
