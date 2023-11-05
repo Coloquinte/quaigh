@@ -244,27 +244,10 @@ impl Aig {
         use Gate::*;
         for (i, g) in self.nodes.iter().enumerate() {
             let ind = i as u32;
-            match g {
-                And(a, b) | Xor(a, b) => {
-                    if a.is_var() && a.ind() > ind {
-                        return false;
-                    }
-                    if b.is_var() && b.ind() > ind {
-                        return false;
-                    }
+            for v in g.vars() {
+                if v >= ind {
+                    return false;
                 }
-                And3(a, b, c) | Xor3(a, b, c) | Mux(a, b, c) | Maj(a, b, c) => {
-                    if a.is_var() && a.ind() > ind {
-                        return false;
-                    }
-                    if b.is_var() && b.ind() > ind {
-                        return false;
-                    }
-                    if c.is_var() && c.ind() > ind {
-                        return false;
-                    }
-                }
-                Dff(_, _, _) => (),
             }
         }
         true
