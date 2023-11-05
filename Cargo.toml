@@ -9,6 +9,9 @@ authors = ["Gabriel Gouvine <gabriel.gouvine_cargo@m4x.org>"]
 description = "mplementation of And-Inverter-Graph (AIG) for logic simplification"
 license = "MIT OR Apache-2.0"
 keywords = ["boolean function", "logic function", "aig"]
+repository = "https://github.com/Coloquinte/quaigh"
+homepage = "https://github.com/Coloquinte/quaigh"
+categories = ["mathematics", "algorithms"]
 
 [dependencies]
 cat_solver = "3.1.1"
