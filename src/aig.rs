@@ -51,8 +51,8 @@ impl Aig {
     }
 
     /// Get the gate at index i
-    pub fn gate(&self, i: usize) -> Gate {
-        self.nodes[i]
+    pub fn gate(&self, i: usize) -> &Gate {
+        &self.nodes[i]
     }
 
     /// Number of And2 gates
@@ -351,7 +351,7 @@ impl Aig {
         // Apply the mapping
         let mut new_nodes = Vec::new();
         for i in order {
-            let g = self.nodes[i as usize];
+            let g = self.gate(i as usize);
             new_nodes.push(g.remap(translation.as_slice()));
         }
         let new_outputs = self

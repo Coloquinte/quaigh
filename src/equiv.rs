@@ -16,43 +16,43 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
         match aig.gate(i) {
             And(a, b) => {
                 // 3 clauses, 6 literals
-                ret.push(vec![a, !n]);
-                ret.push(vec![b, !n]);
+                ret.push(vec![*a, !n]);
+                ret.push(vec![*b, !n]);
                 ret.push(vec![!a, !b, n]);
             }
             Xor(a, b) => {
                 // 4 clauses, 12 literals
-                ret.push(vec![a, b, !n]);
+                ret.push(vec![*a, *b, !n]);
                 ret.push(vec![!a, !b, !n]);
-                ret.push(vec![!a, b, n]);
-                ret.push(vec![a, !b, n]);
+                ret.push(vec![!a, *b, n]);
+                ret.push(vec![*a, !b, n]);
             }
             And3(a, b, c) => {
                 // 4 clauses, 10 literals
-                ret.push(vec![a, !n]);
-                ret.push(vec![b, !n]);
-                ret.push(vec![c, !n]);
+                ret.push(vec![*a, !n]);
+                ret.push(vec![*b, !n]);
+                ret.push(vec![*c, !n]);
                 ret.push(vec![!a, !b, !c, n]);
             }
             Xor3(a, b, c) => {
                 // 8 clauses, 32 literals
-                ret.push(vec![a, b, c, !n]);
-                ret.push(vec![a, b, !c, n]);
-                ret.push(vec![a, !b, c, n]);
-                ret.push(vec![a, !b, !c, !n]);
-                ret.push(vec![!a, b, c, n]);
-                ret.push(vec![!a, b, !c, !n]);
-                ret.push(vec![!a, !b, c, !n]);
+                ret.push(vec![*a, *b, *c, !n]);
+                ret.push(vec![*a, *b, !c, n]);
+                ret.push(vec![*a, !b, *c, n]);
+                ret.push(vec![*a, !b, !c, !n]);
+                ret.push(vec![!a, *b, *c, n]);
+                ret.push(vec![!a, *b, !c, !n]);
+                ret.push(vec![!a, !b, *c, !n]);
                 ret.push(vec![!a, !b, !c, n]);
             }
             Mux(s, a, b) => {
                 // 4 clauses, 12 literals + 2 redundant clauses
                 ret.push(vec![!s, !a, n]);
-                ret.push(vec![!s, a, !n]);
-                ret.push(vec![s, !b, n]);
-                ret.push(vec![s, b, !n]);
+                ret.push(vec![!s, *a, !n]);
+                ret.push(vec![*s, !b, n]);
+                ret.push(vec![*s, *b, !n]);
                 // Redundant but useful
-                ret.push(vec![a, b, !n]);
+                ret.push(vec![*a, *b, !n]);
                 ret.push(vec![!a, !b, n]);
             }
             Maj(a, b, c) => {
@@ -60,9 +60,9 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
                 ret.push(vec![!a, !b, n]);
                 ret.push(vec![!b, !c, n]);
                 ret.push(vec![!a, !c, n]);
-                ret.push(vec![a, b, !n]);
-                ret.push(vec![b, c, !n]);
-                ret.push(vec![a, c, !n]);
+                ret.push(vec![*a, *b, !n]);
+                ret.push(vec![*b, *c, !n]);
+                ret.push(vec![*a, *c, !n]);
             }
             Dff(_, _, _) => panic!("Combinatorial Aig expected"),
         }
@@ -96,12 +96,12 @@ fn extend_aig_helper(a: &mut Aig, b: &Aig, t: &mut HashMap<Signal, Signal>, same
     }
     for i in 0..b.nb_nodes() {
         let g = match b.gate(i) {
-            And(a, b) => And(t[&a], t[&b]),
-            Xor(a, b) => Xor(t[&a], t[&b]),
-            And3(a, b, c) => And3(t[&a], t[&b], t[&c]),
-            Xor3(a, b, c) => Xor3(t[&a], t[&b], t[&c]),
-            Mux(a, b, c) => Mux(t[&a], t[&b], t[&c]),
-            Maj(a, b, c) => Maj(t[&a], t[&b], t[&c]),
+            And(a, b) => And(t[a], t[b]),
+            Xor(a, b) => Xor(t[a], t[b]),
+            And3(a, b, c) => And3(t[a], t[b], t[c]),
+            Xor3(a, b, c) => Xor3(t[a], t[b], t[c]),
+            Mux(a, b, c) => Mux(t[a], t[b], t[c]),
+            Maj(a, b, c) => Maj(t[a], t[b], t[c]),
             Dff(_, _, _) => continue,
         };
         let s = a.add_gate(g);
@@ -133,8 +133,8 @@ fn unroll(aig: &Aig, nb_steps: usize) -> Aig {
                 let unroll_ff = if step == 0 {
                     Signal::zero()
                 } else {
-                    let mx = ret.mux(t_prev[&en], t_prev[&d], t_prev[&ff]);
-                    ret.and(mx, !t_prev[&res])
+                    let mx = ret.mux(t_prev[en], t_prev[d], t_prev[&ff]);
+                    ret.and(mx, !t_prev[res])
                 };
                 t.insert(ff, unroll_ff);
                 t.insert(!ff, !unroll_ff);

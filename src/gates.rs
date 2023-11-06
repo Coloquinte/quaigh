@@ -3,7 +3,7 @@ use std::{cmp, fmt};
 use crate::signal::Signal;
 
 /// Logic gate
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Gate {
     /// 2-input And gate
     And(Signal, Signal),
@@ -22,7 +22,7 @@ pub enum Gate {
 }
 
 /// Result of normalizing a logic gate
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Normalization {
     Buf(Signal),
     Node(Gate, bool),
@@ -57,7 +57,7 @@ impl Gate {
     /// Obtain the canonical form of the gate
     pub fn make_canonical(&self) -> Normalization {
         use Normalization::*;
-        Node(*self, false).make_canonical()
+        Node(self.clone(), false).make_canonical()
     }
 
     /// Obtain all signals feeding this gate
@@ -349,7 +349,7 @@ mod tests {
     use Normalization::*;
 
     fn check_canonization(n: Gate) {
-        let e0 = Node(n, false);
+        let e0 = Node(n.clone(), false);
         let e1 = Node(n, true);
         let c0 = e0.make_canonical();
         let c1 = e1.make_canonical();
