@@ -242,7 +242,7 @@ impl Aig {
     pub(crate) fn is_topo_sorted(&self) -> bool {
         for (i, g) in self.nodes.iter().enumerate() {
             let ind = i as u32;
-            for v in g.vars() {
+            for v in g.comb_vars() {
                 if v >= ind {
                     return false;
                 }
@@ -290,6 +290,69 @@ impl Aig {
             if visited[i] {
                 new_nodes.push(g.remap(translation.as_slice()));
             }
+        }
+        let new_outputs = self
+            .outputs
+            .iter()
+            .map(|s| s.remap(translation.as_slice()))
+            .collect();
+
+        self.nodes = new_nodes;
+        self.outputs = new_outputs;
+        translation
+    }
+
+    /// Topologically sort the Aig; this will invalidate all signals
+    ///
+    /// Returns the mapping of old variable indices to signals, if needed.
+    /// Removed signals are mapped to zero.
+    pub(crate) fn topo_sort(&mut self) -> Vec<Signal> {
+        // Count the output dependencies of each gate
+        let mut count_deps = vec![0u32; self.nb_nodes()];
+        for g in self.nodes.iter() {
+            for v in g.comb_vars() {
+                count_deps[v as usize] += 1;
+            }
+        }
+
+        // Compute the topological sort
+        let mut rev_order: Vec<u32> = Vec::new();
+        let mut visited = vec![false; self.nb_nodes()];
+        // Start with gates with no dependencies
+        let mut to_visit: Vec<u32> = (0..self.nb_nodes())
+            .filter(|v| count_deps[*v] == 0)
+            .map(|v| v as u32)
+            .collect();
+        while let Some(v) = to_visit.pop() {
+            // Visit the gate and mark the gates with satisfied dependencies
+            if visited[v as usize] {
+                continue;
+            }
+            visited[v as usize] = true;
+            rev_order.push(v);
+            for d in self.gate(v as usize).comb_vars() {
+                count_deps[d as usize] -= 1;
+                if count_deps[d as usize] == 0 {
+                    to_visit.push(d);
+                }
+            }
+        }
+        if rev_order.len() != self.nb_nodes() {
+            panic!("Unable to find a valid topological sort: there must be a combinatorial loop");
+        }
+        rev_order.reverse();
+        let order = rev_order;
+
+        let mut translation = vec![Signal::zero(); self.nb_nodes()];
+        for (new_i, old_i) in order.iter().enumerate() {
+            translation[*old_i as usize] = Signal::from_var(new_i as u32);
+        }
+
+        // Apply the mapping
+        let mut new_nodes = Vec::new();
+        for i in order {
+            let g = self.nodes[i as usize];
+            new_nodes.push(g.remap(translation.as_slice()));
         }
         let new_outputs = self
             .outputs

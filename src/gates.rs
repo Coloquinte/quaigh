@@ -82,6 +82,16 @@ impl Gate {
             .collect()
     }
 
+    /// Obtain all internal variables feeding this gate as combinatorial inputs
+    pub(crate) fn comb_vars(&self) -> Vec<u32> {
+        use Gate::*;
+        if let Dff(_, _, _) = self {
+            Vec::new()
+        } else {
+            self.vars()
+        }
+    }
+
     /// Apply a variable remapping to the gate
     pub(crate) fn remap(&self, t: &[Signal]) -> Gate {
         use Gate::*;
