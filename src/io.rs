@@ -1,6 +1,11 @@
-use std::{io::{BufRead, BufReader, Read}, collections::{HashSet, HashMap}};
+//! Read and write Aigs to files
 
-use crate::Aig;
+use std::{
+    collections::{HashMap, HashSet},
+    io::{BufRead, BufReader, Read},
+};
+
+use crate::{Aig, Gate, Signal};
 
 #[derive(Clone, Debug)]
 enum GateType {
@@ -15,14 +20,20 @@ enum GateType {
     Xor,
 }
 
-fn aig_from_statements(statements: &Vec<(String, GateType, Vec<String>)>, outputs: &Vec<String>) -> Aig {
+fn aig_from_statements(
+    statements: &Vec<(String, GateType, Vec<String>)>,
+    outputs: &Vec<String>,
+) -> Aig {
     use GateType::*;
 
     // Check everything
     let generated_gates: HashSet<_> = statements.iter().map(|s| &s.0).collect();
     for (_, gate_type, deps) in statements {
         for dep in deps {
-            assert!(generated_gates.contains(dep), "Gate input {dep} is not generated anywhere");
+            assert!(
+                generated_gates.contains(dep),
+                "Gate input {dep} is not generated anywhere"
+            );
         }
         match gate_type {
             Input => assert_eq!(deps.len(), 0),
@@ -31,41 +42,82 @@ fn aig_from_statements(statements: &Vec<(String, GateType, Vec<String>)>, output
         }
     }
     for output in outputs {
-        assert!(generated_gates.contains(output), "Output {output} is not generated anywhere");
+        assert!(
+            generated_gates.contains(output),
+            "Output {output} is not generated anywhere"
+        );
     }
 
-    // Perform a topological sort
-    //let order = Vec::new();
-    /*
-    let mut out_edges = HashMap::new();
-    for (_, _, deps) in statements {
-        for dep in deps {
-            if out_edges.contains_key(dep) {
-                out_edges[dep] += 1;
-            }
-            else {
-                out_edges.insert(dep, 1);
-            }
-        }
-    }*/
-    // Insert
-    
+    // Compute a mapping between the two
     let mut ret = Aig::new();
-    /*
-    let mut mapping = HashMap::new();
-    for (gate, gate_type, deps) in statements {
+    let mut name_to_sig = HashMap::new();
+    let mut node_ind = 0u32;
+    for (name, gate_type, _) in statements {
         match gate_type {
-            Input => mapping.insert(gate, ret.add_input()),
-            Dff => mapping.insert(),
+            Input => {
+                // No node inserted
+                name_to_sig.insert(name, ret.add_input());
+            }
+            Nand | Or => {
+                // These require an inverted gate
+                name_to_sig.insert(name, !Signal::from_var(node_ind));
+                node_ind += 1;
+            }
+            _ => {
+                name_to_sig.insert(name, Signal::from_var(node_ind));
+                node_ind += 1;
+            }
         }
     }
-    */
+
+    // Setup the variables based on the mapping
+    for (_, gate_type, deps) in statements {
+        let sigs: Box<[Signal]> = deps.iter().map(|n| name_to_sig[n]).collect();
+        let nsigs: Box<[Signal]> = deps.iter().map(|n| !name_to_sig[n]).collect();
+        match gate_type {
+            Input => (),
+            Dff => {
+                ret.add_raw_gate(Gate::Dff(sigs[0], Signal::one(), Signal::zero()));
+            }
+            Buf => {
+                ret.add_raw_gate(Gate::And(sigs[0], sigs[0]));
+            }
+            Not => {
+                ret.add_raw_gate(Gate::And(!sigs[0], !sigs[0]));
+            }
+            And | Nand => {
+                ret.add_raw_gate(Gate::Andn(sigs));
+            }
+            Or | Nor => {
+                ret.add_raw_gate(Gate::Andn(nsigs));
+            }
+            Xor => {
+                ret.add_raw_gate(Gate::Xorn(sigs));
+            }
+        }
+    }
+    for o in outputs {
+        ret.add_output(name_to_sig[o]);
+    }
+    ret.topo_sort();
     ret
 }
 
-/**
- * Parse a bench file, as used by the ISCAS benchmarks
- */
+/// Parse a bench file, as used by the ISCAS benchmarks
+///
+/// These files describe the design with simple statements like:
+/// ```text
+///     INPUT(i0)
+///     INPUT(i1)
+///     x0 = AND(i0, i1)
+///     x1 = NAND(x0, i1)
+///     x2 = OR(x0, i0)
+///     x3 = NOR(i0, x1)
+///     x4 = XOR(x3, x2)
+///     x5 = BUF(x4)
+///     x6 = NOT(x5)
+///     OUTPUT(x0)
+/// ```
 pub fn parse_bench<R: Read>(r: R) -> Result<Aig, String> {
     use GateType::*;
 
@@ -111,7 +163,6 @@ pub fn parse_bench<R: Read>(r: R) -> Result<Aig, String> {
             return Err("Error during file IO".to_string());
         }
     }
-    println!("Statements {:?}", statements);
     Ok(aig_from_statements(&statements, &outputs))
 }
 
@@ -127,7 +178,7 @@ x2 = OR(i0, i1)
 x3 = NOR(i0, i1)
 x4 = XOR(i0, i1)
 x5 = BUF(i0)
-x6 = BUF(i1)
+x6 = NOT(i1)
 OUTPUT(x0)
 OUTPUT(x1)
 OUTPUT(x2)
@@ -135,6 +186,9 @@ OUTPUT(x3)
 OUTPUT(x4)
 OUTPUT(x5)
 OUTPUT(x6)";
-        super::parse_bench(example.as_bytes()).unwrap();
+        let aig = super::parse_bench(example.as_bytes()).unwrap();
+        assert_eq!(aig.nb_inputs(), 2);
+        assert_eq!(aig.nb_outputs(), 7);
+        assert_eq!(aig.nb_nodes(), 7);
     }
 }

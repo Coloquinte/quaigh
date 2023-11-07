@@ -1,4 +1,4 @@
-//! Bounded equivalence checking on Aigs
+//! Equivalence checking on Aigs
 
 use std::collections::HashMap;
 

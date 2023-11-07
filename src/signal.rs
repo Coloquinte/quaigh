@@ -3,7 +3,9 @@ use std::{
     ops::{BitXor, BitXorAssign, Not},
 };
 
-/// Representation of a literal (a boolean variable or its complement). May be 0, 1, x or !x.
+/// Representation of a literal (a boolean variable or its complement)
+///
+/// May be 0, 1, x or !x.
 /// Design inputs and constants get a special representation.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Debug, Default)]
 pub struct Signal {

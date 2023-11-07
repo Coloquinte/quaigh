@@ -4,13 +4,13 @@
 //! It provides utilities to manipulate and simplify logic functions, check for equivalence, ...
 //!
 //! It is inspired by the logic synthesis tools [ABC](https://people.eecs.berkeley.edu/~alanmi/abc/) and [Mockturtle](https://mockturtle.readthedocs.io/en/latest/).
-//! Our goal is to provide an easy-to-use library for logical synthesis and technology mapping, and improve its quality over time.
+//! Our goal is to provide an easy-to-use library for logical synthesis and technology mapping, and improve its quality over time to match industrial tools.
 //!
 //! # Design
 //!
 //! Quaigh main representation uses a typical Gate-Inverter-Graph to represent a logic circuit.
 //!
-//! To make optimization easier, it differs from most similar representation:
+//! To make optimization easier, it differs from most similar representations:
 //! * Complex gates such as Xor, Mux and Maj3 are all first class citizens and can coexist in the same logic circuit;
 //! * Flip-flops with enable and reset are represented directly.
 //!

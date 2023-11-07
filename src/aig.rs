@@ -227,7 +227,7 @@ impl Aig {
     }
 
     /// Add a new gate, without normalization
-    fn add_raw_gate(&mut self, gate: Gate) -> Signal {
+    pub(crate) fn add_raw_gate(&mut self, gate: Gate) -> Signal {
         let l = Signal::from_var(self.nodes.len() as u32);
         self.nodes.push(gate);
         l
