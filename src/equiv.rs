@@ -65,11 +65,24 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
                 ret.push(vec![*a, *c, !n]);
             }
             Dff(_, _, _) => panic!("Combinatorial Aig expected"),
+            Andn(v) => {
+                for s in v.iter() {
+                    ret.push(vec![*s, !n]);
+                }
+                let mut c = vec![n];
+                for s in v.iter() {
+                    c.push(!s);
+                }
+                ret.push(c);
+            }
+            Xorn(_) => panic!("Xorn conversion to clause not implemented yet"),
         }
     }
     // Filter out zeros (removed from the clause)
     for c in &mut ret {
         c.retain(|s| *s != Signal::zero());
+        c.sort();
+        c.dedup();
     }
     // Filter out ones (clause removed)
     ret.retain(|c| c.iter().all(|s| *s != Signal::one()));
@@ -102,6 +115,8 @@ fn extend_aig_helper(a: &mut Aig, b: &Aig, t: &mut HashMap<Signal, Signal>, same
             Xor3(a, b, c) => Xor3(t[a], t[b], t[c]),
             Mux(a, b, c) => Mux(t[a], t[b], t[c]),
             Maj(a, b, c) => Maj(t[a], t[b], t[c]),
+            Andn(v) => Andn(v.iter().map(|s| t[s]).collect()),
+            Xorn(v) => Xorn(v.iter().map(|s| t[s]).collect()),
             Dff(_, _, _) => continue,
         };
         let s = a.add_gate(g);

@@ -19,6 +19,10 @@ pub enum Gate {
     Mux(Signal, Signal, Signal),
     /// D flip-flop
     Dff(Signal, Signal, Signal),
+    /// N-input And gate
+    Andn(Box<[Signal]>),
+    /// N-input Xor gate
+    Xorn(Box<[Signal]>),
 }
 
 /// Result of normalizing a logic gate
@@ -51,6 +55,8 @@ impl Gate {
             Dff(d, en, res) => {
                 *en != Signal::zero() && *d != Signal::zero() && *res != Signal::one()
             }
+            Andn(v) => sorted_n(v) && v.len() > 3 && !v[0].is_constant(),
+            Xorn(v) => sorted_n(v) && v.len() > 3 && !v[0].is_constant() && no_inv_n(v),
         }
     }
 
@@ -70,6 +76,7 @@ impl Gate {
             Mux(a, b, c) | And3(a, b, c) | Xor3(a, b, c) | Maj(a, b, c) | Dff(a, b, c) => {
                 vec![*a, *b, *c]
             }
+            Andn(v) | Xorn(v) => v.clone().into_vec(),
         }
     }
 
@@ -103,6 +110,8 @@ impl Gate {
             Maj(a, b, c) => Maj(a.remap(t), b.remap(t), c.remap(t)),
             Mux(a, b, c) => Mux(a.remap(t), b.remap(t), c.remap(t)),
             Dff(a, b, c) => Dff(a.remap(t), b.remap(t), c.remap(t)),
+            Andn(v) => Andn(v.iter().map(|s| s.remap(t)).collect()),
+            Xorn(v) => Xorn(v.iter().map(|s| s.remap(t)).collect()),
         }
     }
 }
@@ -230,6 +239,56 @@ fn make_dff(d: Signal, en: Signal, res: Signal, inv: bool) -> Normalization {
     }
 }
 
+/// Normalize a n-ary And
+fn make_andn(v: &[Signal], inv: bool) -> Normalization {
+    use Gate::*;
+    use Normalization::*;
+    let mut vs = v.to_vec();
+    vs.retain(|s| *s != Signal::one());
+    vs.sort();
+    vs.dedup();
+    for i in 1..vs.len() {
+        if vs[i - 1] == !vs[i] {
+            return Buf(Signal::zero() ^ inv);
+        }
+    }
+    if vs.is_empty() {
+        Buf(Signal::one() ^ inv)
+    } else if vs[0] == Signal::zero() {
+        Buf(Signal::zero() ^ inv)
+    } else if vs.len() == 1 {
+        Buf(vs[0] ^ inv)
+    } else if vs.len() == 2 {
+        make_and(vs[0], vs[1], inv)
+    } else if vs.len() == 3 {
+        make_and3(vs[0], vs[1], vs[2], inv)
+    } else {
+        Node(Andn(vs.into()), inv)
+    }
+}
+
+/// Normalize a n-ary Xor
+fn make_xorn(v: &[Signal], inv: bool) -> Normalization {
+    // TODO: remove polarities
+    // TODO: remove duplicates
+    use Gate::*;
+    use Normalization::*;
+    let mut vs = v.to_vec();
+    vs.retain(|s| *s != Signal::zero());
+    vs.sort();
+    if vs.is_empty() {
+        Buf(Signal::zero() ^ inv)
+    } else if vs.len() == 1 {
+        Buf(vs[0] ^ inv)
+    } else if vs.len() == 2 {
+        make_xor(vs[0], vs[1], inv)
+    } else if vs.len() == 3 {
+        make_xor3(vs[0], vs[1], vs[2], inv)
+    } else {
+        Node(Xorn(vs.into()), inv)
+    }
+}
+
 impl Normalization {
     /// Returns whether the normalization is canonical
     pub fn is_canonical(&self) -> bool {
@@ -254,6 +313,8 @@ impl Normalization {
                 Mux(s, a, b) => make_mux(*s, *a, *b, *inv),
                 Maj(a, b, c) => make_maj(*a, *b, *c, *inv),
                 Dff(d, en, res) => make_dff(*d, *en, *res, *inv),
+                Andn(v) => make_andn(v, *inv),
+                Xorn(v) => make_xorn(v, *inv),
             },
         }
     }
@@ -291,6 +352,26 @@ impl fmt::Display for Gate {
                 }
                 write!(f, ")")
             }
+            Andn(v) => {
+                write!(
+                    f,
+                    "{}",
+                    v.iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" & ")
+                )
+            }
+            Xorn(v) => {
+                write!(
+                    f,
+                    "{}",
+                    v.iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" ^ ")
+                )
+            }
         }
     }
 }
@@ -322,12 +403,20 @@ fn sorted_3(a: Signal, b: Signal, c: Signal) -> bool {
     a.ind() < b.ind() && b.ind() < c.ind()
 }
 
+fn sorted_n(v: &[Signal]) -> bool {
+    v.windows(2).all(|w| w[0].ind() < w[1].ind())
+}
+
 fn no_inv_2(a: Signal, b: Signal) -> bool {
     !a.pol() && !b.pol()
 }
 
 fn no_inv_3(a: Signal, b: Signal, c: Signal) -> bool {
     !a.pol() && !b.pol() && !c.pol()
+}
+
+fn no_inv_n(v: &[Signal]) -> bool {
+    v.iter().all(|s| !s.pol())
 }
 
 fn sort_2(a: Signal, b: Signal) -> (Signal, Signal) {
