@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 authors = ["Gabriel Gouvine <gabriel.gouvine_cargo@m4x.org>"]
-description = "mplementation of And-Inverter-Graph (AIG) for logic simplification"
+description = "Logic optimization library"
 license = "MIT OR Apache-2.0"
 keywords = ["boolean function", "logic function", "aig"]
 repository = "https://github.com/Coloquinte/quaigh"
@@ -16,3 +16,4 @@ categories = ["mathematics", "algorithms"]
 [dependencies]
 cat_solver = "3.1.1"
 volute = "1.0.3"
+clap = { version = "4.4", features = ["derive"] }
