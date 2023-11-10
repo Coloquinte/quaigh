@@ -2,7 +2,9 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    io::{BufRead, BufReader, Read},
+    fs::File,
+    io::{BufRead, BufReader, Read, Write},
+    path::PathBuf,
 };
 
 use crate::{Aig, Gate, Signal};
@@ -164,6 +166,102 @@ pub fn parse_bench<R: Read>(r: R) -> Result<Aig, String> {
         }
     }
     Ok(aig_from_statements(&statements, &outputs))
+}
+
+/// Open a file
+pub fn parse_file(path: PathBuf) -> Aig {
+    let ext = path.extension();
+    match ext {
+        None => panic!("No extension given"),
+        Some(s) => {
+            if s == "bench" {
+                let f = File::open(path).unwrap();
+                parse_bench(f).unwrap()
+            } else {
+                panic!("Unknown extension {}", s.to_string_lossy());
+            }
+        }
+    }
+}
+
+/// Ad-hoc to_string function to represent signals in bench files
+fn sig_to_string(s: &Signal) -> String {
+    s.without_pol().to_string() + (if s.pol() { "_n" } else { "" })
+}
+
+/// Write a bench file, as used by the ISCAS benchmarks
+///
+/// These files describe the design with simple statements like:
+/// ```text
+///     INPUT(i0)
+///     INPUT(i1)
+///     x0 = AND(i0, i1)
+///     x1 = NAND(x0, i1)
+///     x2 = OR(x0, i0)
+///     x3 = NOR(i0, x1)
+///     x4 = XOR(x3, x2)
+///     x5 = BUF(x4)
+///     x6 = NOT(x5)
+///     OUTPUT(x0)
+/// ```
+pub fn write_bench<W: Write>(w: &mut W, aig: &Aig) {
+    for i in 0..aig.nb_inputs() {
+        writeln!(w, "INPUT({})", aig.input(i)).unwrap();
+        writeln!(w, "i{}_n = NOT(i{})", i, i).unwrap();
+    }
+    writeln!(w).unwrap();
+    for i in 0..aig.nb_outputs() {
+        writeln!(w, "OUTPUT({})", aig.output(i)).unwrap();
+    }
+    writeln!(w).unwrap();
+    for i in 0..aig.nb_nodes() {
+        use Gate::*;
+        let g = aig.gate(i);
+        let rep = g
+            .dependencies()
+            .iter()
+            .map(sig_to_string)
+            .collect::<Vec<_>>()
+            .join(", ");
+        write!(w, "x{} = ", i).unwrap();
+        match g {
+            And(_, _) | And3(_, _, _) | Andn(_) => {
+                writeln!(w, "AND({})", rep).unwrap();
+            }
+            Xor(_, _) | Xor3(_, _, _) | Xorn(_) => {
+                writeln!(w, "XOR({})", rep).unwrap();
+            }
+            Dff(d, en, res) => {
+                if *en != Signal::one() || *res != Signal::zero() {
+                    panic!("Only DFF without enable or reset are supported");
+                }
+                writeln!(w, "DFF({})", sig_to_string(d)).unwrap();
+            }
+            Mux(_, _, _) => {
+                writeln!(w, "MUX({})", rep).unwrap();
+            }
+            Maj(_, _, _) => {
+                writeln!(w, "MAJ({})", rep).unwrap();
+            }
+        }
+        writeln!(w, "x{}_n = NOT(x{})", i, i).unwrap();
+    }
+}
+
+/// Write a file
+pub fn write_file(path: PathBuf, aig: &Aig) {
+    let ext = path.extension();
+    match ext {
+        None => panic!("No extension given"),
+        Some(s) => {
+            if s == "bench" {
+                let mut f = File::create(path).unwrap();
+                write_bench(&mut f, aig);
+            } else {
+                panic!("Unknown extension {}", s.to_string_lossy());
+            }
+        }
+    }
 }
 
 mod test {
