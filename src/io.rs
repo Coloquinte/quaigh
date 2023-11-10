@@ -154,7 +154,7 @@ pub fn parse_bench<R: Read>(r: R) -> Result<Aig, String> {
                     "NAND" => Nand,
                     "NOR" => Nor,
                     "XOR" => Xor,
-                    "BUF" => Buf,
+                    "BUF" | "BUFF" => Buf,
                     "NOT" => Not,
                     "DFF" => Dff,
                     _ => panic!("Unwnown gate type {}", parts[1]),

@@ -11,6 +11,7 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
     use Gate::*;
     assert!(aig.is_comb());
     let mut ret = Vec::<Vec<Signal>>::new();
+    let mut var = aig.nb_nodes() as u32;
     for i in 0..aig.nb_nodes() {
         let n = aig.node(i);
         match aig.gate(i) {
@@ -35,15 +36,19 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
                 ret.push(vec![!a, !b, !c, n]);
             }
             Xor3(a, b, c) => {
-                // 8 clauses, 32 literals
-                ret.push(vec![*a, *b, *c, !n]);
-                ret.push(vec![*a, *b, !c, n]);
-                ret.push(vec![*a, !b, *c, n]);
-                ret.push(vec![*a, !b, !c, !n]);
-                ret.push(vec![!a, *b, *c, n]);
-                ret.push(vec![!a, *b, !c, !n]);
-                ret.push(vec![!a, !b, *c, !n]);
-                ret.push(vec![!a, !b, !c, n]);
+                // 8 clauses, 24 literals, one new variable
+                let v = Signal::from_var(var);
+                var += 1;
+                // First Xor to new variable
+                ret.push(vec![*a, *b, !v]);
+                ret.push(vec![!a, !b, !v]);
+                ret.push(vec![!a, *b, v]);
+                ret.push(vec![*a, !b, v]);
+                // Second Xor to output
+                ret.push(vec![v, *c, !n]);
+                ret.push(vec![!v, !c, !n]);
+                ret.push(vec![!v, *c, n]);
+                ret.push(vec![v, !c, n]);
             }
             Mux(s, a, b) => {
                 // 4 clauses, 12 literals + 2 redundant clauses
@@ -75,7 +80,27 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
                 }
                 ret.push(c);
             }
-            Xorn(_) => panic!("Xorn conversion to clause not implemented yet"),
+            Xorn(v) => {
+                if v.is_empty() {
+                    ret.push(vec![!n]);
+                } else {
+                    // Implement as a series of consecutive Xor
+                    let mut a = v[0];
+                    for i in 1..v.len() {
+                        let b = v[i];
+                        let v = Signal::from_var(var);
+                        var += 1;
+                        ret.push(vec![a, b, !v]);
+                        ret.push(vec![!a, !b, !v]);
+                        ret.push(vec![!a, b, v]);
+                        ret.push(vec![a, !b, v]);
+                        a = v;
+                    }
+                    // Final clauses to force n to the last result
+                    ret.push(vec![a, !n]);
+                    ret.push(vec![!a, n]);
+                }
+            }
         }
     }
     // Filter out zeros (removed from the clause)
@@ -274,7 +299,7 @@ pub fn check_equivalence_bounded(a: &Aig, b: &Aig, nb_steps: usize) -> Result<()
 
 #[cfg(test)]
 mod tests {
-    use crate::{equiv::unroll, Aig, Signal};
+    use crate::{equiv::unroll, Aig, Gate, Signal};
 
     use super::check_equivalence_comb;
 
@@ -428,6 +453,50 @@ mod tests {
         let b2 = b.xor3(l1, l2, l3);
         b.add_output(b2);
         check_equivalence_comb(&a, &b).unwrap();
+    }
+
+    #[test]
+    fn test_equiv_andn() {
+        for nb in 0..8 {
+            let mut a = Aig::new();
+            let mut ao = Signal::one();
+            for _ in 0..nb {
+                let inp = a.add_input();
+                ao = a.and(ao, inp);
+            }
+            a.add_output(ao);
+
+            let mut b = Aig::new();
+            let mut v = Vec::new();
+            for _ in 0..nb {
+                v.push(b.add_input());
+            }
+            let bo = b.add_raw_gate(Gate::Andn(v.into()));
+            b.add_output(bo);
+            check_equivalence_comb(&a, &b).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_equiv_xorn() {
+        for nb in 0..8 {
+            let mut a = Aig::new();
+            let mut ao = Signal::zero();
+            for _ in 0..nb {
+                let inp = a.add_input();
+                ao = a.xor(ao, inp);
+            }
+            a.add_output(ao);
+
+            let mut b = Aig::new();
+            let mut v = Vec::new();
+            for _ in 0..nb {
+                v.push(b.add_input());
+            }
+            let bo = b.add_raw_gate(Gate::Xorn(v.into()));
+            b.add_output(bo);
+            check_equivalence_comb(&a, &b).unwrap();
+        }
     }
 
     #[test]
