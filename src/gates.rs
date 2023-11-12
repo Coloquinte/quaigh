@@ -269,23 +269,44 @@ fn make_andn(v: &[Signal], inv: bool) -> Normalization {
 
 /// Normalize a n-ary Xor
 fn make_xorn(v: &[Signal], inv: bool) -> Normalization {
-    // TODO: remove polarities
-    // TODO: remove duplicates
     use Gate::*;
     use Normalization::*;
     let mut vs = v.to_vec();
+    // Remove polarity
+    let mut pol = inv;
+    for s in vs.iter() {
+        pol ^= s.pol();
+    }
+    for s in &mut vs {
+        *s = s.without_pol();
+    }
     vs.retain(|s| *s != Signal::zero());
     vs.sort();
+    // Remove duplicates
+    let mut dd = Vec::new();
+    for s in vs {
+        if let Some(lst) = dd.last() {
+            if *lst != s {
+                dd.push(s);
+            } else {
+                dd.pop();
+            }
+        } else {
+            dd.push(s);
+        }
+    }
+    vs = dd;
+
     if vs.is_empty() {
-        Buf(Signal::zero() ^ inv)
+        Buf(Signal::zero() ^ pol)
     } else if vs.len() == 1 {
-        Buf(vs[0] ^ inv)
+        Buf(vs[0] ^ pol)
     } else if vs.len() == 2 {
-        make_xor(vs[0], vs[1], inv)
+        make_xor(vs[0], vs[1], pol)
     } else if vs.len() == 3 {
-        make_xor3(vs[0], vs[1], vs[2], inv)
+        make_xor3(vs[0], vs[1], vs[2], pol)
     } else {
-        Node(Xorn(vs.into()), inv)
+        Node(Xorn(vs.into()), pol)
     }
 }
 
@@ -457,7 +478,7 @@ mod tests {
 
     #[test]
     fn test_make_canonical() {
-        let mut vars = vec![];
+        let mut vars = vec![Signal::zero(), Signal::one()];
         for i in 0..4 {
             for b in [false, true] {
                 vars.push(Signal::from_ind(i) ^ b);
@@ -474,9 +495,16 @@ mod tests {
                     check_canonization(And3(*i0, *i1, *i2));
                     check_canonization(Xor3(*i0, *i1, *i2));
                     check_canonization(Dff(*i0, *i1, *i2));
+                    for i3 in vars.iter() {
+                        check_canonization(Andn(vec![*i0, *i1, *i2, *i3].into()));
+                        check_canonization(Xorn(vec![*i0, *i1, *i2, *i3].into()));
+                    }
                 }
             }
         }
+
+        check_canonization(Andn(Vec::new().into()));
+        check_canonization(Xorn(Vec::new().into()));
     }
 
     #[test]

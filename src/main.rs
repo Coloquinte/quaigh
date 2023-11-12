@@ -71,9 +71,16 @@ fn main() {
             let res = check_equivalence_bounded(&aig1, &aig2, num_cycles);
             let is_comb = aig1.is_comb() && aig2.is_comb();
             match res {
-                Err(_) => {
+                Err(err) => {
                     println!("Networks are not equivalent");
+                    println!("Test pattern:");
                     // TODO: extract the names here
+                    for (i, v) in err.iter().enumerate() {
+                        print!("{}: ", i + 1);
+                        for b in v {
+                            print!("{}", if *b { "0" } else { "1" });
+                        }
+                    }
                     std::process::exit(1);
                 }
                 Ok(()) => {
