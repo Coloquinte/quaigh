@@ -168,7 +168,7 @@ pub fn parse_bench<R: Read>(r: R) -> Result<Aig, String> {
     Ok(aig_from_statements(&statements, &outputs))
 }
 
-/// Open a file
+/// Open a file (.bench)
 pub fn parse_file(path: PathBuf) -> Aig {
     let ext = path.extension();
     match ext {
@@ -248,7 +248,7 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Aig) {
     }
 }
 
-/// Write a file
+/// Write a file (.bench)
 pub fn write_file(path: PathBuf, aig: &Aig) {
     let ext = path.extension();
     match ext {

@@ -299,6 +299,7 @@ impl Aig {
 
         self.nodes = new_nodes;
         self.outputs = new_outputs;
+        self.check();
         translation
     }
 
@@ -362,7 +363,31 @@ impl Aig {
 
         self.nodes = new_nodes;
         self.outputs = new_outputs;
+        self.check();
         translation
+    }
+
+    /// Check consistency of the datastructure
+    pub fn check(&self) {
+        for i in 0..self.nb_nodes() {
+            for v in self.gate(i).dependencies() {
+                if v.is_input() {
+                    assert!(v.input_ind() < self.nb_inputs() as u32);
+                }
+                if v.is_var() {
+                    assert!(v.var() < self.nb_nodes() as u32);
+                }
+            }
+        }
+        for i in 0..self.nb_outputs() {
+            let v = self.output(i);
+            if v.is_input() {
+                assert!(v.input_ind() < self.nb_inputs() as u32);
+            }
+            if v.is_var() {
+                assert!(v.var() < self.nb_nodes() as u32);
+            }
+        }
     }
 }
 
