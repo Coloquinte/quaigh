@@ -1,4 +1,6 @@
 use core::fmt;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 
 use crate::gates::Gate;
 use crate::gates::Normalization;
@@ -251,9 +253,8 @@ impl Aig {
         true
     }
 
-    /// Remap nodes and outputs
-    /// There may be holes
-    fn remap(&mut self, translation: &Vec<Signal>) {
+    /// Remap nodes; there may be holes in the translation
+    fn remap_nodes(&mut self, translation: &Vec<Signal>) {
         let mut new_nodes = Vec::new();
         for (i, g) in self.nodes.iter().enumerate() {
             if translation[i] != Signal::zero() {
@@ -261,13 +262,16 @@ impl Aig {
             }
         }
         self.nodes = new_nodes;
+    }
+
+    /// Remap outputs
+    fn remap_outputs(&mut self, translation: &Vec<Signal>) {
         let new_outputs = self
             .outputs
             .iter()
             .map(|s| s.remap(translation.as_slice()))
             .collect();
         self.outputs = new_outputs;
-        self.check();
     }
 
     /// Remove unused logic; this will invalidate all signals
@@ -303,7 +307,74 @@ impl Aig {
             }
         }
 
-        self.remap(&translation);
+        self.remap_nodes(&translation);
+        self.remap_outputs(&translation);
+        self.check();
+        translation
+    }
+
+    /// Remove duplicate logic and make all functions canonical; this will invalidate all signals
+    ///
+    /// Returns the mapping of old variable indices to signals, if needed.
+    /// Removed signals are mapped to zero.
+    pub fn dedup(&mut self) -> Vec<Signal> {
+        // Replace each node, in turn, by a simplified version or an equivalent existing node
+        // We need the network to be topologically sorted, so that the gate inputs are already replaced
+        // Dff gates are an exception to the sorting, and are handled separately
+        assert!(self.is_topo_sorted());
+        let mut translation = (0..self.nb_nodes())
+            .map(|i| Signal::from_var(i as u32))
+            .collect::<Vec<Signal>>();
+
+        /// Core function for deduplication
+        fn dedup_node(g: &Gate, h: &mut HashMap<Gate, Signal>, nodes: &mut Vec<Gate>) -> Signal {
+            let normalized = g.make_canonical();
+            match normalized {
+                Normalization::Buf(sig) => sig,
+                Normalization::Node(g, inv) => {
+                    let node_s = Signal::from_var(nodes.len() as u32);
+                    match h.entry(g.clone()) {
+                        Entry::Occupied(e) => e.get() ^ inv,
+                        Entry::Vacant(e) => {
+                            e.insert(node_s);
+                            nodes.push(g);
+                            node_s ^ inv
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut hsh = HashMap::new();
+        let mut new_nodes = Vec::new();
+
+        // Dedup flip flops
+        for i in 0..self.nb_nodes() {
+            let g = self.gate(i);
+            if let Gate::Dff(_, _, _) = g {
+                translation[i] = dedup_node(g, &mut hsh, &mut new_nodes);
+            }
+        }
+
+        // Remap and dedup combinatorial gates
+        for i in 0..self.nb_nodes() {
+            let g = self.gate(i).remap(translation.as_slice());
+            if let Gate::Dff(_, _, _) = g {
+                continue;
+            }
+            translation[i] = dedup_node(&g, &mut hsh, &mut new_nodes);
+        }
+
+        // Remap flip flops
+        for i in 0..new_nodes.len() {
+            if let Gate::Dff(_, _, _) = new_nodes[i] {
+                new_nodes[i] = new_nodes[i].remap(translation.as_slice());
+            }
+        }
+
+        self.nodes = new_nodes;
+        self.remap_outputs(&translation);
+        self.check();
         translation
     }
 
@@ -353,7 +424,9 @@ impl Aig {
             translation[*old_i as usize] = Signal::from_var(new_i as u32);
         }
 
-        self.remap(&translation);
+        self.remap_nodes(&translation);
+        self.remap_outputs(&translation);
+        self.check();
         translation
     }
 
@@ -362,7 +435,7 @@ impl Aig {
         for i in 0..self.nb_nodes() {
             for v in self.gate(i).dependencies() {
                 if v.is_input() {
-                    assert!(v.input_ind() < self.nb_inputs() as u32);
+                    assert!(v.input() < self.nb_inputs() as u32);
                 }
                 if v.is_var() {
                     assert!(v.var() < self.nb_nodes() as u32);
@@ -372,7 +445,7 @@ impl Aig {
         for i in 0..self.nb_outputs() {
             let v = self.output(i);
             if v.is_input() {
-                assert!(v.input_ind() < self.nb_inputs() as u32);
+                assert!(v.input() < self.nb_inputs() as u32);
             }
             if v.is_var() {
                 assert!(v.var() < self.nb_nodes() as u32);
@@ -497,5 +570,21 @@ mod tests {
                 Signal::from_var(1)
             ]
         );
+    }
+
+    #[test]
+    fn test_dedup() {
+        let mut aig = Aig::default();
+        let i0 = aig.add_input();
+        let i1 = aig.add_input();
+        let i2 = aig.add_input();
+        let x0 = aig.and(i0, i1);
+        let x0_s = aig.and(i0, i1);
+        let x1 = aig.and(x0, i2);
+        let x1_s = aig.and(x0_s, i2);
+        aig.add_output(x1);
+        aig.add_output(x1_s);
+        aig.dedup();
+        assert_eq!(aig.nb_and(), 2);
     }
 }

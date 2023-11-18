@@ -45,7 +45,7 @@ impl Signal {
     }
 
     /// Obtain the design input index associated with the literal
-    pub fn input_ind(&self) -> u32 {
+    pub fn input(&self) -> u32 {
         assert!(self.is_input());
         !self.ind() & !0x8000_0000
     }
@@ -169,7 +169,7 @@ impl fmt::Display for Signal {
             }
             if self.is_input() {
                 // Representation of inputs
-                let v = self.input_ind();
+                let v = self.input();
                 write!(f, "i{v}")
             } else {
                 let v = self.var();
@@ -205,8 +205,8 @@ mod tests {
         }
         for v in 0u32..10u32 {
             let l = Signal::from_input(v);
-            assert_eq!(l.input_ind(), v);
-            assert_eq!((!l).input_ind(), v);
+            assert_eq!(l.input(), v);
+            assert_eq!((!l).input(), v);
             assert!(!l.pol());
             assert!((!l).pol());
             assert_eq!(l ^ false, l);
