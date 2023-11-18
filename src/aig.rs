@@ -251,6 +251,25 @@ impl Aig {
         true
     }
 
+    /// Remap nodes and outputs
+    /// There may be holes
+    fn remap(&mut self, translation: &Vec<Signal>) {
+        let mut new_nodes = Vec::new();
+        for (i, g) in self.nodes.iter().enumerate() {
+            if translation[i] != Signal::zero() {
+                new_nodes.push(g.remap(translation.as_slice()));
+            }
+        }
+        self.nodes = new_nodes;
+        let new_outputs = self
+            .outputs
+            .iter()
+            .map(|s| s.remap(translation.as_slice()))
+            .collect();
+        self.outputs = new_outputs;
+        self.check();
+    }
+
     /// Remove unused logic; this will invalidate all signals
     ///
     /// Returns the mapping of old variable indices to signals, if needed.
@@ -284,22 +303,7 @@ impl Aig {
             }
         }
 
-        // Apply the mapping
-        let mut new_nodes = Vec::new();
-        for (i, g) in self.nodes.iter().enumerate() {
-            if visited[i] {
-                new_nodes.push(g.remap(translation.as_slice()));
-            }
-        }
-        let new_outputs = self
-            .outputs
-            .iter()
-            .map(|s| s.remap(translation.as_slice()))
-            .collect();
-
-        self.nodes = new_nodes;
-        self.outputs = new_outputs;
-        self.check();
+        self.remap(&translation);
         translation
     }
 
@@ -349,21 +353,7 @@ impl Aig {
             translation[*old_i as usize] = Signal::from_var(new_i as u32);
         }
 
-        // Apply the mapping
-        let mut new_nodes = Vec::new();
-        for i in order {
-            let g = self.gate(i as usize);
-            new_nodes.push(g.remap(translation.as_slice()));
-        }
-        let new_outputs = self
-            .outputs
-            .iter()
-            .map(|s| s.remap(translation.as_slice()))
-            .collect();
-
-        self.nodes = new_nodes;
-        self.outputs = new_outputs;
-        self.check();
+        self.remap(&translation);
         translation
     }
 

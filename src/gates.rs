@@ -54,6 +54,10 @@ impl Gate {
             }
             Dff(d, en, res) => {
                 *en != Signal::zero() && *d != Signal::zero() && *res != Signal::one()
+                // TODO: handle synonyms in the inputs resulting in:
+                //   * const 0 (en == !d, en == res, res == d)
+                //   * remove enable (en == !res)
+                //   * remove data (d == res)
             }
             Andn(v) => sorted_n(v) && v.len() > 3 && !v[0].is_constant(),
             Xorn(v) => sorted_n(v) && v.len() > 3 && !v[0].is_constant() && no_inv_n(v),
