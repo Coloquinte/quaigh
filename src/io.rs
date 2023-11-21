@@ -82,10 +82,10 @@ fn aig_from_statements(
                 ret.add_raw_gate(Gate::Dff(sigs[0], Signal::one(), Signal::zero()));
             }
             Buf => {
-                ret.add_raw_gate(Gate::And(sigs[0], sigs[0]));
+                ret.add_raw_gate(Gate::Buf(sigs[0]));
             }
             Not => {
-                ret.add_raw_gate(Gate::And(!sigs[0], !sigs[0]));
+                ret.add_raw_gate(Gate::Buf(!sigs[0]));
             }
             And | Nand => {
                 ret.add_raw_gate(Gate::Andn(sigs));
@@ -242,6 +242,9 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Aig) {
             }
             Maj(_, _, _) => {
                 writeln!(w, "MAJ({})", rep).unwrap();
+            }
+            Buf(_) => {
+                writeln!(w, "BUF({})", rep).unwrap();
             }
         }
         writeln!(w, "x{}_n = NOT(x{})", i, i).unwrap();

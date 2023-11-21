@@ -23,6 +23,8 @@ pub enum Gate {
     Andn(Box<[Signal]>),
     /// N-input Xor gate
     Xorn(Box<[Signal]>),
+    /// Buf or Not
+    Buf(Signal),
 }
 
 /// Result of normalizing a logic gate
@@ -61,6 +63,7 @@ impl Gate {
             }
             Andn(v) => sorted_n(v) && v.len() > 3 && !v[0].is_constant(),
             Xorn(v) => sorted_n(v) && v.len() > 3 && !v[0].is_constant() && no_inv_n(v),
+            Buf(_) => false,
         }
     }
 
@@ -81,6 +84,7 @@ impl Gate {
                 vec![*a, *b, *c]
             }
             Andn(v) | Xorn(v) => v.clone().into_vec(),
+            Buf(s) => vec![*s],
         }
     }
 
@@ -116,6 +120,7 @@ impl Gate {
             Dff(a, b, c) => Dff(a.remap(t), b.remap(t), c.remap(t)),
             Andn(v) => Andn(v.iter().map(|s| s.remap(t)).collect()),
             Xorn(v) => Xorn(v.iter().map(|s| s.remap(t)).collect()),
+            Buf(s) => Buf(s.remap(t)),
         }
     }
 }
@@ -340,6 +345,7 @@ impl Normalization {
                 Dff(d, en, res) => make_dff(*d, *en, *res, *inv),
                 Andn(v) => make_andn(v, *inv),
                 Xorn(v) => make_xorn(v, *inv),
+                Buf(s) => Copy(*s ^ *inv),
             },
         }
     }
@@ -396,6 +402,9 @@ impl fmt::Display for Gate {
                         .collect::<Vec<_>>()
                         .join(" ^ ")
                 )
+            }
+            Buf(s) => {
+                write!(f, "{}", s)
             }
         }
     }

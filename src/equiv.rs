@@ -101,6 +101,10 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
                     ret.push(vec![!a, n]);
                 }
             }
+            Buf(s) => {
+                ret.push(vec![*s, !n]);
+                ret.push(vec![!s, n]);
+            }
         }
     }
     // Filter out zeros (removed from the clause)
@@ -142,6 +146,7 @@ fn extend_aig_helper(a: &mut Aig, b: &Aig, t: &mut HashMap<Signal, Signal>, same
             Maj(a, b, c) => Maj(t[a], t[b], t[c]),
             Andn(v) => Andn(v.iter().map(|s| t[s]).collect()),
             Xorn(v) => Xorn(v.iter().map(|s| t[s]).collect()),
+            Buf(s) => Buf(t[s]),
             Dff(_, _, _) => continue,
         };
         let s = a.add_gate(g);

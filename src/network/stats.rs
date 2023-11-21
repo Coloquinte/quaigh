@@ -27,6 +27,8 @@ pub struct NetworkStats {
     pub nb_mux: usize,
     /// Number of Maj
     pub nb_maj: usize,
+    /// Number of Buf
+    pub nb_buf: usize,
     /// Number of Dff
     pub nb_dff: usize,
 }
@@ -42,6 +44,7 @@ impl NetworkStats {
             + self.nb_xorn
             + self.nb_mux
             + self.nb_maj
+            + self.nb_buf
             + self.nb_dff
     }
 }
@@ -76,6 +79,9 @@ impl fmt::Display for NetworkStats {
         if self.nb_maj != 0 {
             writeln!(f, "Maj: {}", self.nb_maj)?;
         }
+        if self.nb_buf != 0 {
+            writeln!(f, "Buf: {}", self.nb_buf)?;
+        }
         fmt::Result::Ok(())
     }
 }
@@ -94,6 +100,7 @@ pub fn stats(a: &Aig) -> NetworkStats {
         nb_xorn: 0,
         nb_maj: 0,
         nb_mux: 0,
+        nb_buf: 0,
         nb_dff: 0,
     };
     for i in 0..a.nb_nodes() {
@@ -106,6 +113,7 @@ pub fn stats(a: &Aig) -> NetworkStats {
             Xorn(_) => ret.nb_xorn += 1,
             Mux(_, _, _) => ret.nb_mux += 1,
             Maj(_, _, _) => ret.nb_maj += 1,
+            Buf(_) => ret.nb_buf += 1,
             Dff(_, _, _) => ret.nb_dff += 1,
         }
     }
