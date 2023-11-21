@@ -253,13 +253,24 @@ impl Aig {
         true
     }
 
+    /// Obtain the literal translation from an order
+    fn order_to_translation(&self, order: &Vec<u32>) -> Vec<Signal> {
+        let mut translation = vec![Signal::zero(); self.nb_nodes()];
+        for (new_i, old_i) in order.iter().enumerate() {
+            translation[*old_i as usize] = Signal::from_var(new_i as u32);
+        }
+        translation
+    }
+
     /// Remap nodes; there may be holes in the translation
-    fn remap_nodes(&mut self, translation: &Vec<Signal>) {
+    fn remap_nodes(&mut self, translation: &Vec<Signal>, order: &Vec<u32>) {
         let mut new_nodes = Vec::new();
-        for (i, g) in self.nodes.iter().enumerate() {
-            if translation[i] != Signal::zero() {
-                new_nodes.push(g.remap(translation.as_slice()));
-            }
+        for o in order {
+            let i = *o as usize;
+            let g = self.gate(i);
+            assert!(translation[i].is_var());
+            assert_eq!(translation[i].var(), new_nodes.len() as u32);
+            new_nodes.push(g.remap(translation.as_slice()));
         }
         self.nodes = new_nodes;
     }
@@ -298,16 +309,15 @@ impl Aig {
         }
 
         // Now compute a mapping for all nodes that are reachable
-        let mut translation = vec![Signal::zero(); self.nb_nodes()];
-        let mut ind: u32 = 0;
-        for i in 0..self.nb_nodes() {
-            if visited[i] {
-                translation[i] = Signal::from_var(ind);
-                ind += 1;
+        let mut order = Vec::new();
+        for (i, v) in visited.iter().enumerate() {
+            if *v {
+                order.push(i as u32);
             }
         }
 
-        self.remap_nodes(&translation);
+        let translation = self.order_to_translation(&order);
+        self.remap_nodes(&translation, &order);
         self.remap_outputs(&translation);
         self.check();
         translation
@@ -419,12 +429,8 @@ impl Aig {
         rev_order.reverse();
         let order = rev_order;
 
-        let mut translation = vec![Signal::zero(); self.nb_nodes()];
-        for (new_i, old_i) in order.iter().enumerate() {
-            translation[*old_i as usize] = Signal::from_var(new_i as u32);
-        }
-
-        self.remap_nodes(&translation);
+        let translation = self.order_to_translation(&order);
+        self.remap_nodes(&translation, &order);
         self.remap_outputs(&translation);
         self.check();
         translation
