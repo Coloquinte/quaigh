@@ -2,6 +2,7 @@ use clap::{Args, Parser, Subcommand};
 use quaigh::{
     equiv::check_equivalence_bounded,
     io::{parse_file, write_file},
+    stats,
 };
 use std::path::PathBuf;
 
@@ -21,6 +22,9 @@ enum Commands {
     /// Optimize a logic network
     #[clap(alias = "opt")]
     Optimize(OptArgs),
+    /// Show statistics about a logic network
+    #[clap()]
+    Show(ShowArgs),
 }
 
 #[derive(Args)]
@@ -39,6 +43,11 @@ struct OptArgs {
 
     #[arg(short = 'o', long)]
     output: PathBuf,
+}
+
+#[derive(Args)]
+struct ShowArgs {
+    file: PathBuf,
 }
 
 fn main() {
@@ -96,6 +105,14 @@ fn main() {
         Commands::Optimize(OptArgs { file, output }) => {
             let aig = parse_file(file);
             write_file(output, &aig);
+        }
+        Commands::Show(ShowArgs { file }) => {
+            let mut aig = parse_file(file);
+            println!("Network stats:\n{}\n\n", stats::stats(&aig));
+
+            aig.sweep();
+            aig.dedup();
+            println!("After deduplication:\n{}", stats::stats(&aig));
         }
     }
 }
