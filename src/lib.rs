@@ -34,6 +34,7 @@ mod network;
 pub mod equiv;
 pub mod io;
 
+pub use network::generators;
 pub use network::Aig;
 pub use network::Gate;
 pub use network::Signal;

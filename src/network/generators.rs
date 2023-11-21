@@ -73,7 +73,7 @@ pub mod testcases {
         ret
     }
 
-    // An expanding tree of Dffs, used to test deduplication
+    /// An expanding tree of Dffs, used to test deduplication
     pub fn ff_tree(depth: usize, has_en: bool, has_res: bool, expansion: usize) -> Aig {
         let mut ret = Aig::new();
         let input = ret.add_input();

@@ -253,17 +253,15 @@ impl Aig {
         true
     }
 
-    /// Obtain the literal translation from an order
-    fn order_to_translation(&self, order: &Vec<u32>) -> Vec<Signal> {
+    /// Remap nodes; there may be holes in the translation
+    fn remap(&mut self, order: &[u32]) -> Box<[Signal]> {
+        // Create the translation
         let mut translation = vec![Signal::zero(); self.nb_nodes()];
         for (new_i, old_i) in order.iter().enumerate() {
             translation[*old_i as usize] = Signal::from_var(new_i as u32);
         }
-        translation
-    }
 
-    /// Remap nodes; there may be holes in the translation
-    fn remap_nodes(&mut self, translation: &Vec<Signal>, order: &Vec<u32>) {
+        // Remap the nodes
         let mut new_nodes = Vec::new();
         for o in order {
             let i = *o as usize;
@@ -273,15 +271,15 @@ impl Aig {
             new_nodes.push(g.remap(translation.as_slice()));
         }
         self.nodes = new_nodes;
+
+        // Remap the outputs
+        self.remap_outputs(&translation);
+        translation.into()
     }
 
     /// Remap outputs
-    fn remap_outputs(&mut self, translation: &Vec<Signal>) {
-        let new_outputs = self
-            .outputs
-            .iter()
-            .map(|s| s.remap(translation.as_slice()))
-            .collect();
+    fn remap_outputs(&mut self, translation: &[Signal]) {
+        let new_outputs = self.outputs.iter().map(|s| s.remap(translation)).collect();
         self.outputs = new_outputs;
     }
 
@@ -289,7 +287,7 @@ impl Aig {
     ///
     /// Returns the mapping of old variable indices to signals, if needed.
     /// Removed signals are mapped to zero.
-    pub fn sweep(&mut self) -> Vec<Signal> {
+    pub fn sweep(&mut self) -> Box<[Signal]> {
         // Mark unused logic
         let mut visited = vec![false; self.nb_nodes()];
         let mut to_visit = Vec::<u32>::new();
@@ -315,12 +313,7 @@ impl Aig {
                 order.push(i as u32);
             }
         }
-
-        let translation = self.order_to_translation(&order);
-        self.remap_nodes(&translation, &order);
-        self.remap_outputs(&translation);
-        self.check();
-        translation
+        self.remap(order.as_slice())
     }
 
     /// Remove duplicate logic and make all functions canonical; this will invalidate all signals
@@ -392,7 +385,7 @@ impl Aig {
     ///
     /// Returns the mapping of old variable indices to signals, if needed.
     /// Removed signals are mapped to zero.
-    pub(crate) fn topo_sort(&mut self) -> Vec<Signal> {
+    pub(crate) fn topo_sort(&mut self) -> Box<[Signal]> {
         // Count the output dependencies of each gate
         let mut count_deps = vec![0u32; self.nb_nodes()];
         for g in self.nodes.iter() {
@@ -429,11 +422,7 @@ impl Aig {
         rev_order.reverse();
         let order = rev_order;
 
-        let translation = self.order_to_translation(&order);
-        self.remap_nodes(&translation, &order);
-        self.remap_outputs(&translation);
-        self.check();
-        translation
+        self.remap(order.as_slice())
     }
 
     /// Check consistency of the datastructure
@@ -575,6 +564,7 @@ mod tests {
                 Signal::zero(),
                 Signal::from_var(1)
             ]
+            .into()
         );
     }
 
