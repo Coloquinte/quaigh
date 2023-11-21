@@ -29,13 +29,11 @@
 
 #![warn(missing_docs)]
 
-mod aig;
-mod gates;
-mod signal;
+mod network;
 
 pub mod equiv;
 pub mod io;
 
-pub use aig::Aig;
-pub use gates::Gate;
-pub use signal::Signal;
+pub use network::Aig;
+pub use network::Gate;
+pub use network::Signal;

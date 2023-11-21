@@ -1,6 +1,6 @@
 use std::{cmp, fmt};
 
-use crate::signal::Signal;
+use crate::network::signal::Signal;
 
 /// Logic gate
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]

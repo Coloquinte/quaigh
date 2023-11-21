@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use cat_solver::Solver;
 
-use crate::{aig::Aig, gates::Gate, signal::Signal};
+use crate::{Aig, Gate, Signal};
 
 /// Export a combinatorial Aig to a CNF formula
 fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
