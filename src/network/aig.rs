@@ -223,7 +223,7 @@ impl Aig {
         use Normalization::*;
         let g = gate.make_canonical();
         match g {
-            Buf(l) => l,
+            Copy(l) => l,
             Node(g, inv) => self.add_raw_gate(g) ^ inv,
         }
     }
@@ -333,7 +333,7 @@ impl Aig {
         fn dedup_node(g: &Gate, h: &mut HashMap<Gate, Signal>, nodes: &mut Vec<Gate>) -> Signal {
             let normalized = g.make_canonical();
             match normalized {
-                Normalization::Buf(sig) => sig,
+                Normalization::Copy(sig) => sig,
                 Normalization::Node(g, inv) => {
                     let node_s = Signal::from_var(nodes.len() as u32);
                     match h.entry(g.clone()) {

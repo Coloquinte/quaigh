@@ -28,7 +28,7 @@ pub enum Gate {
 /// Result of normalizing a logic gate
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Normalization {
-    Buf(Signal),
+    Copy(Signal),
     Node(Gate, bool),
 }
 
@@ -126,9 +126,9 @@ fn make_and(a: Signal, b: Signal, inv: bool) -> Normalization {
     use Normalization::*;
     let (i0, i1) = sort_2(a, b);
     if i0 == Signal::zero() || i0 == !i1 {
-        Buf(Signal::zero() ^ inv)
+        Copy(Signal::zero() ^ inv)
     } else if i0 == Signal::one() || i0 == i1 {
-        Buf(i1 ^ inv)
+        Copy(i1 ^ inv)
     } else {
         Node(And(i0, i1), inv)
     }
@@ -141,9 +141,9 @@ fn make_xor(a: Signal, b: Signal, inv: bool) -> Normalization {
     let new_inv = a.pol() ^ b.pol() ^ inv;
     let (i0, i1) = sort_2(a.without_pol(), b.without_pol());
     if i0 == Signal::zero() {
-        Buf(i1 ^ new_inv)
+        Copy(i1 ^ new_inv)
     } else if i0 == i1 {
-        Buf(Signal::from(new_inv))
+        Copy(Signal::from(new_inv))
     } else {
         Node(Xor(i0, i1), new_inv)
     }
@@ -155,7 +155,7 @@ fn make_and3(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
     use Normalization::*;
     let (i0, i1, i2) = sort_3(a, b, c);
     if i0 == Signal::zero() || i0 == !i1 || i2 == !i1 {
-        Buf(Signal::zero() ^ inv)
+        Copy(Signal::zero() ^ inv)
     } else if i0 == Signal::one() || i0 == i1 {
         make_and(i1, i2, inv)
     } else if i1 == i2 {
@@ -174,9 +174,9 @@ fn make_xor3(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
     if i0 == Signal::zero() {
         make_xor(i1, i2, new_inv)
     } else if i0 == i1 {
-        Buf(i2 ^ new_inv)
+        Copy(i2 ^ new_inv)
     } else if i1 == i2 {
-        Buf(i0 ^ new_inv)
+        Copy(i0 ^ new_inv)
     } else {
         Node(Xor3(i0, i1, i2), new_inv)
     }
@@ -191,7 +191,7 @@ fn make_mux(s: Signal, a: Signal, b: Signal, inv: bool) -> Normalization {
     } else if b.pol() {
         make_mux(s, !a, !b, !inv)
     } else if s == Signal::zero() || a == b {
-        Buf(b ^ inv)
+        Copy(b ^ inv)
     } else if s == a || a == Signal::one() {
         // s ? 1 : b ==> s | b ==> !(!s & !b)
         make_and(!s, !b, !inv)
@@ -218,9 +218,9 @@ fn make_maj(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
     use Normalization::*;
     let (i0, i1, i2) = sort_3(a, b, c);
     if i0 == !i1 || i1 == i2 {
-        Buf(i2 ^ inv)
+        Copy(i2 ^ inv)
     } else if i1 == !i2 || i0 == i1 {
-        Buf(i0 ^ inv)
+        Copy(i0 ^ inv)
     } else if i0.pol() {
         // Won't cause an infinite loop because the order will not change
         // We already removed cases where signals differ by their sign
@@ -237,7 +237,7 @@ fn make_dff(d: Signal, en: Signal, res: Signal, inv: bool) -> Normalization {
     use Gate::*;
     use Normalization::*;
     if d == Signal::zero() || en == Signal::zero() || res == Signal::one() {
-        Buf(Signal::zero() ^ inv)
+        Copy(Signal::zero() ^ inv)
     } else {
         Node(Dff(d, en, res), inv)
     }
@@ -253,15 +253,15 @@ fn make_andn(v: &[Signal], inv: bool) -> Normalization {
     vs.dedup();
     for i in 1..vs.len() {
         if vs[i - 1] == !vs[i] {
-            return Buf(Signal::zero() ^ inv);
+            return Copy(Signal::zero() ^ inv);
         }
     }
     if vs.is_empty() {
-        Buf(Signal::one() ^ inv)
+        Copy(Signal::one() ^ inv)
     } else if vs[0] == Signal::zero() {
-        Buf(Signal::zero() ^ inv)
+        Copy(Signal::zero() ^ inv)
     } else if vs.len() == 1 {
-        Buf(vs[0] ^ inv)
+        Copy(vs[0] ^ inv)
     } else if vs.len() == 2 {
         make_and(vs[0], vs[1], inv)
     } else if vs.len() == 3 {
@@ -302,9 +302,9 @@ fn make_xorn(v: &[Signal], inv: bool) -> Normalization {
     vs = dd;
 
     if vs.is_empty() {
-        Buf(Signal::zero() ^ pol)
+        Copy(Signal::zero() ^ pol)
     } else if vs.len() == 1 {
-        Buf(vs[0] ^ pol)
+        Copy(vs[0] ^ pol)
     } else if vs.len() == 2 {
         make_xor(vs[0], vs[1], pol)
     } else if vs.len() == 3 {
@@ -319,7 +319,7 @@ impl Normalization {
     pub fn is_canonical(&self) -> bool {
         use Normalization::*;
         match self {
-            Buf(_) => true,
+            Copy(_) => true,
             Node(g, _) => g.is_canonical(),
         }
     }
@@ -329,7 +329,7 @@ impl Normalization {
         use Gate::*;
         use Normalization::*;
         match self {
-            Buf(s) => Buf(*s),
+            Copy(s) => Copy(*s),
             Node(g, inv) => match g {
                 And(a, b) => make_and(*a, *b, *inv),
                 Xor(a, b) => make_xor(*a, *b, *inv),
@@ -405,7 +405,7 @@ impl fmt::Display for Normalization {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Normalization::*;
         match self {
-            Buf(s) => write!(f, "{s}"),
+            Copy(s) => write!(f, "{s}"),
             Node(g, inv) => {
                 if *inv {
                     write!(f, "!(")?;
@@ -471,7 +471,7 @@ mod tests {
         assert!(c1.is_canonical(), "Canonization is wrong: {e1} to {c1}");
 
         match (c0, c1) {
-            (Buf(s0), Buf(s1)) => assert_eq!(s0, !s1),
+            (Copy(s0), Copy(s1)) => assert_eq!(s0, !s1),
             (Node(g0, i0), Node(g1, i1)) => {
                 assert_eq!(g0, g1);
                 assert_eq!(i0, !i1);
