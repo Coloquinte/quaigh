@@ -499,6 +499,7 @@ mod tests {
         }
 
         for i0 in vars.iter() {
+            check_canonization(Buf(*i0));
             for i1 in vars.iter() {
                 check_canonization(And(*i0, *i1));
                 check_canonization(Xor(*i0, *i1));

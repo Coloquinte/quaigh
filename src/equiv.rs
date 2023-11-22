@@ -313,7 +313,7 @@ pub fn check_equivalence_bounded(
 
 #[cfg(test)]
 mod tests {
-    use crate::{equiv::unroll, Aig, Gate, Signal};
+    use crate::{equiv::unroll, stats::stats, Aig, Gate, Signal};
 
     use super::check_equivalence_comb;
 
@@ -595,8 +595,9 @@ mod tests {
         assert_eq!(un.nb_inputs(), 2 * nb_steps);
         assert_eq!(un.nb_outputs(), nb_steps);
         assert_eq!(un.nb_nodes(), nb_steps - 1);
-        assert_eq!(un.nb_mux(), nb_steps - 2);
-        assert_eq!(un.nb_and(), 1);
+        let st = stats(&un);
+        assert_eq!(st.nb_mux, nb_steps - 2);
+        assert_eq!(st.nb_and, 1);
         assert_eq!(un.output(0), Signal::zero());
     }
 }

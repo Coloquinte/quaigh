@@ -10,7 +10,7 @@ pub use bench::write_bench;
 
 use crate::Aig;
 
-/// Open an Aig file
+/// Parse a logic network from a file
 ///
 /// Following extensions are supported: .bench
 pub fn parse_file(path: PathBuf) -> Aig {
@@ -28,7 +28,7 @@ pub fn parse_file(path: PathBuf) -> Aig {
     }
 }
 
-/// Write a file (.bench)
+/// Write a logic network to a file
 ///
 /// Following extensions are supported: .bench
 pub fn write_file(path: PathBuf, aig: &Aig) {

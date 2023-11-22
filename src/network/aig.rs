@@ -57,62 +57,6 @@ impl Aig {
         &self.nodes[i]
     }
 
-    /// Number of And2 gates
-    pub fn nb_and(&self) -> usize {
-        self.nodes
-            .iter()
-            .filter(|g| matches!(g, Gate::And(_, _)))
-            .count()
-    }
-
-    /// Number of Xor2 gates
-    pub fn nb_xor(&self) -> usize {
-        self.nodes
-            .iter()
-            .filter(|g| matches!(g, Gate::Xor(_, _)))
-            .count()
-    }
-
-    /// Number of And3 gates
-    pub fn nb_and3(&self) -> usize {
-        self.nodes
-            .iter()
-            .filter(|g| matches!(g, Gate::And3(_, _, _)))
-            .count()
-    }
-
-    /// Number of Xor3 gates
-    pub fn nb_xor3(&self) -> usize {
-        self.nodes
-            .iter()
-            .filter(|g| matches!(g, Gate::Xor3(_, _, _)))
-            .count()
-    }
-
-    /// Number of Mux gates
-    pub fn nb_mux(&self) -> usize {
-        self.nodes
-            .iter()
-            .filter(|g| matches!(g, Gate::Mux(_, _, _)))
-            .count()
-    }
-
-    /// Number of Maj gates
-    pub fn nb_maj(&self) -> usize {
-        self.nodes
-            .iter()
-            .filter(|g| matches!(g, Gate::Maj(_, _, _)))
-            .count()
-    }
-
-    /// Number of Dff gates
-    pub fn nb_dff(&self) -> usize {
-        self.nodes
-            .iter()
-            .filter(|g| matches!(g, Gate::Dff(_, _, _)))
-            .count()
-    }
-
     /// Add a new primary input
     pub fn add_input(&mut self) -> Signal {
         self.nb_inputs += 1;
@@ -237,7 +181,7 @@ impl Aig {
 
     /// Return whether the Aig is purely combinatorial
     pub fn is_comb(&self) -> bool {
-        self.nb_dff() == 0
+        self.nodes.iter().all(|g| !matches!(g, Gate::Dff(_, _, _)))
     }
 
     /// Return whether the Aig is already topologically sorted (except for flip-flops)
@@ -429,22 +373,23 @@ impl Aig {
     pub fn check(&self) {
         for i in 0..self.nb_nodes() {
             for v in self.gate(i).dependencies() {
-                if v.is_input() {
-                    assert!(v.input() < self.nb_inputs() as u32);
-                }
-                if v.is_var() {
-                    assert!(v.var() < self.nb_nodes() as u32);
-                }
+                assert!(self.is_valid(v), "Invalid signal {v}");
             }
         }
         for i in 0..self.nb_outputs() {
             let v = self.output(i);
-            if v.is_input() {
-                assert!(v.input() < self.nb_inputs() as u32);
-            }
-            if v.is_var() {
-                assert!(v.var() < self.nb_nodes() as u32);
-            }
+            assert!(self.is_valid(v), "Invalid output {v}");
+        }
+    }
+
+    /// Returns whether a signal is valid (within bounds) in the Aig
+    pub(crate) fn is_valid(&self, s: Signal) -> bool {
+        if s.is_input() {
+            s.input() < self.nb_inputs() as u32
+        } else if s.is_var() {
+            s.var() < self.nb_nodes() as u32
+        } else {
+            true
         }
     }
 }
@@ -581,6 +526,6 @@ mod tests {
         aig.add_output(x1);
         aig.add_output(x1_s);
         aig.dedup();
-        assert_eq!(aig.nb_and(), 2);
+        assert_eq!(aig.nb_nodes(), 2);
     }
 }
