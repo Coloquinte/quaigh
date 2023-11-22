@@ -1,7 +1,7 @@
 //! Read and write Aigs to files
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fs::File,
     io::{BufRead, BufReader, Read, Write},
     path::PathBuf,
@@ -28,12 +28,41 @@ fn aig_from_statements(
 ) -> Aig {
     use GateType::*;
 
+    // Compute a mapping between the two
+    let mut ret = Aig::new();
+    let mut name_to_sig = HashMap::new();
+    let mut node_ind = 0u32;
+    for (name, gate_type, _) in statements {
+        match gate_type {
+            Input => {
+                // No node inserted
+                name_to_sig.insert(name.clone(), ret.add_input());
+            }
+            Nand | Or => {
+                // These require an inverted gate
+                name_to_sig.insert(name.clone(), !Signal::from_var(node_ind));
+                node_ind += 1;
+            }
+            _ => {
+                name_to_sig.insert(name.clone(), Signal::from_var(node_ind));
+                node_ind += 1;
+            }
+        }
+    }
+
+    // ABC-style naming for constant signals
+    if !name_to_sig.contains_key("vdd") {
+        name_to_sig.insert("vdd".to_string(), Signal::one());
+    }
+    if !name_to_sig.contains_key("gnd") {
+        name_to_sig.insert("gnd".to_string(), Signal::zero());
+    }
+
     // Check everything
-    let generated_gates: HashSet<_> = statements.iter().map(|s| &s.0).collect();
     for (_, gate_type, deps) in statements {
         for dep in deps {
             assert!(
-                generated_gates.contains(dep),
+                name_to_sig.contains_key(dep),
                 "Gate input {dep} is not generated anywhere"
             );
         }
@@ -45,31 +74,9 @@ fn aig_from_statements(
     }
     for output in outputs {
         assert!(
-            generated_gates.contains(output),
+            name_to_sig.contains_key(output),
             "Output {output} is not generated anywhere"
         );
-    }
-
-    // Compute a mapping between the two
-    let mut ret = Aig::new();
-    let mut name_to_sig = HashMap::new();
-    let mut node_ind = 0u32;
-    for (name, gate_type, _) in statements {
-        match gate_type {
-            Input => {
-                // No node inserted
-                name_to_sig.insert(name, ret.add_input());
-            }
-            Nand | Or => {
-                // These require an inverted gate
-                name_to_sig.insert(name, !Signal::from_var(node_ind));
-                node_ind += 1;
-            }
-            _ => {
-                name_to_sig.insert(name, Signal::from_var(node_ind));
-                node_ind += 1;
-            }
-        }
     }
 
     // Setup the variables based on the mapping
@@ -186,6 +193,12 @@ pub fn parse_file(path: PathBuf) -> Aig {
 
 /// Ad-hoc to_string function to represent signals in bench files
 fn sig_to_string(s: &Signal) -> String {
+    if *s == Signal::one() {
+        return "vdd".to_string();
+    }
+    if *s == Signal::zero() {
+        return "gnd".to_string();
+    }
     s.without_pol().to_string() + (if s.pol() { "_n" } else { "" })
 }
 
@@ -211,7 +224,7 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Aig) {
     }
     writeln!(w).unwrap();
     for i in 0..aig.nb_outputs() {
-        writeln!(w, "OUTPUT({})", aig.output(i)).unwrap();
+        writeln!(w, "OUTPUT({})", sig_to_string(&aig.output(i))).unwrap();
     }
     writeln!(w).unwrap();
     for i in 0..aig.nb_nodes() {

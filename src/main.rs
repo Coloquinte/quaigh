@@ -103,7 +103,9 @@ fn main() {
             }
         }
         Commands::Optimize(OptArgs { file, output }) => {
-            let aig = parse_file(file);
+            let mut aig = parse_file(file);
+            aig.sweep();
+            aig.dedup();
             write_file(output, &aig);
         }
         Commands::Show(ShowArgs { file }) => {
