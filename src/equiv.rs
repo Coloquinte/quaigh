@@ -215,8 +215,8 @@ fn difference(a: &Aig, b: &Aig) -> Aig {
         let o = eq.xor(sa, sb);
         outputs.push(o);
     }
-    let equiv = eq.or_n(&outputs);
-    eq.add_output(equiv);
+    let diff = eq.or_n(&outputs);
+    eq.add_output(diff);
     eq
 }
 
@@ -268,9 +268,13 @@ fn prove(a: &Aig) -> Option<Vec<bool>> {
 }
 
 /// Perform equivalence checking on two combinatorial AIGs
-pub fn check_equivalence_comb(a: &Aig, b: &Aig) -> Result<(), Vec<bool>> {
+pub fn check_equivalence_comb(a: &Aig, b: &Aig, optimize: bool) -> Result<(), Vec<bool>> {
     assert!(a.is_comb() && b.is_comb());
-    let eq = difference(a, b);
+    let mut eq = difference(a, b);
+    if optimize {
+        eq.dedup();
+        eq.sweep();
+    }
     let res = prove(&eq);
     match res {
         None => Ok(()),
@@ -279,14 +283,19 @@ pub fn check_equivalence_comb(a: &Aig, b: &Aig) -> Result<(), Vec<bool>> {
 }
 
 /// Perform bounded equivalence checking on two sequential AIGs
-pub fn check_equivalence_bounded(a: &Aig, b: &Aig, nb_steps: usize) -> Result<(), Vec<Vec<bool>>> {
+pub fn check_equivalence_bounded(
+    a: &Aig,
+    b: &Aig,
+    nb_steps: usize,
+    optimize: bool,
+) -> Result<(), Vec<Vec<bool>>> {
     assert_eq!(a.nb_inputs(), b.nb_inputs());
     assert_eq!(a.nb_outputs(), b.nb_outputs());
 
     let a_u = unroll(a, nb_steps);
     let b_u = unroll(b, nb_steps);
 
-    let res = check_equivalence_comb(&a_u, &b_u);
+    let res = check_equivalence_comb(&a_u, &b_u, optimize);
     match res {
         Ok(()) => Ok(()),
         Err(v) => {
@@ -320,7 +329,8 @@ mod tests {
         b.add_input();
         let ab = b.and(l1, l2);
         b.add_output(ab);
-        check_equivalence_comb(&a, &b).unwrap();
+        check_equivalence_comb(&a, &b, false).unwrap();
+        check_equivalence_comb(&a, &b, true).unwrap();
     }
 
     #[test]
@@ -334,7 +344,7 @@ mod tests {
         b.add_input();
         b.add_input();
         b.add_output(Signal::zero());
-        let res = check_equivalence_comb(&a, &b);
+        let res = check_equivalence_comb(&a, &b, false);
         assert_eq!(res, Err(vec![true, true]));
     }
 
@@ -350,7 +360,7 @@ mod tests {
         b.add_input();
         let ab = b.or(l1, l2);
         b.add_output(ab);
-        let res = check_equivalence_comb(&a, &b);
+        let res = check_equivalence_comb(&a, &b, false);
         assert_ne!(res, Ok(()));
     }
 
@@ -364,7 +374,7 @@ mod tests {
         b.add_input();
         b.add_input();
         b.add_output(Signal::zero());
-        let res = check_equivalence_comb(&a, &b);
+        let res = check_equivalence_comb(&a, &b, false);
         assert_ne!(res, Ok(()));
     }
 
@@ -382,7 +392,8 @@ mod tests {
         b.add_input();
         let bx = b.xor(l1, l2);
         b.add_output(bx);
-        check_equivalence_comb(&a, &b).unwrap();
+        check_equivalence_comb(&a, &b, false).unwrap();
+        check_equivalence_comb(&a, &b, true).unwrap();
     }
 
     #[test]
@@ -401,7 +412,8 @@ mod tests {
         b.add_input();
         let bx = b.mux(l1, l2, l3);
         b.add_output(bx);
-        check_equivalence_comb(&a, &b).unwrap();
+        check_equivalence_comb(&a, &b, false).unwrap();
+        check_equivalence_comb(&a, &b, true).unwrap();
     }
 
     #[test]
@@ -421,7 +433,8 @@ mod tests {
         b.add_input();
         let bx = b.maj(l1, l2, l3);
         b.add_output(bx);
-        check_equivalence_comb(&a, &b).unwrap();
+        check_equivalence_comb(&a, &b, false).unwrap();
+        check_equivalence_comb(&a, &b, true).unwrap();
     }
 
     #[test]
@@ -439,7 +452,8 @@ mod tests {
         b.add_input();
         let b2 = b.and3(l1, l2, l3);
         b.add_output(b2);
-        check_equivalence_comb(&a, &b).unwrap();
+        check_equivalence_comb(&a, &b, false).unwrap();
+        check_equivalence_comb(&a, &b, true).unwrap();
     }
 
     #[test]
@@ -457,7 +471,8 @@ mod tests {
         b.add_input();
         let b2 = b.xor3(l1, l2, l3);
         b.add_output(b2);
-        check_equivalence_comb(&a, &b).unwrap();
+        check_equivalence_comb(&a, &b, false).unwrap();
+        check_equivalence_comb(&a, &b, true).unwrap();
     }
 
     #[test]
@@ -478,7 +493,8 @@ mod tests {
             }
             let bo = b.add_raw_gate(Gate::Andn(v.into()));
             b.add_output(bo);
-            check_equivalence_comb(&a, &b).unwrap();
+            check_equivalence_comb(&a, &b, false).unwrap();
+            check_equivalence_comb(&a, &b, true).unwrap();
         }
     }
 
@@ -500,7 +516,8 @@ mod tests {
             }
             let bo = b.add_raw_gate(Gate::Xorn(v.into()));
             b.add_output(bo);
-            check_equivalence_comb(&a, &b).unwrap();
+            check_equivalence_comb(&a, &b, false).unwrap();
+            check_equivalence_comb(&a, &b, true).unwrap();
         }
     }
 
@@ -514,7 +531,8 @@ mod tests {
             let lb = b.add_input();
             b.add_output(lb);
         }
-        check_equivalence_comb(&a, &b).unwrap();
+        check_equivalence_comb(&a, &b, false).unwrap();
+        check_equivalence_comb(&a, &b, true).unwrap();
     }
 
     #[test]
@@ -527,7 +545,7 @@ mod tests {
             let lb = b.add_input();
             b.add_output(!lb);
         }
-        let res = check_equivalence_comb(&a, &b);
+        let res = check_equivalence_comb(&a, &b, false);
         assert_ne!(res, Ok(()));
     }
 
@@ -542,7 +560,7 @@ mod tests {
         let l = Signal::from_input(0);
         a.add_output(l);
         b.add_output(!l);
-        let res = check_equivalence_comb(&a, &b);
+        let res = check_equivalence_comb(&a, &b, false);
         assert_ne!(res, Ok(()));
     }
 

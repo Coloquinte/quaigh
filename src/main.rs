@@ -35,6 +35,10 @@ struct EquivArgs {
     /// Number of clock cycles considered
     #[arg(short = 'c', long, default_value_t = 1)]
     num_cycles: usize,
+
+    /// Use only sat solver, skipping internal optimizations
+    #[arg(long)]
+    sat_only: bool,
 }
 
 #[derive(Args)]
@@ -58,6 +62,7 @@ fn main() {
             file1,
             file2,
             num_cycles,
+            sat_only,
         }) => {
             let aig1 = parse_file(file1);
             let aig2 = parse_file(file2);
@@ -77,7 +82,7 @@ fn main() {
                 );
                 std::process::exit(1);
             }
-            let res = check_equivalence_bounded(&aig1, &aig2, num_cycles);
+            let res = check_equivalence_bounded(&aig1, &aig2, num_cycles, !sat_only);
             let is_comb = aig1.is_comb() && aig2.is_comb();
             match res {
                 Err(err) => {
