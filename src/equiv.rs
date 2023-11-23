@@ -16,7 +16,7 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
         let n = aig.node(i);
         match aig.gate(i) {
             And(a, b) => {
-                // 3 clauses, 6 literals
+                // 3 clauses, 7 literals
                 ret.push(vec![*a, !n]);
                 ret.push(vec![*b, !n]);
                 ret.push(vec![!a, !b, n]);

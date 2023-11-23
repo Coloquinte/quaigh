@@ -1,4 +1,5 @@
 mod aig;
+pub mod area;
 mod gates;
 pub mod generators;
 mod signal;

@@ -1,11 +1,24 @@
-//! Compute area and delay statistics on Aigs
+//! Compute gate statistics on Aigs
+//!
+//! ```
+//! # use quaigh::Aig;
+//! # let aig = Aig::new();
+//! use quaigh::stats::stats;
+//! let stats = stats(&aig);
+//!
+//! // Check that there is no Xor2 gate
+//! assert_eq!(stats.nb_xor, 0);
+//!
+//! // Show the statistics
+//! println!("{}", stats);
+//! ```
 
 use std::fmt;
 
 use crate::{Aig, Gate};
 
 /// Number of inputs, outputs and gates in an Aig
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct NetworkStats {
     /// Number of inputs
     pub nb_inputs: usize,
@@ -51,36 +64,37 @@ impl NetworkStats {
 
 impl fmt::Display for NetworkStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Inputs: {}", self.nb_inputs)?;
-        writeln!(f, "Outputs: {}", self.nb_outputs)?;
-        writeln!(f, "Gates: {}", self.nb_gates())?;
-        writeln!(f, "Dff: {}", self.nb_dff)?;
+        writeln!(f, "Stats:")?;
+        writeln!(f, "  Inputs: {}", self.nb_inputs)?;
+        writeln!(f, "  Outputs: {}", self.nb_outputs)?;
+        writeln!(f, "  Gates: {}", self.nb_gates())?;
+        writeln!(f, "  Dff: {}", self.nb_dff)?;
         if self.nb_and != 0 {
-            writeln!(f, "And2: {}", self.nb_and)?;
+            writeln!(f, "  And2: {}", self.nb_and)?;
         }
         if self.nb_and3 != 0 {
-            writeln!(f, "And3: {}", self.nb_and3)?;
+            writeln!(f, "  And3: {}", self.nb_and3)?;
         }
         if self.nb_andn != 0 {
-            writeln!(f, "Andn: {}", self.nb_andn)?;
+            writeln!(f, "  Andn: {}", self.nb_andn)?;
         }
         if self.nb_xor != 0 {
-            writeln!(f, "Xor2: {}", self.nb_xor)?;
+            writeln!(f, "  Xor2: {}", self.nb_xor)?;
         }
         if self.nb_xor3 != 0 {
-            writeln!(f, "Xor3: {}", self.nb_xor3)?;
+            writeln!(f, "  Xor3: {}", self.nb_xor3)?;
         }
         if self.nb_xorn != 0 {
-            writeln!(f, "Xorn: {}", self.nb_xorn)?;
+            writeln!(f, "  Xorn: {}", self.nb_xorn)?;
         }
         if self.nb_mux != 0 {
-            writeln!(f, "Mux: {}", self.nb_mux)?;
+            writeln!(f, "  Mux: {}", self.nb_mux)?;
         }
         if self.nb_maj != 0 {
-            writeln!(f, "Maj: {}", self.nb_maj)?;
+            writeln!(f, "  Maj: {}", self.nb_maj)?;
         }
         if self.nb_buf != 0 {
-            writeln!(f, "Buf: {}", self.nb_buf)?;
+            writeln!(f, "  Buf: {}", self.nb_buf)?;
         }
         fmt::Result::Ok(())
     }
