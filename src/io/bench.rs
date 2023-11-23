@@ -162,7 +162,7 @@ pub fn read_bench<R: Read>(r: R) -> Result<Aig, String> {
             } else {
                 let inputs: Vec<String> = parts[2..].iter().map(|s| s.to_string()).collect();
                 let gate = parts[0].to_string();
-                let g = match parts[1] {
+                let g = match parts[1].to_uppercase().as_str() {
                     "AND" => And,
                     "OR" => Or,
                     "NAND" => Nand,
@@ -171,8 +171,8 @@ pub fn read_bench<R: Read>(r: R) -> Result<Aig, String> {
                     "BUF" | "BUFF" => Buf,
                     "NOT" => Not,
                     "DFF" => Dff,
-                    "vdd" => Vdd,
-                    "gnd" => Vss,
+                    "VDD" => Vdd,
+                    "GND" => Vss,
                     _ => panic!("Unwnown gate type {}", parts[1]),
                 };
                 statements.push((gate, g, inputs));
