@@ -1,12 +1,14 @@
 //! Read and write Aigs to files
 
 mod bench;
+mod patterns;
 
 use std::fs::File;
 use std::path::PathBuf;
 
-pub use bench::parse_bench;
+pub use bench::read_bench;
 pub use bench::write_bench;
+pub use patterns::write_patterns;
 
 use crate::Aig;
 
@@ -20,7 +22,7 @@ pub fn parse_file(path: PathBuf) -> Aig {
         Some(s) => {
             if s == "bench" {
                 let f = File::open(path).unwrap();
-                parse_bench(f).unwrap()
+                read_bench(f).unwrap()
             } else {
                 panic!("Unknown extension {}", s.to_string_lossy());
             }
