@@ -1,6 +1,6 @@
 use clap::{Args, Parser, Subcommand};
 use quaigh::equiv::check_equivalence_bounded;
-use quaigh::io::{parse_file, write_file};
+use quaigh::io::{read_network_file, write_network_file};
 use quaigh::stats;
 use std::path::PathBuf;
 
@@ -62,8 +62,8 @@ fn main() {
             num_cycles,
             sat_only,
         }) => {
-            let aig1 = parse_file(file1);
-            let aig2 = parse_file(file2);
+            let aig1 = read_network_file(file1);
+            let aig2 = read_network_file(file2);
             if aig1.nb_inputs() != aig2.nb_inputs() {
                 println!(
                     "Different number of inputs: {} vs {}. Networks are not equivalent",
@@ -106,13 +106,13 @@ fn main() {
             }
         }
         Commands::Optimize(OptArgs { file, output }) => {
-            let mut aig = parse_file(file);
+            let mut aig = read_network_file(file);
             aig.sweep();
             aig.dedup();
-            write_file(output, &aig);
+            write_network_file(output, &aig);
         }
         Commands::Show(ShowArgs { file }) => {
-            let mut aig = parse_file(file);
+            let mut aig = read_network_file(file);
             println!("Network stats:\n{}\n\n", stats::stats(&aig));
 
             aig.sweep();
