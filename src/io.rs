@@ -6,8 +6,7 @@ mod patterns;
 use std::fs::File;
 use std::path::PathBuf;
 
-pub use bench::read_bench;
-pub use bench::write_bench;
+pub use bench::{read_bench, write_bench};
 pub use patterns::write_patterns;
 
 use crate::Aig;

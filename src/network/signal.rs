@@ -1,7 +1,5 @@
-use std::{
-    fmt,
-    ops::{BitXor, BitXorAssign, Not},
-};
+use std::fmt;
+use std::ops::{BitXor, BitXorAssign, Not};
 
 /// Representation of a literal (a boolean variable or its complement)
 ///

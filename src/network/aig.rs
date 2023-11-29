@@ -2,8 +2,7 @@ use core::fmt;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
-use crate::network::gates::Gate;
-use crate::network::gates::Normalization;
+use crate::network::gates::{Gate, Normalization};
 use crate::network::signal::Signal;
 
 /// Representation of a logic network as a gate-inverter-graph, used as the main representation for all logic manipulations

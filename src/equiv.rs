@@ -313,7 +313,9 @@ pub fn check_equivalence_bounded(
 
 #[cfg(test)]
 mod tests {
-    use crate::{equiv::unroll, stats::stats, Aig, Gate, Signal};
+    use crate::equiv::unroll;
+    use crate::stats::stats;
+    use crate::{Aig, Gate, Signal};
 
     use super::check_equivalence_comb;
 

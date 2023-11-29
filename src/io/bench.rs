@@ -1,9 +1,7 @@
 //! IO for .bench (ISCAS) files
 
-use std::{
-    collections::HashMap,
-    io::{BufRead, BufReader, Read, Write},
-};
+use std::collections::HashMap;
+use std::io::{BufRead, BufReader, Read, Write};
 
 use crate::{Aig, Gate, Signal};
 

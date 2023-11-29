@@ -1,9 +1,7 @@
 use clap::{Args, Parser, Subcommand};
-use quaigh::{
-    equiv::check_equivalence_bounded,
-    io::{parse_file, write_file},
-    stats,
-};
+use quaigh::equiv::check_equivalence_bounded;
+use quaigh::io::{parse_file, write_file};
+use quaigh::stats;
 use std::path::PathBuf;
 
 #[derive(Parser)]
