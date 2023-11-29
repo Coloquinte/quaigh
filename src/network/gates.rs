@@ -97,13 +97,17 @@ impl Gate {
             .collect()
     }
 
+    /// Returns whether the gate is combinatorial
+    pub fn is_comb(&self) -> bool {
+        return !matches!(self, Gate::Dff(_, _, _));
+    }
+
     /// Obtain all internal variables feeding this gate as combinatorial inputs
     pub(crate) fn comb_vars(&self) -> Vec<u32> {
-        use Gate::*;
-        if let Dff(_, _, _) = self {
-            Vec::new()
-        } else {
+        if self.is_comb() {
             self.vars()
+        } else {
+            Vec::new()
         }
     }
 

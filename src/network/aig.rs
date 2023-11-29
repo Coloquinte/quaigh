@@ -180,7 +180,7 @@ impl Aig {
 
     /// Return whether the Aig is purely combinatorial
     pub fn is_comb(&self) -> bool {
-        self.nodes.iter().all(|g| !matches!(g, Gate::Dff(_, _, _)))
+        self.nodes.iter().all(|g| g.is_comb())
     }
 
     /// Return whether the Aig is already topologically sorted (except for flip-flops)
