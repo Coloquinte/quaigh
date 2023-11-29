@@ -121,6 +121,7 @@ fn aig_from_statements(
 ///
 /// These files describe the design with simple statements like:
 /// ```text
+///     # This is a comment
 ///     INPUT(i0)
 ///     INPUT(i1)
 ///     x0 = AND(i0, i1)
@@ -197,6 +198,7 @@ fn sig_to_string(s: &Signal) -> String {
 ///
 /// These files describe the design with simple statements like:
 /// ```text
+///     # This is a comment
 ///     INPUT(i0)
 ///     INPUT(i1)
 ///     x0 = AND(i0, i1)
@@ -260,9 +262,10 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Aig) {
 mod test {
 
     #[test]
-    fn test_simple_bench() {
+    fn test_read_bench() {
         let example = "INPUT(i0)
 INPUT(i1)
+# This is a comment
 x0 = AND(i0, i1)
 x1 = NAND(i0, i1)
 x2 = OR(i0, i1)

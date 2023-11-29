@@ -7,7 +7,7 @@ use std::fs::File;
 use std::path::PathBuf;
 
 pub use bench::{read_bench, write_bench};
-pub use patterns::write_patterns;
+pub use patterns::{read_patterns, write_patterns};
 
 use crate::Aig;
 
