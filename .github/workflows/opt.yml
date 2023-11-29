@@ -1,0 +1,39 @@
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "*" ]
+
+
+name: Optimization
+
+jobs:
+  check:
+    name: Optimization
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        features: [""]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Install
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: ${{ matrix.features }} --path .
+
+      - name: Download benchmarks
+        run: bash scripts/download_benchmarks.sh
+
+      - name: Run
+        run: bash scripts/opt_benchmarks.sh
