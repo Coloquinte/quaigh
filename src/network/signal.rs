@@ -81,7 +81,7 @@ impl Signal {
     /// Convert the polarity to a word for bitwise operations
     pub(crate) fn pol_to_word(&self) -> u64 {
         let pol = self.a & 1;
-        !(pol as u64) + 1
+        (!(pol as u64)).wrapping_add(1)
     }
 
     /// Apply a variable remapping to the signal

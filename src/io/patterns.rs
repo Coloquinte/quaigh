@@ -104,7 +104,7 @@ mod test {
         let example = "  * comment1
 *comment2
 1: 00000 00000
-2: 01010 11111 11111
+2: 01010  11111\t11111
 3:
 00000
 *comment 3
