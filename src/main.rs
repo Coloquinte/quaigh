@@ -90,6 +90,14 @@ struct AtpgArgs {
     /// Random seed for test pattern generation
     #[arg(long, default_value_t = 1)]
     seed: u64,
+
+    /// Attempt to generate sequential patterns instead of combinatorial
+    #[arg(short = 'c', long)]
+    num_cycles: Option<usize>,
+
+    /// Number of random patterns to generate
+    #[arg(short = 'r', long)]
+    num_random: Option<usize>,
 }
 
 fn main() {
@@ -173,10 +181,14 @@ fn main() {
             network,
             output,
             seed,
+            num_random,
+            num_cycles,
         }) => {
             let aig = read_network_file(network);
+            let nb_timesteps = num_cycles.unwrap_or(1);
+            let nb_patterns = num_random.unwrap_or(4 * (aig.nb_inputs() + 1));
             let patterns =
-                generate_random_patterns(aig.nb_inputs(), 1, 4 * (aig.nb_inputs() + 1), seed);
+                generate_random_patterns(aig.nb_inputs(), nb_timesteps, nb_patterns, seed);
             write_pattern_file(output, &patterns);
         }
     }
