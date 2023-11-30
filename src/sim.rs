@@ -1,10 +1,10 @@
-//! Simulation of Aig
+//! Simulation of a logic network
 
 use rand::{Rng, SeedableRng};
 
-use crate::{Aig, Signal};
+use crate::{Aig, NaryType, Signal};
 
-/// Structure for simulation based on a simple representation
+/// Structure for simulation based directly on the network representation
 struct SimpleSimulator<'a> {
     aig: &'a Aig,
     input_values: Vec<u64>,
@@ -93,28 +93,42 @@ impl<'a> SimpleSimulator<'a> {
                 Maj(a, b, c) => maj(self.get_value(*a), self.get_value(*b), self.get_value(*c)),
                 Mux(a, b, c) => mux(self.get_value(*a), self.get_value(*b), self.get_value(*c)),
                 Dff(_, _, _) => continue,
-                Andn(v) => self.compute_andn(v),
-                Xorn(v) => self.compute_xorn(v),
+                Nary(v, tp) => match tp {
+                    NaryType::And => self.compute_andn(v, false, false),
+                    NaryType::Or => self.compute_andn(v, true, true),
+                    NaryType::Nand => self.compute_andn(v, false, true),
+                    NaryType::Nor => self.compute_andn(v, true, false),
+                    NaryType::Xor => self.compute_xorn(v, false),
+                    NaryType::Xnor => self.compute_xorn(v, true),
+                },
                 Buf(s) => self.get_value(*s),
             };
             self.node_values[i] = val;
         }
     }
 
-    fn compute_andn(&self, v: &[Signal]) -> u64 {
+    fn compute_andn(&self, v: &[Signal], inv_in: bool, inv_out: bool) -> u64 {
         let mut ret = !0u64;
         for s in v {
-            ret &= self.get_value(*s);
+            ret &= self.get_value(s ^ inv_in);
         }
-        ret
+        if inv_out {
+            !ret
+        } else {
+            ret
+        }
     }
 
-    fn compute_xorn(&self, v: &[Signal]) -> u64 {
+    fn compute_xorn(&self, v: &[Signal], inv_out: bool) -> u64 {
         let mut ret = !0u64;
         for s in v {
             ret ^= self.get_value(*s);
         }
-        ret
+        if inv_out {
+            !ret
+        } else {
+            ret
+        }
     }
 
     fn get_output_values(&self) -> Vec<u64> {

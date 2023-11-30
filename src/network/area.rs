@@ -17,7 +17,7 @@
 
 use std::fmt;
 
-use crate::{Aig, Gate};
+use crate::{Aig, Gate, NaryType};
 
 /// Area cost for an Aig, depending on the gates inside
 #[derive(Clone, Copy, Debug)]
@@ -109,10 +109,12 @@ impl AreaParameters {
         match g {
             And(_, _) => self.and,
             And3(_, _, _) => self.and3,
-            Andn(v) => self.andn(v.len()),
             Xor(_, _) => self.xor,
             Xor3(_, _, _) => self.xor3,
-            Xorn(v) => self.xorn(v.len()),
+            Nary(v, tp) => match tp {
+                NaryType::And | NaryType::Or | NaryType::Nand | NaryType::Nor => self.andn(v.len()),
+                NaryType::Xor | NaryType::Xnor => self.xorn(v.len()),
+            },
             Dff(_, _, _) => self.dff,
             Mux(_, _, _) => self.mux,
             Maj(_, _, _) => self.maj,

@@ -15,7 +15,7 @@
 
 use std::fmt;
 
-use crate::{Aig, Gate};
+use crate::{Aig, Gate, NaryType};
 
 /// Number of inputs, outputs and gates in an Aig
 #[derive(Clone, Copy, Debug)]
@@ -121,14 +121,16 @@ pub fn stats(a: &Aig) -> NetworkStats {
         match a.gate(i) {
             And(_, _) => ret.nb_and += 1,
             And3(_, _, _) => ret.nb_and3 += 1,
-            Andn(_) => ret.nb_andn += 1,
             Xor(_, _) => ret.nb_xor += 1,
             Xor3(_, _, _) => ret.nb_xor3 += 1,
-            Xorn(_) => ret.nb_xorn += 1,
             Mux(_, _, _) => ret.nb_mux += 1,
             Maj(_, _, _) => ret.nb_maj += 1,
             Buf(_) => ret.nb_buf += 1,
             Dff(_, _, _) => ret.nb_dff += 1,
+            Nary(_, tp) => match tp {
+                NaryType::And | NaryType::Or | NaryType::Nand | NaryType::Nor => ret.nb_andn += 1,
+                NaryType::Xor | NaryType::Xnor => ret.nb_xorn += 1,
+            },
         }
     }
 

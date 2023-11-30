@@ -42,4 +42,4 @@ pub mod equiv;
 pub mod io;
 pub mod sim;
 
-pub use network::{area, generators, stats, Aig, Gate, Signal};
+pub use network::{area, generators, stats, Aig, Gate, NaryType, Signal};

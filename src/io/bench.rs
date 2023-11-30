@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 
-use crate::{Aig, Gate, Signal};
+use crate::{Aig, Gate, NaryType, Signal};
 
 #[derive(Clone, Debug)]
 enum GateType {
@@ -16,6 +16,7 @@ enum GateType {
     Nand,
     Nor,
     Xor,
+    Xnor,
     Vdd,
     Vss,
 }
@@ -81,7 +82,6 @@ fn aig_from_statements(
     // Setup the variables based on the mapping
     for (_, gate_type, deps) in statements {
         let sigs: Box<[Signal]> = deps.iter().map(|n| name_to_sig[n]).collect();
-        let nsigs: Box<[Signal]> = deps.iter().map(|n| !name_to_sig[n]).collect();
         match gate_type {
             Input => (),
             Dff => {
@@ -99,14 +99,23 @@ fn aig_from_statements(
             Vss => {
                 ret.add_raw_gate(Gate::Buf(Signal::zero()));
             }
-            And | Nand => {
-                ret.add_raw_gate(Gate::Andn(sigs));
+            And => {
+                ret.add_raw_gate(Gate::Nary(sigs, NaryType::And));
             }
-            Or | Nor => {
-                ret.add_raw_gate(Gate::Andn(nsigs));
+            Nand => {
+                ret.add_raw_gate(Gate::Nary(sigs, NaryType::Nand));
+            }
+            Or => {
+                ret.add_raw_gate(Gate::Nary(sigs, NaryType::Or));
+            }
+            Nor => {
+                ret.add_raw_gate(Gate::Nary(sigs, NaryType::Nor));
             }
             Xor => {
-                ret.add_raw_gate(Gate::Xorn(sigs));
+                ret.add_raw_gate(Gate::Nary(sigs, NaryType::Xor));
+            }
+            Xnor => {
+                ret.add_raw_gate(Gate::Nary(sigs, NaryType::Xnor));
             }
         }
     }
@@ -167,6 +176,7 @@ pub fn read_bench<R: Read>(r: R) -> Result<Aig, String> {
                     "NAND" => Nand,
                     "NOR" => Nor,
                     "XOR" => Xor,
+                    "XNOR" => Xnor,
                     "BUF" | "BUFF" => Buf,
                     "NOT" => Not,
                     "DFF" => Dff,
@@ -233,12 +243,20 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Aig) {
             .join(", ");
         write!(w, "x{} = ", i).unwrap();
         match g {
-            And(_, _) | And3(_, _, _) | Andn(_) => {
+            And(_, _) | And3(_, _, _) => {
                 writeln!(w, "AND({})", rep).unwrap();
             }
-            Xor(_, _) | Xor3(_, _, _) | Xorn(_) => {
+            Xor(_, _) | Xor3(_, _, _) => {
                 writeln!(w, "XOR({})", rep).unwrap();
             }
+            Nary(_, tp) => match tp {
+                NaryType::And => writeln!(w, "AND({})", rep).unwrap(),
+                NaryType::Or => writeln!(w, "OR({})", rep).unwrap(),
+                NaryType::Nand => writeln!(w, "NAND({})", rep).unwrap(),
+                NaryType::Nor => writeln!(w, "NOR({})", rep).unwrap(),
+                NaryType::Xor => writeln!(w, "XOR({})", rep).unwrap(),
+                NaryType::Xnor => writeln!(w, "XNOR({})", rep).unwrap(),
+            },
             Dff(d, en, res) => {
                 if *en != Signal::one() || *res != Signal::zero() {
                     panic!("Only DFF without enable or reset are supported");

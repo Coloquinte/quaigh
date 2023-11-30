@@ -4,7 +4,54 @@ use std::collections::HashMap;
 
 use cat_solver::Solver;
 
-use crate::{Aig, Gate, Signal};
+use crate::{Aig, Gate, NaryType, Signal};
+
+/// Generic function to add clauses for And-type n-ary function
+fn add_and_clauses(
+    clauses: &mut Vec<Vec<Signal>>,
+    v: &[Signal],
+    n: Signal,
+    inv_in: bool,
+    inv_out: bool,
+) {
+    for s in v.iter() {
+        clauses.push(vec![s ^ inv_in, !n ^ inv_out]);
+    }
+    let mut c = vec![n ^ inv_out];
+    for s in v.iter() {
+        c.push(!s ^ inv_in);
+    }
+    clauses.push(c);
+}
+
+/// Generic function to add clauses for Xor-type n-ary function
+fn add_xor_clauses(
+    clauses: &mut Vec<Vec<Signal>>,
+    var: &mut u32,
+    v: &[Signal],
+    n: Signal,
+    inv_out: bool,
+) {
+    if v.is_empty() {
+        clauses.push(vec![!n ^ inv_out]);
+    } else {
+        // Implement as a series of consecutive Xor
+        let mut a = v[0];
+        for i in 1..v.len() {
+            let b = v[i];
+            let v = Signal::from_var(*var);
+            *var += 1;
+            clauses.push(vec![a, b, !v]);
+            clauses.push(vec![!a, !b, !v]);
+            clauses.push(vec![!a, b, v]);
+            clauses.push(vec![a, !b, v]);
+            a = v;
+        }
+        // Final clauses to force n to the last result
+        clauses.push(vec![a, !n ^ inv_out]);
+        clauses.push(vec![!a, n ^ inv_out]);
+    }
+}
 
 /// Export a combinatorial Aig to a CNF formula
 fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
@@ -70,37 +117,14 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
                 ret.push(vec![*a, *c, !n]);
             }
             Dff(_, _, _) => panic!("Combinatorial Aig expected"),
-            Andn(v) => {
-                for s in v.iter() {
-                    ret.push(vec![*s, !n]);
-                }
-                let mut c = vec![n];
-                for s in v.iter() {
-                    c.push(!s);
-                }
-                ret.push(c);
-            }
-            Xorn(v) => {
-                if v.is_empty() {
-                    ret.push(vec![!n]);
-                } else {
-                    // Implement as a series of consecutive Xor
-                    let mut a = v[0];
-                    for i in 1..v.len() {
-                        let b = v[i];
-                        let v = Signal::from_var(var);
-                        var += 1;
-                        ret.push(vec![a, b, !v]);
-                        ret.push(vec![!a, !b, !v]);
-                        ret.push(vec![!a, b, v]);
-                        ret.push(vec![a, !b, v]);
-                        a = v;
-                    }
-                    // Final clauses to force n to the last result
-                    ret.push(vec![a, !n]);
-                    ret.push(vec![!a, n]);
-                }
-            }
+            Nary(v, tp) => match tp {
+                NaryType::And => add_and_clauses(&mut ret, v, n, false, false),
+                NaryType::Or => add_and_clauses(&mut ret, v, n, true, true),
+                NaryType::Nand => add_and_clauses(&mut ret, v, n, false, true),
+                NaryType::Nor => add_and_clauses(&mut ret, v, n, true, false),
+                NaryType::Xor => add_xor_clauses(&mut ret, &mut var, v, n, false),
+                NaryType::Xnor => add_xor_clauses(&mut ret, &mut var, v, n, true),
+            },
             Buf(s) => {
                 ret.push(vec![*s, !n]);
                 ret.push(vec![!s, n]);
@@ -144,8 +168,7 @@ fn extend_aig_helper(a: &mut Aig, b: &Aig, t: &mut HashMap<Signal, Signal>, same
             Xor3(a, b, c) => Xor3(t[a], t[b], t[c]),
             Mux(a, b, c) => Mux(t[a], t[b], t[c]),
             Maj(a, b, c) => Maj(t[a], t[b], t[c]),
-            Andn(v) => Andn(v.iter().map(|s| t[s]).collect()),
-            Xorn(v) => Xorn(v.iter().map(|s| t[s]).collect()),
+            Nary(v, tp) => Nary(v.iter().map(|s| t[s]).collect(), *tp),
             Buf(s) => Buf(t[s]),
             Dff(_, _, _) => continue,
         };
@@ -315,7 +338,7 @@ pub fn check_equivalence_bounded(
 mod tests {
     use crate::equiv::unroll;
     use crate::stats::stats;
-    use crate::{Aig, Gate, Signal};
+    use crate::{Aig, Gate, NaryType, Signal};
 
     use super::check_equivalence_comb;
 
@@ -493,7 +516,7 @@ mod tests {
             for _ in 0..nb {
                 v.push(b.add_input());
             }
-            let bo = b.add_raw_gate(Gate::Andn(v.into()));
+            let bo = b.add_raw_gate(Gate::Nary(v.into(), NaryType::And));
             b.add_output(bo);
             check_equivalence_comb(&a, &b, false).unwrap();
             check_equivalence_comb(&a, &b, true).unwrap();
@@ -516,7 +539,7 @@ mod tests {
             for _ in 0..nb {
                 v.push(b.add_input());
             }
-            let bo = b.add_raw_gate(Gate::Xorn(v.into()));
+            let bo = b.add_raw_gate(Gate::Nary(v.into(), NaryType::Xor));
             b.add_output(bo);
             check_equivalence_comb(&a, &b, false).unwrap();
             check_equivalence_comb(&a, &b, true).unwrap();

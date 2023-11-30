@@ -3,6 +3,23 @@ use std::{cmp, fmt};
 use crate::network::signal::Signal;
 
 /// Logic gate
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum NaryType {
+    /// N-input And gate
+    And,
+    /// N-input Or gate
+    Or,
+    /// N-input Nand gate
+    Nand,
+    /// N-input Nor gate
+    Nor,
+    /// N-input Xor gate
+    Xor,
+    /// N-input Xnor gate
+    Xnor,
+}
+
+/// Logic gate
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Gate {
     /// 2-input And gate
@@ -19,10 +36,8 @@ pub enum Gate {
     Mux(Signal, Signal, Signal),
     /// D flip-flop
     Dff(Signal, Signal, Signal),
-    /// N-input And gate
-    Andn(Box<[Signal]>),
-    /// N-input Xor gate
-    Xorn(Box<[Signal]>),
+    /// N-input gate
+    Nary(Box<[Signal]>, NaryType),
     /// Buf or Not
     Buf(Signal),
 }
@@ -61,8 +76,11 @@ impl Gate {
                 //   * remove enable (en == !res)
                 //   * remove data (d == res)
             }
-            Andn(v) => sorted_n(v) && v.len() > 3 && !v[0].is_constant(),
-            Xorn(v) => sorted_n(v) && v.len() > 3 && !v[0].is_constant() && no_inv_n(v),
+            Nary(v, NaryType::And) => sorted_n(v) && v.len() > 3 && !v[0].is_constant(),
+            Nary(v, NaryType::Xor) => {
+                sorted_n(v) && v.len() > 3 && !v[0].is_constant() && no_inv_n(v)
+            }
+            Nary(_, _) => false,
             Buf(_) => false,
         }
     }
@@ -83,7 +101,7 @@ impl Gate {
             Mux(a, b, c) | And3(a, b, c) | Xor3(a, b, c) | Maj(a, b, c) | Dff(a, b, c) => {
                 vec![*a, *b, *c]
             }
-            Andn(v) | Xorn(v) => v.clone().into_vec(),
+            Nary(v, _) => v.clone().into_vec(),
             Buf(s) => vec![*s],
         }
     }
@@ -122,8 +140,7 @@ impl Gate {
             Maj(a, b, c) => Maj(a.remap(t), b.remap(t), c.remap(t)),
             Mux(a, b, c) => Mux(a.remap(t), b.remap(t), c.remap(t)),
             Dff(a, b, c) => Dff(a.remap(t), b.remap(t), c.remap(t)),
-            Andn(v) => Andn(v.iter().map(|s| s.remap(t)).collect()),
-            Xorn(v) => Xorn(v.iter().map(|s| s.remap(t)).collect()),
+            Nary(v, tp) => Nary(v.iter().map(|s| s.remap(t)).collect(), *tp),
             Buf(s) => Buf(s.remap(t)),
         }
     }
@@ -276,7 +293,7 @@ fn make_andn(v: &[Signal], inv: bool) -> Normalization {
     } else if vs.len() == 3 {
         make_and3(vs[0], vs[1], vs[2], inv)
     } else {
-        Node(Andn(vs.into()), inv)
+        Node(Nary(vs.into(), NaryType::And), inv)
     }
 }
 
@@ -319,7 +336,7 @@ fn make_xorn(v: &[Signal], inv: bool) -> Normalization {
     } else if vs.len() == 3 {
         make_xor3(vs[0], vs[1], vs[2], pol)
     } else {
-        Node(Xorn(vs.into()), pol)
+        Node(Nary(vs.into(), NaryType::Xor), pol)
     }
 }
 
@@ -347,8 +364,17 @@ impl Normalization {
                 Mux(s, a, b) => make_mux(*s, *a, *b, *inv),
                 Maj(a, b, c) => make_maj(*a, *b, *c, *inv),
                 Dff(d, en, res) => make_dff(*d, *en, *res, *inv),
-                Andn(v) => make_andn(v, *inv),
-                Xorn(v) => make_xorn(v, *inv),
+                Nary(v, t) => {
+                    let vi: Box<[Signal]> = v.iter().map(|s| !s).collect();
+                    match t {
+                        NaryType::And => make_andn(v, *inv),
+                        NaryType::Nand => make_andn(v, !inv),
+                        NaryType::Xor => make_xorn(v, *inv),
+                        NaryType::Xnor => make_xorn(v, !inv),
+                        NaryType::Or => make_andn(&vi, !inv),
+                        NaryType::Nor => make_andn(&vi, *inv),
+                    }
+                }
                 Buf(s) => Copy(*s ^ *inv),
             },
         }
@@ -387,25 +413,35 @@ impl fmt::Display for Gate {
                 }
                 write!(f, ")")
             }
-            Andn(v) => {
-                write!(
-                    f,
-                    "{}",
-                    v.iter()
-                        .map(|s| s.to_string())
-                        .collect::<Vec<_>>()
-                        .join(" & ")
-                )
-            }
-            Xorn(v) => {
-                write!(
-                    f,
-                    "{}",
-                    v.iter()
-                        .map(|s| s.to_string())
-                        .collect::<Vec<_>>()
-                        .join(" ^ ")
-                )
+            Nary(v, tp) => {
+                let sep = match tp {
+                    NaryType::And | NaryType::Nand => " & ",
+                    NaryType::Or | NaryType::Nor => " | ",
+                    NaryType::Xor | NaryType::Xnor => " ^ ",
+                };
+                let inv = match tp {
+                    NaryType::Nand | NaryType::Nor | NaryType::Xnor => true,
+                    _ => false,
+                };
+                if inv {
+                    write!(
+                        f,
+                        "!({})",
+                        v.iter()
+                            .map(|s| s.to_string())
+                            .collect::<Vec<_>>()
+                            .join(sep)
+                    )
+                } else {
+                    write!(
+                        f,
+                        "{}",
+                        v.iter()
+                            .map(|s| s.to_string())
+                            .collect::<Vec<_>>()
+                            .join(sep)
+                    )
+                }
             }
             Buf(s) => {
                 write!(f, "{}", s)
@@ -514,15 +550,15 @@ mod tests {
                     check_canonization(Xor3(*i0, *i1, *i2));
                     check_canonization(Dff(*i0, *i1, *i2));
                     for i3 in vars.iter() {
-                        check_canonization(Andn(vec![*i0, *i1, *i2, *i3].into()));
-                        check_canonization(Xorn(vec![*i0, *i1, *i2, *i3].into()));
+                        check_canonization(Nary(vec![*i0, *i1, *i2, *i3].into(), NaryType::And));
+                        check_canonization(Nary(vec![*i0, *i1, *i2, *i3].into(), NaryType::Xor));
                     }
                 }
             }
         }
 
-        check_canonization(Andn(Vec::new().into()));
-        check_canonization(Xorn(Vec::new().into()));
+        check_canonization(Nary(Vec::new().into(), NaryType::And));
+        check_canonization(Nary(Vec::new().into(), NaryType::Xor));
     }
 
     #[test]
