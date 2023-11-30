@@ -1,6 +1,7 @@
 use clap::{Args, Parser, Subcommand};
 use quaigh::equiv::check_equivalence_bounded;
-use quaigh::io::{read_network_file, write_network_file};
+use quaigh::io::{read_network_file, read_pattern_file, write_network_file, write_pattern_file};
+use quaigh::sim::{generate_random_patterns, simulate_multiple};
 use quaigh::stats;
 use std::path::PathBuf;
 
@@ -23,11 +24,19 @@ enum Commands {
     /// Show statistics about a logic network
     #[clap()]
     Show(ShowArgs),
+    /// Simulate a logic network
+    #[clap(alias = "sim")]
+    Simulate(SimulateArgs),
+    /// Run test pattern generation for a logic network
+    #[clap()]
+    Atpg(AtpgArgs),
 }
 
 #[derive(Args)]
 struct EquivArgs {
+    /// First network to compare
     file1: PathBuf,
+    /// Second network to compare
     file2: PathBuf,
 
     /// Number of clock cycles considered
@@ -41,15 +50,46 @@ struct EquivArgs {
 
 #[derive(Args)]
 struct OptArgs {
+    /// Network to optimize
     file: PathBuf,
 
+    /// Output file for optimized network
     #[arg(short = 'o', long)]
     output: PathBuf,
 }
 
 #[derive(Args)]
 struct ShowArgs {
+    /// Network to show
     file: PathBuf,
+}
+
+#[derive(Args)]
+struct SimulateArgs {
+    /// Network to simulate
+    network: PathBuf,
+
+    /// Input patterns file
+    #[arg(short = 'i', long)]
+    input: PathBuf,
+
+    /// Output file for output patterns
+    #[arg(short = 'o', long)]
+    output: PathBuf,
+}
+
+#[derive(Args)]
+struct AtpgArgs {
+    /// Network to write test patterns for
+    network: PathBuf,
+
+    /// Output file for test patterns
+    #[arg(short = 'o', long)]
+    output: PathBuf,
+
+    /// Random seed for test pattern generation
+    #[arg(long, default_value_t = 1)]
+    seed: u64,
 }
 
 fn main() {
@@ -118,6 +158,26 @@ fn main() {
             aig.sweep();
             aig.dedup();
             println!("After deduplication:\n{}", stats::stats(&aig));
+        }
+        Commands::Simulate(SimulateArgs {
+            network,
+            input,
+            output,
+        }) => {
+            let aig = read_network_file(network);
+            let input_values = read_pattern_file(input);
+            let output_values = simulate_multiple(&aig, &input_values);
+            write_pattern_file(output, &output_values);
+        }
+        Commands::Atpg(AtpgArgs {
+            network,
+            output,
+            seed,
+        }) => {
+            let aig = read_network_file(network);
+            let patterns =
+                generate_random_patterns(aig.nb_inputs(), 1, 4 * (aig.nb_inputs() + 1), seed);
+            write_pattern_file(output, &patterns);
         }
     }
 }

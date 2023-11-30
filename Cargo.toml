@@ -17,3 +17,5 @@ categories = ["mathematics", "algorithms"]
 cat_solver = "3.1.1"
 volute = "1.0.3"
 clap = { version = "4.4", features = ["derive"] }
+rand = { version = "0.8.5", features = ["small_rng"] }
+

@@ -1,5 +1,7 @@
 //! Simulation of Aig
 
+use rand::{Rng, SeedableRng};
+
 use crate::{Aig, Signal};
 
 /// Structure for simulation based on a simple representation
@@ -138,10 +140,42 @@ pub fn simulate(a: &Aig, input_values: &Vec<Vec<bool>>) -> Vec<Vec<bool>> {
     ret
 }
 
+/// Simulate an Aig over multiple input patterns; return the output values
+pub fn simulate_multiple(a: &Aig, input_values: &Vec<Vec<Vec<bool>>>) -> Vec<Vec<Vec<bool>>> {
+    let mut ret = Vec::new();
+    for pattern in input_values {
+        ret.push(simulate(a, pattern));
+    }
+    ret
+}
+
 /// Simulate an Aig over multiple timesteps with 64b inputs; return the output values
 fn simulate_multi(a: &Aig, input_values: &Vec<Vec<u64>>) -> Vec<Vec<u64>> {
     let mut sim = SimpleSimulator::from_aig(a);
     sim.run(input_values)
+}
+
+/// Generate random patterns with a given number of timesteps
+pub fn generate_random_patterns(
+    nb_inputs: usize,
+    nb_timesteps: usize,
+    nb_patterns: usize,
+    seed: u64,
+) -> Vec<Vec<Vec<bool>>> {
+    let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
+    let mut ret = Vec::new();
+    for _ in 0..nb_patterns {
+        let mut r1 = Vec::new();
+        for _ in 0..nb_timesteps {
+            let mut r2 = Vec::new();
+            for _ in 0..nb_inputs {
+                r2.push(rng.gen());
+            }
+            r1.push(r2);
+        }
+        ret.push(r1);
+    }
+    ret
 }
 
 #[cfg(test)]
