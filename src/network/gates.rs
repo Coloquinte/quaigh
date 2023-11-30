@@ -551,14 +551,22 @@ mod tests {
                     check_canonization(Dff(*i0, *i1, *i2));
                     for i3 in vars.iter() {
                         check_canonization(Nary(vec![*i0, *i1, *i2, *i3].into(), NaryType::And));
+                        check_canonization(Nary(vec![*i0, *i1, *i2, *i3].into(), NaryType::Nand));
+                        check_canonization(Nary(vec![*i0, *i1, *i2, *i3].into(), NaryType::Or));
+                        check_canonization(Nary(vec![*i0, *i1, *i2, *i3].into(), NaryType::Nor));
                         check_canonization(Nary(vec![*i0, *i1, *i2, *i3].into(), NaryType::Xor));
+                        check_canonization(Nary(vec![*i0, *i1, *i2, *i3].into(), NaryType::Xnor));
                     }
                 }
             }
         }
 
         check_canonization(Nary(Vec::new().into(), NaryType::And));
+        check_canonization(Nary(Vec::new().into(), NaryType::Nand));
+        check_canonization(Nary(Vec::new().into(), NaryType::Or));
+        check_canonization(Nary(Vec::new().into(), NaryType::Nor));
         check_canonization(Nary(Vec::new().into(), NaryType::Xor));
+        check_canonization(Nary(Vec::new().into(), NaryType::Xnor));
     }
 
     #[test]
