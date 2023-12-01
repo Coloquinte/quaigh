@@ -44,3 +44,8 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
+
+      - name: Readme
+        run: |
+          cargo install cargo-rdme
+          cargo rdme --check
