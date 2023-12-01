@@ -32,8 +32,10 @@ impl<'a> SimpleSimulator<'a> {
     fn run(&mut self, input_values: &Vec<Vec<u64>>) -> Vec<Vec<u64>> {
         self.check();
         let mut ret = Vec::new();
-        for v in input_values {
-            self.run_dff();
+        for (i, v) in input_values.iter().enumerate() {
+            if i != 0 {
+                self.run_dff();
+            }
             self.copy_inputs(v.as_slice());
             self.run_comb();
             ret.push(self.get_output_values());
@@ -120,7 +122,7 @@ impl<'a> SimpleSimulator<'a> {
     }
 
     fn compute_xorn(&self, v: &[Signal], inv_out: bool) -> u64 {
-        let mut ret = !0u64;
+        let mut ret = 0u64;
         for s in v {
             ret ^= self.get_value(*s);
         }
@@ -194,7 +196,7 @@ pub fn generate_random_patterns(
 
 #[cfg(test)]
 mod tests {
-    use crate::Aig;
+    use crate::{Aig, Gate, NaryType};
 
     use super::simulate;
 
@@ -251,6 +253,45 @@ mod tests {
             vec![true],
             vec![true],
             vec![false],
+        ];
+        assert_eq!(simulate(&aig, &pattern), expected);
+    }
+
+    #[test]
+    fn test_nary() {
+        let mut aig = Aig::default();
+        let i0 = aig.add_input();
+        let i1 = aig.add_input();
+        let i2 = aig.add_input();
+        let i3 = aig.add_input();
+        let x0 = aig.add_raw_gate(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::And));
+        aig.add_output(x0);
+        let x1 = aig.add_raw_gate(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Xor));
+        aig.add_output(x1);
+        let x2 = aig.add_raw_gate(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Or));
+        aig.add_output(x2);
+        let x3 = aig.add_raw_gate(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Nand));
+        aig.add_output(x3);
+        let x4 = aig.add_raw_gate(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Nor));
+        aig.add_output(x4);
+        let x5 = aig.add_raw_gate(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Xnor));
+        aig.add_output(x5);
+
+        let pattern = vec![
+            vec![false, false, false, false],
+            vec![true, false, false, false],
+            vec![false, true, false, false],
+            vec![false, false, true, false],
+            vec![false, false, false, true],
+            vec![true, true, true, true],
+        ];
+        let expected = vec![
+            vec![false, false, false, true, true, true],
+            vec![false, true, true, true, false, false],
+            vec![false, true, true, true, false, false],
+            vec![false, true, true, true, false, false],
+            vec![false, true, true, true, false, false],
+            vec![true, false, true, false, false, true],
         ];
         assert_eq!(simulate(&aig, &pattern), expected);
     }
