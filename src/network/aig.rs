@@ -297,7 +297,7 @@ impl Aig {
         // Dedup flip flops
         for i in 0..self.nb_nodes() {
             let g = self.gate(i);
-            if let Gate::Dff(_, _, _) = g {
+            if !g.is_comb() {
                 translation[i] = dedup_node(g, &mut hsh, &mut new_nodes);
             }
         }
@@ -305,15 +305,14 @@ impl Aig {
         // Remap and dedup combinatorial gates
         for i in 0..self.nb_nodes() {
             let g = self.gate(i).remap(translation.as_slice());
-            if let Gate::Dff(_, _, _) = g {
-                continue;
+            if g.is_comb() {
+                translation[i] = dedup_node(&g, &mut hsh, &mut new_nodes);
             }
-            translation[i] = dedup_node(&g, &mut hsh, &mut new_nodes);
         }
 
         // Remap flip flops
         for i in 0..new_nodes.len() {
-            if let Gate::Dff(_, _, _) = new_nodes[i] {
+            if !new_nodes[i].is_comb() {
                 new_nodes[i] = new_nodes[i].remap(translation.as_slice());
             }
         }
