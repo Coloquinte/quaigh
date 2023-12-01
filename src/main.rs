@@ -1,4 +1,5 @@
 use clap::{Args, Parser, Subcommand};
+use quaigh::atpg::report_test_patterns;
 use quaigh::equiv::check_equivalence_bounded;
 use quaigh::io::{read_network_file, read_pattern_file, write_network_file, write_pattern_file};
 use quaigh::sim::{generate_random_patterns, simulate_multiple};
@@ -190,6 +191,12 @@ fn main() {
             let patterns =
                 generate_random_patterns(aig.nb_inputs(), nb_timesteps, nb_patterns, seed);
             write_pattern_file(output, &patterns);
+            if nb_timesteps == 1 && aig.is_comb() {
+                let comb_patterns: Vec<Vec<bool>> = patterns.iter().map(|p| p[0].clone()).collect();
+                report_test_patterns(&aig, &comb_patterns);
+            } else {
+                println!("Only generating random patterns for sequential networks");
+            }
         }
     }
 }

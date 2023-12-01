@@ -38,6 +38,7 @@
 
 mod network;
 
+pub mod atpg;
 pub mod equiv;
 pub mod io;
 pub mod sim;

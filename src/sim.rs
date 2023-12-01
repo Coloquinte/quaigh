@@ -31,6 +31,7 @@ impl<'a> SimpleSimulator<'a> {
 
     fn run(&mut self, input_values: &Vec<Vec<u64>>) -> Vec<Vec<u64>> {
         self.check();
+        self.reset();
         let mut ret = Vec::new();
         for (i, v) in input_values.iter().enumerate() {
             if i != 0 {
@@ -41,6 +42,11 @@ impl<'a> SimpleSimulator<'a> {
             ret.push(self.get_output_values());
         }
         ret
+    }
+
+    fn reset(&mut self) {
+        self.input_values = vec![0; self.aig.nb_inputs()];
+        self.node_values = vec![0; self.aig.nb_nodes()];
     }
 
     fn check(&self) {
@@ -154,6 +160,14 @@ pub fn simulate(a: &Aig, input_values: &Vec<Vec<bool>>) -> Vec<Vec<bool>> {
         ret.push(v.iter().map(|b| *b != 0).collect());
     }
     ret
+}
+
+/// Simulate a combinatorial Aig; return the output values
+pub fn simulate_comb(a: &Aig, input_values: &Vec<bool>) -> Vec<bool> {
+    assert!(a.is_comb());
+    let input = vec![input_values.clone()];
+    let output = simulate(a, &input);
+    output[0].clone()
 }
 
 /// Simulate an Aig over multiple input patterns; return the output values
