@@ -219,6 +219,8 @@ fn unroll(aig: &Aig, nb_steps: usize) -> Aig {
         }
         std::mem::swap(&mut t, &mut t_prev);
     }
+    assert_eq!(ret.nb_inputs(), aig.nb_inputs() * nb_steps);
+    assert_eq!(ret.nb_outputs(), aig.nb_outputs() * nb_steps);
     ret
 }
 
