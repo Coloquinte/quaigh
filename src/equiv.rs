@@ -6,6 +6,8 @@ use cat_solver::Solver;
 
 use crate::{Aig, Gate, NaryType, Signal};
 
+// TODO: have clean clause builder object to encapsulate this part
+
 /// Generic function to add clauses for And-type n-ary function
 fn add_and_clauses(
     clauses: &mut Vec<Vec<Signal>>,

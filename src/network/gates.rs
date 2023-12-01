@@ -2,7 +2,7 @@ use std::{cmp, fmt};
 
 use crate::network::signal::Signal;
 
-/// Logic gate
+/// Basic types of N-input gates
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum NaryType {
     /// N-input And gate
@@ -19,7 +19,7 @@ pub enum NaryType {
     Xnor,
 }
 
-/// Logic gate
+/// Logic gate representation
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Gate {
     /// 2-input And gate
@@ -51,6 +51,15 @@ pub enum Normalization {
 
 impl Gate {
     /// Returns whether the gate is in canonical form
+    ///
+    /// The canonical form is unique, making it easier to simplify and deduplicate
+    /// the logic. Inputs and output may be negated, and constant inputs are simplified.
+    ///
+    /// Canonical form includes:
+    ///   * And gates (with optional negated inputs)
+    ///   * Xor gates (no negated input)
+    ///   * Mux/Maj/Dff
+    /// Or/Nor/Nand/Xnor gates are replaced.
     pub fn is_canonical(&self) -> bool {
         use Gate::*;
         match self {

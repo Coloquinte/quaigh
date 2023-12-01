@@ -133,7 +133,6 @@ mod test {
 
     #[test]
     fn test_write_pattern() {
-        use super::write_patterns;
         use std::io::BufWriter;
 
         let example = vec![
@@ -141,7 +140,7 @@ mod test {
             vec![vec![true, true]],
         ];
         let mut buf = BufWriter::new(Vec::new());
-        write_patterns(&mut buf, &example);
+        super::write_patterns(&mut buf, &example);
         let s = String::from_utf8(buf.into_inner().unwrap()).unwrap();
         assert_eq!(
             s,

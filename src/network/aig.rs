@@ -329,6 +329,7 @@ impl Aig {
     /// Returns the mapping of old variable indices to signals, if needed.
     /// Removed signals are mapped to zero.
     pub(crate) fn topo_sort(&mut self) -> Box<[Signal]> {
+        // TODO: make topo_sort preserve order when the network is already sorted
         // Count the output dependencies of each gate
         let mut count_deps = vec![0u32; self.nb_nodes()];
         for g in self.nodes.iter() {
