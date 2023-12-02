@@ -71,37 +71,29 @@ impl TestPatternAnalyzer {
     }
 
     /// Return which faults are detected by a test pattern
-    pub fn detected_faults(&self, pattern: &Vec<bool>) -> Vec<bool> {
-        assert_eq!(pattern.len(), self.nb_inputs);
-
-        let mut input = pattern.clone();
-        for _ in 0..self.nb_faults {
-            input.push(false);
-        }
-        let expected = simulate_comb(&self.fault_aig, &input);
-
-        let mut ret = Vec::new();
-        for i in 0..self.nb_faults {
-            input[self.nb_inputs + i] = true;
-            // Simulate the fault and see if the pattern detects it
-            let res = simulate_comb(&self.fault_aig, &input);
-            ret.push(res != expected);
-            input[self.nb_inputs + i] = false;
-        }
-
-        ret
-    }
-
-    /// Return which faults are detected by any of the test patterns
-    pub fn detected_faults_multi(&self, patterns: &Vec<Vec<bool>>) -> Vec<bool> {
+    pub fn detected_faults(&self, patterns: &Vec<Vec<bool>>) -> Vec<bool> {
         let mut ret = vec![false; self.nb_faults];
+
         for pattern in patterns {
-            let detect = self.detected_faults(pattern);
-            assert_eq!(detect.len(), self.nb_faults);
-            for (i, d) in detect.iter().enumerate() {
-                ret[i] |= d;
+            assert_eq!(pattern.len(), self.nb_inputs);
+            let mut input = pattern.clone();
+            for _ in 0..self.nb_faults {
+                input.push(false);
+            }
+            let expected = simulate_comb(&self.fault_aig, &input);
+
+            for i in 0..self.nb_faults {
+                if ret[i] {
+                    continue;
+                }
+                input[self.nb_inputs + i] = true;
+                // Simulate the fault and see if the pattern detects it
+                let res = simulate_comb(&self.fault_aig, &input);
+                ret[i] = res != expected;
+                input[self.nb_inputs + i] = false;
             }
         }
+
         ret
     }
 }
@@ -114,7 +106,7 @@ pub fn report_test_patterns(aig: &Aig, patterns: &Vec<Vec<bool>>) {
         patterns.len(),
         analyzer.nb_faults()
     );
-    let detected = analyzer.detected_faults_multi(patterns);
+    let detected = analyzer.detected_faults(patterns);
     let number = detected.into_iter().filter(|b| *b).count();
     println!("Detected {} faults out of {}", number, analyzer.nb_faults());
 }
