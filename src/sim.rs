@@ -1,7 +1,5 @@
 //! Simulation of a logic network
 
-use rand::{Rng, SeedableRng};
-
 use crate::{Aig, NaryType, Signal};
 
 /// Structure for simulation based directly on the network representation
@@ -183,29 +181,6 @@ pub fn simulate_multiple(a: &Aig, input_values: &Vec<Vec<Vec<bool>>>) -> Vec<Vec
 fn simulate_multi(a: &Aig, input_values: &Vec<Vec<u64>>) -> Vec<Vec<u64>> {
     let mut sim = SimpleSimulator::from_aig(a);
     sim.run(input_values)
-}
-
-/// Generate random patterns with a given number of timesteps
-pub fn generate_random_patterns(
-    nb_inputs: usize,
-    nb_timesteps: usize,
-    nb_patterns: usize,
-    seed: u64,
-) -> Vec<Vec<Vec<bool>>> {
-    let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
-    let mut ret = Vec::new();
-    for _ in 0..nb_patterns {
-        let mut r1 = Vec::new();
-        for _ in 0..nb_timesteps {
-            let mut r2 = Vec::new();
-            for _ in 0..nb_inputs {
-                r2.push(rng.gen());
-            }
-            r1.push(r2);
-        }
-        ret.push(r1);
-    }
-    ret
 }
 
 #[cfg(test)]

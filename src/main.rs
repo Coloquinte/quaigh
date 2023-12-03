@@ -1,8 +1,10 @@
 use clap::{Args, Parser, Subcommand};
-use quaigh::atpg::report_test_patterns;
+use quaigh::atpg::{
+    generate_random_comb_patterns, generate_random_seq_patterns, report_test_patterns,
+};
 use quaigh::equiv::check_equivalence_bounded;
 use quaigh::io::{read_network_file, read_pattern_file, write_network_file, write_pattern_file};
-use quaigh::sim::{generate_random_patterns, simulate_multiple};
+use quaigh::sim::simulate_multiple;
 use quaigh::stats;
 use std::path::PathBuf;
 
@@ -186,16 +188,23 @@ fn main() {
             num_cycles,
         }) => {
             let aig = read_network_file(network);
-            let nb_timesteps = num_cycles.unwrap_or(1);
             let nb_patterns = num_random.unwrap_or(4 * (aig.nb_inputs() + 1));
-            let patterns =
-                generate_random_patterns(aig.nb_inputs(), nb_timesteps, nb_patterns, seed);
-            write_pattern_file(output, &patterns);
-            if nb_timesteps == 1 && aig.is_comb() {
-                let comb_patterns: Vec<Vec<bool>> = patterns.iter().map(|p| p[0].clone()).collect();
+
+            if num_cycles.is_none() {
+                if !aig.is_comb() {
+                    panic!("Cannot generate patterns for a sequential network");
+                }
+                let comb_patterns =
+                    generate_random_comb_patterns(aig.nb_inputs(), nb_patterns, seed);
                 report_test_patterns(&aig, &comb_patterns);
+                let seq_patterns = comb_patterns.iter().map(|p| vec![p.clone()]).collect();
+                write_pattern_file(output, &seq_patterns);
             } else {
-                println!("Only generating random patterns for sequential networks");
+                println!("Generating only random patterns for multiple cycles");
+                let nb_timesteps = num_cycles.unwrap_or(1);
+                let seq_patterns =
+                    generate_random_seq_patterns(aig.nb_inputs(), nb_timesteps, nb_patterns, seed);
+                write_pattern_file(output, &seq_patterns);
             }
         }
     }

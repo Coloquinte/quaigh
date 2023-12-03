@@ -174,7 +174,7 @@ fn extend_aig_helper(a: &mut Aig, b: &Aig, t: &mut HashMap<Signal, Signal>, same
             Buf(s) => Buf(t[s]),
             Dff(_, _, _) => continue,
         };
-        let s = a.add_gate(g);
+        let s = a.add_raw_gate(g);
         t.insert(b.node(i), s);
         t.insert(!b.node(i), !s);
     }
@@ -225,7 +225,7 @@ fn unroll(aig: &Aig, nb_steps: usize) -> Aig {
 }
 
 /// Create an AIG with a single output, representing the equivalence of two combinatorial Aigs
-fn difference(a: &Aig, b: &Aig) -> Aig {
+pub(crate) fn difference(a: &Aig, b: &Aig) -> Aig {
     assert!(a.is_comb() && b.is_comb());
     assert_eq!(a.nb_inputs(), b.nb_inputs());
     assert_eq!(a.nb_outputs(), b.nb_outputs());
@@ -248,7 +248,7 @@ fn difference(a: &Aig, b: &Aig) -> Aig {
 }
 
 /// Find an assignment of the inputs that sets the single output to 1
-fn prove(a: &Aig) -> Option<Vec<bool>> {
+pub(crate) fn prove(a: &Aig) -> Option<Vec<bool>> {
     assert_eq!(a.nb_outputs(), 1);
 
     let clauses = to_cnf(a);
@@ -297,12 +297,12 @@ fn prove(a: &Aig) -> Option<Vec<bool>> {
 /// Perform equivalence checking on two combinatorial AIGs
 pub fn check_equivalence_comb(a: &Aig, b: &Aig, optimize: bool) -> Result<(), Vec<bool>> {
     assert!(a.is_comb() && b.is_comb());
-    let mut eq = difference(a, b);
+    let mut diff = difference(a, b);
     if optimize {
-        eq.dedup();
-        eq.sweep();
+        diff.dedup();
+        diff.sweep();
     }
-    let res = prove(&eq);
+    let res = prove(&diff);
     match res {
         None => Ok(()),
         Some(v) => Err(v),
