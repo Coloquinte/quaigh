@@ -125,7 +125,7 @@ fn find_pattern_detecting_fault(aig: &Aig, var: usize, pol: bool) -> Option<Vec<
     // Translation of the original signal into the fault
     let t = |s: &Signal| -> Signal {
         if s.is_var() && s.var() == var as u32 {
-            Signal::from(pol) ^ s.pol()
+            Signal::from(!pol) ^ s.pol()
         } else {
             *s
         }
@@ -147,6 +147,9 @@ fn find_pattern_detecting_fault(aig: &Aig, var: usize, pol: bool) -> Option<Vec<
             Dff(_, _, _) => continue,
         };
         fault_aig.add_raw_gate(g);
+    }
+    for i in 0..aig.nb_outputs() {
+        fault_aig.add_output(t(&aig.output(i)));
     }
 
     let mut diff = difference(aig, &fault_aig);
@@ -201,7 +204,7 @@ pub fn generate_test_patterns(aig: &Aig, seed: u64) -> Vec<Vec<bool>> {
         }
         let new_pattern = find_pattern_detecting_fault(aig, i / 2, i % 2 == 0);
         if let Some(p) = new_pattern {
-            println!("New found for fault #{}", i);
+            println!("New pattern found for fault #{}", i);
             assert!(analyzer.detects_fault(&p, i));
             patterns.push(p);
         } else {

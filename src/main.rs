@@ -1,7 +1,5 @@
 use clap::{Args, Parser, Subcommand};
-use quaigh::atpg::{
-    generate_random_comb_patterns, generate_random_seq_patterns, report_test_patterns,
-};
+use quaigh::atpg::{generate_random_seq_patterns, generate_test_patterns, report_test_patterns};
 use quaigh::equiv::check_equivalence_bounded;
 use quaigh::io::{read_network_file, read_pattern_file, write_network_file, write_pattern_file};
 use quaigh::sim::simulate_multiple;
@@ -194,10 +192,9 @@ fn main() {
                 if !aig.is_comb() {
                     panic!("Cannot generate patterns for a sequential network");
                 }
-                let comb_patterns =
-                    generate_random_comb_patterns(aig.nb_inputs(), nb_patterns, seed);
-                report_test_patterns(&aig, &comb_patterns);
-                let seq_patterns = comb_patterns.iter().map(|p| vec![p.clone()]).collect();
+                let patterns = generate_test_patterns(&aig, seed);
+                report_test_patterns(&aig, &patterns);
+                let seq_patterns = patterns.iter().map(|p| vec![p.clone()]).collect();
                 write_pattern_file(output, &seq_patterns);
             } else {
                 println!("Generating only random patterns for multiple cycles");
