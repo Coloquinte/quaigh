@@ -197,32 +197,45 @@ pub fn generate_test_patterns(aig: &Aig, seed: u64) -> Vec<Vec<bool>> {
     let mut patterns =
         generate_random_comb_patterns(aig.nb_inputs(), 4 * aig.nb_outputs() + 4, seed);
     let analyzer = TestPatternAnalyzer::from(aig);
-    let detected_faults = analyzer.detected_faults(&patterns);
+    let mut detected_faults = analyzer.detected_faults(&patterns);
+    let nb_detected_random = detected_faults.iter().filter(|b| **b).count();
+    println!(
+        "Generated {} random patterns, detecting {}/{} faults",
+        patterns.len(),
+        nb_detected_random,
+        analyzer.nb_faults()
+    );
     for i in 0..analyzer.nb_faults() {
         if detected_faults[i] {
             continue;
         }
         let new_pattern = find_pattern_detecting_fault(aig, i / 2, i % 2 == 0);
         if let Some(p) = new_pattern {
-            println!("New pattern found for fault #{}", i);
+            println!("\tNew pattern found for fault #{}", i);
             assert!(analyzer.detects_fault(&p, i));
+            detected_faults[i] = true;
+            for j in i + 1..analyzer.nb_faults() {
+                if detected_faults[j] {
+                    continue;
+                }
+                let new_detection = analyzer.detects_fault(&p, j);
+                if new_detection {
+                    println!("\t\tDetects fault #{}", j);
+                    detected_faults[j] = true;
+                }
+            }
             patterns.push(p);
         } else {
             println!("No pattern found for fault #{}", i);
         }
     }
-    patterns
-}
 
-/// Report on the given test patterns
-pub fn report_test_patterns(aig: &Aig, patterns: &Vec<Vec<bool>>) {
-    let analyzer = TestPatternAnalyzer::from(aig);
+    let nb_detected_sat = detected_faults.iter().filter(|b| **b).count();
     println!(
-        "{} test patterns, {} possible faults",
+        "Generated {} patterns total, detecting {}/{} faults",
         patterns.len(),
+        nb_detected_sat,
         analyzer.nb_faults()
     );
-    let detected = analyzer.detected_faults(patterns);
-    let number = detected.into_iter().filter(|b| *b).count();
-    println!("Detected {} faults out of {}", number, analyzer.nb_faults());
+    patterns
 }
