@@ -84,8 +84,8 @@ impl Signal {
         (!(pol as u64)).wrapping_add(1)
     }
 
-    /// Apply a variable remapping to the signal
-    pub(crate) fn remap(&self, t: &[Signal]) -> Signal {
+    /// Apply a remapping of variable order to the signal
+    pub(crate) fn remap_order(&self, t: &[Signal]) -> Signal {
         if !self.is_var() {
             *self
         } else {

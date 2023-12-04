@@ -211,7 +211,7 @@ impl Aig {
             let g = self.gate(i);
             assert!(translation[i].is_var());
             assert_eq!(translation[i].var(), new_nodes.len() as u32);
-            new_nodes.push(g.remap(translation.as_slice()));
+            new_nodes.push(g.remap_order(translation.as_slice()));
         }
         self.nodes = new_nodes;
 
@@ -222,7 +222,7 @@ impl Aig {
 
     /// Remap outputs
     fn remap_outputs(&mut self, translation: &[Signal]) {
-        let new_outputs = self.outputs.iter().map(|s| s.remap(translation)).collect();
+        let new_outputs = self.outputs.iter().map(|s| s.remap_order(translation)).collect();
         self.outputs = new_outputs;
     }
 
@@ -304,7 +304,7 @@ impl Aig {
 
         // Remap and dedup combinatorial gates
         for i in 0..self.nb_nodes() {
-            let g = self.gate(i).remap(translation.as_slice());
+            let g = self.gate(i).remap_order(translation.as_slice());
             if g.is_comb() {
                 translation[i] = dedup_node(&g, &mut hsh, &mut new_nodes);
             }
@@ -313,7 +313,7 @@ impl Aig {
         // Remap flip flops
         for i in 0..new_nodes.len() {
             if !new_nodes[i].is_comb() {
-                new_nodes[i] = new_nodes[i].remap(translation.as_slice());
+                new_nodes[i] = new_nodes[i].remap_order(translation.as_slice());
             }
         }
 

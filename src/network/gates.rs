@@ -138,20 +138,26 @@ impl Gate {
         }
     }
 
-    /// Apply a variable remapping to the gate
-    pub(crate) fn remap(&self, t: &[Signal]) -> Gate {
+    /// Apply a remapping of the signals to the gate
+    pub(crate) fn remap<F: Fn(&Signal) -> Signal>(&self, t: F) -> Gate {
         use Gate::*;
         match self {
-            And(a, b) => And(a.remap(t), b.remap(t)),
-            Xor(a, b) => Xor(a.remap(t), b.remap(t)),
-            And3(a, b, c) => And3(a.remap(t), b.remap(t), c.remap(t)),
-            Xor3(a, b, c) => Xor3(a.remap(t), b.remap(t), c.remap(t)),
-            Maj(a, b, c) => Maj(a.remap(t), b.remap(t), c.remap(t)),
-            Mux(a, b, c) => Mux(a.remap(t), b.remap(t), c.remap(t)),
-            Dff(a, b, c) => Dff(a.remap(t), b.remap(t), c.remap(t)),
-            Nary(v, tp) => Nary(v.iter().map(|s| s.remap(t)).collect(), *tp),
-            Buf(s) => Buf(s.remap(t)),
+            And(a, b) => And(t(a), t(b)),
+            Xor(a, b) => Xor(t(a), t(b)),
+            And3(a, b, c) => And3(t(a), t(b), t(c)),
+            Xor3(a, b, c) => Xor3(t(a), t(b), t(c)),
+            Mux(a, b, c) => Mux(t(a), t(b), t(c)),
+            Dff(a, b, c) => Dff(t(a), t(b), t(c)),
+            Maj(a, b, c) => Maj(t(a), t(b), t(c)),
+            Nary(v, tp) => Nary(v.iter().map(|s| t(s)).collect(), *tp),
+            Buf(s) => Buf(t(s)),
         }
+    }
+
+    /// Apply a remapping of variable order to the gate
+    pub(crate) fn remap_order(&self, t: &[Signal]) -> Gate {
+        let f = |s: &Signal| s.remap_order(t);
+        self.remap(f)
     }
 }
 

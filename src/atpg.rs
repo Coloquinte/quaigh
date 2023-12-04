@@ -4,7 +4,7 @@ use rand::{Rng, SeedableRng};
 
 use crate::equiv::{difference, prove};
 use crate::sim::simulate_comb;
-use crate::{Aig, Gate, Signal};
+use crate::{Aig, Signal};
 
 /// Build an Aig with additional inputs to represent error cases
 ///
@@ -20,7 +20,7 @@ pub fn build_analysis_network(aig: &Aig) -> Aig {
     let mut t = Vec::new();
     for i in 0..aig.nb_nodes() {
         let g = aig.gate(i);
-        let out = fault_aig.add_raw_gate(g.remap(&t));
+        let out = fault_aig.add_raw_gate(g.remap_order(&t));
         let saf0_in = fault_aig.add_input();
         let saf1_in = fault_aig.add_input();
         let saf0 = fault_aig.and(out, !saf0_in);
@@ -28,7 +28,7 @@ pub fn build_analysis_network(aig: &Aig) -> Aig {
         t.push(saf1);
     }
     for i in 0..aig.nb_outputs() {
-        fault_aig.add_output(aig.output(i).remap(&t));
+        fault_aig.add_output(aig.output(i).remap_order(&t));
     }
 
     fault_aig
@@ -123,33 +123,25 @@ impl TestPatternAnalyzer {
 ///     * elsewhere, where they don't need to be duplicated
 fn find_pattern_detecting_fault(aig: &Aig, var: usize, pol: bool) -> Option<Vec<bool>> {
     // Translation of the original signal into the fault
-    let t = |s: &Signal| -> Signal {
+    let fault_translation = |s: &Signal| -> Signal {
         if s.is_var() && s.var() == var as u32 {
             Signal::from(!pol) ^ s.pol()
         } else {
             *s
         }
     };
-    use Gate::*;
 
     let mut fault_aig = Aig::new();
     fault_aig.add_inputs(aig.nb_inputs());
     for i in 0..aig.nb_nodes() {
-        let g = match aig.gate(i) {
-            And(a, b) => And(t(a), t(b)),
-            Xor(a, b) => Xor(t(a), t(b)),
-            And3(a, b, c) => And3(t(a), t(b), t(c)),
-            Xor3(a, b, c) => Xor3(t(a), t(b), t(c)),
-            Mux(a, b, c) => Mux(t(a), t(b), t(c)),
-            Maj(a, b, c) => Maj(t(a), t(b), t(c)),
-            Nary(v, tp) => Nary(v.iter().map(|s| t(s)).collect(), *tp),
-            Buf(s) => Buf(t(s)),
-            Dff(_, _, _) => continue,
-        };
+        if !aig.gate(i).is_comb() {
+            continue;
+        }
+        let g = aig.gate(i).remap(fault_translation);
         fault_aig.add_raw_gate(g);
     }
     for i in 0..aig.nb_outputs() {
-        fault_aig.add_output(t(&aig.output(i)));
+        fault_aig.add_output(fault_translation(&aig.output(i)));
     }
 
     let mut diff = difference(aig, &fault_aig);

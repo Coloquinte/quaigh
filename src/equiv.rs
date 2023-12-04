@@ -163,6 +163,9 @@ fn extend_aig_helper(a: &mut Aig, b: &Aig, t: &mut HashMap<Signal, Signal>, same
         t.insert(!sb, !sa);
     }
     for i in 0..b.nb_nodes() {
+        if !b.gate(i).is_comb() {
+            continue;
+        }
         let g = match b.gate(i) {
             And(a, b) => And(t[a], t[b]),
             Xor(a, b) => Xor(t[a], t[b]),
