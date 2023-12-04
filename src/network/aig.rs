@@ -329,10 +329,9 @@ impl Aig {
 
     /// Topologically sort the Aig; this will invalidate all signals
     ///
+    /// Ordering may be changed even if already sorted. Flip-flop ordering is kept as is.
     /// Returns the mapping of old variable indices to signals, if needed.
-    /// Removed signals are mapped to zero.
     pub(crate) fn topo_sort(&mut self) -> Box<[Signal]> {
-        // TODO: make topo_sort preserve order when the network is already sorted
         // Count the output dependencies of each gate
         let mut count_deps = vec![0u32; self.nb_nodes()];
         for g in self.nodes.iter() {
@@ -344,9 +343,17 @@ impl Aig {
         // Compute the topological sort
         let mut rev_order: Vec<u32> = Vec::new();
         let mut visited = vec![false; self.nb_nodes()];
+
+        // Handle Dff separately so they are not reordered
+        for i in 0..self.nb_nodes() {
+            if !self.gate(i).is_comb() {
+                visited[i] = true;
+            }
+        }
+
         // Start with gates with no dependencies
         let mut to_visit: Vec<u32> = (0..self.nb_nodes())
-            .filter(|v| count_deps[*v] == 0)
+            .filter(|v| count_deps[*v] == 0 && !visited[*v])
             .map(|v| v as u32)
             .collect();
         while let Some(v) = to_visit.pop() {
@@ -363,6 +370,14 @@ impl Aig {
                 }
             }
         }
+
+        // Add Dff first to the order (first, so last in the reversed order)
+        for i in (0..self.nb_nodes()).rev() {
+            if !self.gate(i).is_comb() {
+                rev_order.push(i as u32);
+            }
+        }
+
         if rev_order.len() != self.nb_nodes() {
             panic!("Unable to find a valid topological sort: there must be a combinatorial loop");
         }
@@ -417,7 +432,7 @@ impl fmt::Display for Aig {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Aig, Signal};
+    use crate::{Aig, Gate, Signal};
 
     #[test]
     fn test_basic() {
@@ -530,5 +545,27 @@ mod tests {
         aig.add_output(x1_s);
         aig.dedup();
         assert_eq!(aig.nb_nodes(), 2);
+    }
+
+    #[test]
+    fn test_topo_sort() {
+        let mut aig = Aig::default();
+        let i0 = aig.add_input();
+        let i1 = aig.add_input();
+        let i2 = aig.add_input();
+        let x0 = Gate::Dff(i2, Signal::one(), Signal::zero());
+        let x1 = Gate::Dff(i1, Signal::one(), Signal::zero());
+        let x2 = Gate::Dff(i0, Signal::one(), Signal::zero());
+        let x3 = Gate::Dff(i2, i1, Signal::zero());
+        aig.add_raw_gate(x0.clone());
+        aig.add_raw_gate(x1.clone());
+        aig.add_raw_gate(x2.clone());
+        aig.add_raw_gate(x3.clone());
+        aig.topo_sort();
+        assert_eq!(aig.nb_nodes(), 4);
+        assert_eq!(aig.gate(0), &x0);
+        assert_eq!(aig.gate(1), &x1);
+        assert_eq!(aig.gate(2), &x2);
+        assert_eq!(aig.gate(3), &x3);
     }
 }
