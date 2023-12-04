@@ -203,7 +203,6 @@ pub fn generate_test_patterns(aig: &Aig, seed: u64) -> Vec<Vec<bool>> {
         }
         let new_pattern = find_pattern_detecting_fault(aig, i / 2, i % 2 == 0);
         if let Some(p) = new_pattern {
-            println!("\tNew pattern found for fault #{}", i);
             assert!(analyzer.detects_fault(&p, i));
             detected_faults[i] = true;
             for j in i + 1..analyzer.nb_faults() {
@@ -212,13 +211,10 @@ pub fn generate_test_patterns(aig: &Aig, seed: u64) -> Vec<Vec<bool>> {
                 }
                 let new_detection = analyzer.detects_fault(&p, j);
                 if new_detection {
-                    println!("\t\tDetects fault #{}", j);
                     detected_faults[j] = true;
                 }
             }
             patterns.push(p);
-        } else {
-            println!("No pattern found for fault #{}", i);
         }
     }
 
@@ -229,5 +225,8 @@ pub fn generate_test_patterns(aig: &Aig, seed: u64) -> Vec<Vec<bool>> {
         nb_detected_sat,
         analyzer.nb_faults()
     );
+    if nb_detected_sat != analyzer.nb_faults() {
+        println!("Not all faults are detectable!");
+    }
     patterns
 }
