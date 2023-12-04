@@ -1,5 +1,5 @@
 use clap::{Args, Parser, Subcommand};
-use quaigh::atpg::{generate_random_seq_patterns, generate_test_patterns};
+use quaigh::atpg::{expose_dff, generate_random_seq_patterns, generate_test_patterns};
 use quaigh::equiv::check_equivalence_bounded;
 use quaigh::io::{read_network_file, read_pattern_file, write_network_file, write_pattern_file};
 use quaigh::sim::simulate_multiple;
@@ -77,6 +77,10 @@ struct SimulateArgs {
     /// Output file for output patterns
     #[arg(short = 'o', long)]
     output: PathBuf,
+
+    /// Expose flip-flops as primary inputs
+    #[arg(long)]
+    expose_ff: bool,
 }
 
 #[derive(Args)]
@@ -172,8 +176,12 @@ fn main() {
             network,
             input,
             output,
+            expose_ff,
         }) => {
-            let aig = read_network_file(network);
+            let mut aig = read_network_file(network);
+            if expose_ff {
+                aig = expose_dff(&aig);
+            }
             let input_values = read_pattern_file(input);
             let output_values = simulate_multiple(&aig, &input_values);
             write_pattern_file(output, &output_values);
@@ -185,12 +193,13 @@ fn main() {
             num_random,
             num_cycles,
         }) => {
-            let aig = read_network_file(network);
+            let mut aig = read_network_file(network);
             let nb_patterns = num_random.unwrap_or(4 * (aig.nb_inputs() + 1));
 
             if num_cycles.is_none() {
                 if !aig.is_comb() {
-                    panic!("Cannot generate patterns for a sequential network");
+                    println!("Exposing flip-flops for a sequential network");
+                    aig = expose_dff(&aig);
                 }
                 let patterns = generate_test_patterns(&aig, seed);
                 let seq_patterns = patterns.iter().map(|p| vec![p.clone()]).collect();

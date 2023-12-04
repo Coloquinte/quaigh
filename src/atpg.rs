@@ -4,7 +4,36 @@ use rand::{Rng, SeedableRng};
 
 use crate::equiv::{difference, prove};
 use crate::sim::simulate_comb;
-use crate::{Aig, Signal};
+use crate::{Aig, Gate, Signal};
+
+/// Expose flip_flops as inputs for ATPG
+///
+/// The inputs are added after the original inputs. Their order matches the order of the flip flops
+pub fn expose_dff(aig: &Aig) -> Aig {
+    let mut ret = Aig::new();
+    ret.add_inputs(aig.nb_inputs());
+    for i in 0..aig.nb_outputs() {
+        ret.add_output(aig.output(i));
+    }
+    for i in 0..aig.nb_nodes() {
+        if let Gate::Dff(d, en, res) = aig.gate(i) {
+            let new_input = ret.add_input();
+            ret.add_raw_gate(Gate::Buf(new_input));
+            ret.add_output(*d);
+            if !en.is_constant() {
+                ret.add_output(*en);
+            }
+            if !res.is_constant() {
+                ret.add_output(*res);
+            }
+        } else {
+            let g = aig.gate(i).clone();
+            ret.add_raw_gate(g);
+        }
+    }
+    ret.check();
+    ret
+}
 
 /// Build an Aig with additional inputs to represent error cases
 ///
