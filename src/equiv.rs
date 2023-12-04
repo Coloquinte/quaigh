@@ -354,7 +354,7 @@ mod tests {
     use crate::stats::stats;
     use crate::{Aig, Gate, NaryType, Signal};
 
-    use super::check_equivalence_comb;
+    use super::{check_equivalence_comb, prove};
 
     #[test]
     fn test_equiv_and() {
@@ -638,5 +638,20 @@ mod tests {
         assert_eq!(st.nb_mux, nb_steps - 2);
         assert_eq!(st.nb_and, 1);
         assert_eq!(un.output(0), Signal::zero());
+    }
+
+    #[test]
+    fn test_prove_and() {
+        let mut a = Aig::new();
+        let l1 = a.add_input();
+        let l2 = a.add_input();
+        // Add an unused input
+        a.add_input();
+        let aa = a.and(l1, l2);
+        a.add_output(aa);
+        let p = prove(&a).unwrap();
+        assert_eq!(p.len(), 3);
+        assert!(p[0]);
+        assert!(p[1]);
     }
 }
