@@ -146,7 +146,6 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
 
 /// Copy the gates from one Aig to another and fill the existing translation table
 fn extend_aig_helper(a: &mut Aig, b: &Aig, t: &mut HashMap<Signal, Signal>, same_inputs: bool) {
-    use Gate::*;
     assert!(b.is_topo_sorted());
     assert!(!same_inputs || a.nb_inputs() == b.nb_inputs());
 
@@ -166,17 +165,7 @@ fn extend_aig_helper(a: &mut Aig, b: &Aig, t: &mut HashMap<Signal, Signal>, same
         if !b.gate(i).is_comb() {
             continue;
         }
-        let g = match b.gate(i) {
-            And(a, b) => And(t[a], t[b]),
-            Xor(a, b) => Xor(t[a], t[b]),
-            And3(a, b, c) => And3(t[a], t[b], t[c]),
-            Xor3(a, b, c) => Xor3(t[a], t[b], t[c]),
-            Mux(a, b, c) => Mux(t[a], t[b], t[c]),
-            Maj(a, b, c) => Maj(t[a], t[b], t[c]),
-            Nary(v, tp) => Nary(v.iter().map(|s| t[s]).collect(), *tp),
-            Buf(s) => Buf(t[s]),
-            Dff(_, _, _) => continue,
-        };
+        let g = b.gate(i).remap(|s| t[s]);
         let s = a.add_raw_gate(g);
         t.insert(b.node(i), s);
         t.insert(!b.node(i), !s);
