@@ -196,7 +196,7 @@ fn sig_to_string(s: &Signal) -> String {
     if *s == Signal::zero() {
         return "gnd".to_string();
     }
-    s.without_pol().to_string() + (if s.pol() { "_n" } else { "" })
+    s.without_inversion().to_string() + (if s.is_inverted() { "_n" } else { "" })
 }
 
 /// Write a bench file, as used by the ISCAS benchmarks
@@ -266,7 +266,7 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Aig) {
             Buf(s) => {
                 if s.is_constant() {
                     writeln!(w, "{}", sig_to_string(s)).unwrap();
-                } else if s.pol() {
+                } else if s.is_inverted() {
                     writeln!(w, "NOT({})", sig_to_string(&!s)).unwrap();
                 } else {
                     writeln!(w, "BUF({})", rep).unwrap();
@@ -279,7 +279,7 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Aig) {
     let mut signals_with_inv = HashSet::new();
     for o in 0..aig.nb_outputs() {
         let s = aig.output(o);
-        if s.pol() && !s.is_constant() {
+        if s.is_inverted() && !s.is_constant() {
             signals_with_inv.insert(!s);
         }
     }
@@ -289,7 +289,7 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Aig) {
             continue;
         }
         for s in aig.gate(i).dependencies() {
-            if s.pol() && !s.is_constant() {
+            if s.is_inverted() && !s.is_constant() {
                 signals_with_inv.insert(!s);
             }
         }

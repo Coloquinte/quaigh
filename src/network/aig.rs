@@ -222,7 +222,11 @@ impl Aig {
 
     /// Remap outputs
     fn remap_outputs(&mut self, translation: &[Signal]) {
-        let new_outputs = self.outputs.iter().map(|s| s.remap_order(translation)).collect();
+        let new_outputs = self
+            .outputs
+            .iter()
+            .map(|s| s.remap_order(translation))
+            .collect();
         self.outputs = new_outputs;
     }
 

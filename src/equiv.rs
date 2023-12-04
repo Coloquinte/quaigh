@@ -256,7 +256,11 @@ pub(crate) fn prove(a: &Aig) -> Option<Vec<bool>> {
 
     let clauses = to_cnf(a);
 
-    let mut all_lits: Vec<Signal> = clauses.iter().flatten().map(|s| s.without_pol()).collect();
+    let mut all_lits: Vec<Signal> = clauses
+        .iter()
+        .flatten()
+        .map(|s| s.without_inversion())
+        .collect();
     for i in 0..a.nb_inputs() {
         all_lits.push(Signal::from_input(i as u32));
     }

@@ -9,6 +9,12 @@ struct SimpleSimulator<'a> {
     node_values: Vec<u64>,
 }
 
+/// Convert the inversion to a word for bitwise operations
+fn pol_to_word(s: Signal) -> u64 {
+    let pol = s.raw() & 1;
+    (!(pol as u64)).wrapping_add(1)
+}
+
 fn maj(a: u64, b: u64, c: u64) -> u64 {
     (b & c) | (a & (b | c))
 }
@@ -58,10 +64,10 @@ impl<'a> SimpleSimulator<'a> {
         } else if s == Signal::one() {
             !0
         } else if s.is_input() {
-            self.input_values[s.input() as usize] ^ s.pol_to_word()
+            self.input_values[s.input() as usize] ^ pol_to_word(s)
         } else {
             debug_assert!(s.is_var());
-            self.node_values[s.var() as usize] ^ s.pol_to_word()
+            self.node_values[s.var() as usize] ^ pol_to_word(s)
         }
     }
 

@@ -67,13 +67,13 @@ impl Gate {
             Xor(a, b) => sorted_2(*a, *b) && !a.is_constant() && no_inv_2(*a, *b),
             And3(a, b, c) => sorted_3(*a, *b, *c) && !a.is_constant(),
             Xor3(a, b, c) => sorted_3(*a, *b, *c) && !a.is_constant() && no_inv_3(*a, *b, *c),
-            Maj(a, b, c) => sorted_3(*a, *b, *c) && !a.is_constant() && !a.pol(),
+            Maj(a, b, c) => sorted_3(*a, *b, *c) && !a.is_constant() && !a.is_inverted(),
             Mux(s, a, b) => {
                 s.ind() != a.ind()
                     && s.ind() != b.ind()
                     && a.ind() != b.ind()
-                    && !s.pol()
-                    && !b.pol()
+                    && !s.is_inverted()
+                    && !b.is_inverted()
                     && !a.is_constant()
                     && !b.is_constant()
                     && !s.is_constant()
@@ -179,8 +179,8 @@ fn make_and(a: Signal, b: Signal, inv: bool) -> Normalization {
 fn make_xor(a: Signal, b: Signal, inv: bool) -> Normalization {
     use Gate::*;
     use Normalization::*;
-    let new_inv = a.pol() ^ b.pol() ^ inv;
-    let (i0, i1) = sort_2(a.without_pol(), b.without_pol());
+    let new_inv = a.is_inverted() ^ b.is_inverted() ^ inv;
+    let (i0, i1) = sort_2(a.without_inversion(), b.without_inversion());
     if i0 == Signal::zero() {
         Copy(i1 ^ new_inv)
     } else if i0 == i1 {
@@ -210,8 +210,12 @@ fn make_and3(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
 fn make_xor3(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
     use Gate::*;
     use Normalization::*;
-    let new_inv = a.pol() ^ b.pol() ^ c.pol() ^ inv;
-    let (i0, i1, i2) = sort_3(a.without_pol(), b.without_pol(), c.without_pol());
+    let new_inv = a.is_inverted() ^ b.is_inverted() ^ c.is_inverted() ^ inv;
+    let (i0, i1, i2) = sort_3(
+        a.without_inversion(),
+        b.without_inversion(),
+        c.without_inversion(),
+    );
     if i0 == Signal::zero() {
         make_xor(i1, i2, new_inv)
     } else if i0 == i1 {
@@ -227,9 +231,9 @@ fn make_xor3(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
 fn make_mux(s: Signal, a: Signal, b: Signal, inv: bool) -> Normalization {
     use Gate::*;
     use Normalization::*;
-    if s.pol() {
+    if s.is_inverted() {
         make_mux(!s, b, a, inv)
-    } else if b.pol() {
+    } else if b.is_inverted() {
         make_mux(s, !a, !b, !inv)
     } else if s == Signal::zero() || a == b {
         Copy(b ^ inv)
@@ -262,7 +266,7 @@ fn make_maj(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
         Copy(i2 ^ inv)
     } else if i1 == !i2 || i0 == i1 {
         Copy(i0 ^ inv)
-    } else if i0.pol() {
+    } else if i0.is_inverted() {
         // Won't cause an infinite loop because the order will not change
         // We already removed cases where signals differ by their sign
         make_maj(!i0, !i1, !i2, !inv)
@@ -320,10 +324,10 @@ fn make_xorn(v: &[Signal], inv: bool) -> Normalization {
     // Remove polarity
     let mut pol = inv;
     for s in vs.iter() {
-        pol ^= s.pol();
+        pol ^= s.is_inverted();
     }
     for s in &mut vs {
-        *s = s.without_pol();
+        *s = s.without_inversion();
     }
     vs.retain(|s| *s != Signal::zero());
     vs.sort();
@@ -497,15 +501,15 @@ fn sorted_n(v: &[Signal]) -> bool {
 }
 
 fn no_inv_2(a: Signal, b: Signal) -> bool {
-    !a.pol() && !b.pol()
+    !a.is_inverted() && !b.is_inverted()
 }
 
 fn no_inv_3(a: Signal, b: Signal, c: Signal) -> bool {
-    !a.pol() && !b.pol() && !c.pol()
+    !a.is_inverted() && !b.is_inverted() && !c.is_inverted()
 }
 
 fn no_inv_n(v: &[Signal]) -> bool {
-    v.iter().all(|s| !s.pol())
+    v.iter().all(|s| !s.is_inverted())
 }
 
 fn sort_2(a: Signal, b: Signal) -> (Signal, Signal) {

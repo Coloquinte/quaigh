@@ -125,7 +125,7 @@ fn find_pattern_detecting_fault(aig: &Aig, var: usize, pol: bool) -> Option<Vec<
     // Translation of the original signal into the fault
     let fault_translation = |s: &Signal| -> Signal {
         if s.is_var() && s.var() == var as u32 {
-            Signal::from(!pol) ^ s.pol()
+            Signal::from(!pol) ^ s.is_inverted()
         } else {
             *s
         }

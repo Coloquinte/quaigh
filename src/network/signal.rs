@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ops::{BitXor, BitXorAssign, Not};
 
-/// Representation of a literal (a boolean variable or its complement)
+/// Representation of a signal (a boolean variable or its complement)
 ///
 /// May be 0, 1, x or !x.
 /// Design inputs and constants get a special representation.
@@ -11,77 +11,79 @@ pub struct Signal {
 }
 
 impl Signal {
-    /// Constant zero literal
+    /// Constant zero signal
     pub fn zero() -> Signal {
         Signal { a: 0 }
     }
 
-    /// Constant one literal
+    /// Constant one signal
     pub fn one() -> Signal {
         Signal { a: 1 }
     }
 
-    /// Create a literal from a variable index
+    /// Create a signal from a variable index
     pub fn from_var(v: u32) -> Signal {
         Self::from_ind(v + 1)
     }
 
-    /// Create a literal from a design input index
+    /// Create a signal from a design input index
     pub fn from_input(v: u32) -> Signal {
         Self::from_ind(!v)
     }
 
-    /// Create a literal from an index (including zero literal at index 0)
+    /// Create a signal from an index (including zero signal at index 0)
     pub(crate) fn from_ind(v: u32) -> Signal {
         Signal { a: v << 1 }
     }
 
-    /// Obtain the variable index associated with the literal
+    /// Obtain the variable index associated with the signal
     pub fn var(&self) -> u32 {
         assert!(self.is_var());
         self.ind() - 1u32
     }
 
-    /// Obtain the design input index associated with the literal
+    /// Obtain the design input index associated with the signal
     pub fn input(&self) -> u32 {
         assert!(self.is_input());
         !self.ind() & !0x8000_0000
     }
 
-    /// Obtain the internal index associated with the literal: 0 for a constant, otherwise var() + 1
+    /// Obtain the internal index associated with the signal: 0 for a constant, otherwise var() + 1
     pub fn ind(&self) -> u32 {
         self.a >> 1
     }
 
-    /// Obtain the polarity of the literal (True for a complemented variable)
-    pub fn pol(&self) -> bool {
-        self.a & 1 != 0
-    }
-
-    /// Returns true if the literal represents a constant
+    /// Returns true if the signal represents a constant
     pub fn is_constant(&self) -> bool {
         self.ind() == 0
     }
 
-    /// Returns true if the literal represents a design input
+    /// Returns true if the signal represents a design input
     pub fn is_input(&self) -> bool {
         self.a & 0x7000000 != 0
     }
 
-    /// Returns true if the literal represents an internal variable
+    /// Returns true if the signal represents an internal variable
     pub fn is_var(&self) -> bool {
         !self.is_input() && !self.is_constant()
     }
 
-    /// Clear the polarity
-    pub(crate) fn without_pol(&self) -> Signal {
+    /// Clear the inversion, if set
+    pub(crate) fn without_inversion(&self) -> Signal {
         Signal { a: self.a & !1u32 }
     }
 
-    /// Convert the polarity to a word for bitwise operations
-    pub(crate) fn pol_to_word(&self) -> u64 {
-        let pol = self.a & 1;
-        (!(pol as u64)).wrapping_add(1)
+    /// Returns true if the signal is implicitly inverted
+    ///
+    /// False for inputs, variables and zero.
+    /// True for their complement and for one.
+    pub fn is_inverted(&self) -> bool {
+        self.a & 1 != 0
+    }
+
+    /// Return the internal representation of the signal
+    pub fn raw(&self) -> u32 {
+        self.a
     }
 
     /// Apply a remapping of variable order to the signal
@@ -89,7 +91,7 @@ impl Signal {
         if !self.is_var() {
             *self
         } else {
-            t[self.var() as usize] ^ self.pol()
+            t[self.var() as usize] ^ self.is_inverted()
         }
     }
 }
@@ -162,7 +164,7 @@ impl fmt::Display for Signal {
             let a = self.a & 1;
             write!(f, "{a}")
         } else {
-            if self.pol() {
+            if self.is_inverted() {
                 write!(f, "!")?;
             }
             if self.is_input() {
@@ -182,21 +184,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_literal() {
+    fn test_signal() {
         let l0 = Signal::zero();
         let l1 = Signal::one();
         assert_eq!(l0, !l1);
         assert_eq!(l1, !l0);
-        assert!(!l0.pol());
-        assert!(l1.pol());
+        assert!(!l0.is_inverted());
+        assert!(l1.is_inverted());
         assert_eq!(format!("{l0}"), "0");
         assert_eq!(format!("{l1}"), "1");
         for v in 0u32..10u32 {
             let l = Signal::from_var(v);
             assert_eq!(l.var(), v);
             assert_eq!((!l).var(), v);
-            assert!(!l.pol());
-            assert!((!l).pol());
+            assert!(!l.is_inverted());
+            assert!((!l).is_inverted());
             assert_eq!(l ^ false, l);
             assert_eq!(l ^ true, !l);
             assert_eq!(format!("{l}"), format!("x{v}"));
@@ -205,8 +207,8 @@ mod tests {
             let l = Signal::from_input(v);
             assert_eq!(l.input(), v);
             assert_eq!((!l).input(), v);
-            assert!(!l.pol());
-            assert!((!l).pol());
+            assert!(!l.is_inverted());
+            assert!((!l).is_inverted());
             assert_eq!(l ^ false, l);
             assert_eq!(l ^ true, !l);
             assert_eq!(format!("{l}"), format!("i{v}"));
