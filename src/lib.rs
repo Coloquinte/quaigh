@@ -8,23 +8,27 @@
 //! Quaigh main representation uses a typical Gate-Inverter-Graph to represent a logic circuit.
 //! Gates are represented explicitly, and inverters are implicit, occupying just one bit.
 //!
-//! To make optimization easier, it differs from most similar representations:
-//! * Complex gates such as Xor, Mux and Maj3 are all first class citizens and can coexist in the same logic circuit;
+//! To make interoperability and optimization easier, many kinds of logic are supported:
+//! * Complex gates such as Xor, Mux and Maj3 are all first class citizens and can coexist in the same circuit;
 //! * Flip-flops with enable and reset are represented directly, not as primary inputs and outputs.
-//!
-//! # Features
-//!
-//! Quaigh features bounded equivalence checking, logic simplification and basic ATPG.
-//! At the moment, these are far from state of the art: for production designs, you should generally
-//! stick to the tools included in [Yosys](https://github.com/YosysHQ/yosys).
 //!
 //! # Usage
 //!
+//! Quaigh features bounded equivalence checking, logic simplification and ATPG.
+//! More features will be added over time.
+//! At the moment, logic simplification is far from state of the art: for production designs, you should
+//! generally stick to the tools included in [Yosys](https://github.com/YosysHQ/yosys).
+//!
 //! ```bash
 //! # Show available commands
-//! quaigh help
 //! # At the moment, only .bench files are supported
-//! quaigh optimize mydesign.bench -o optimized.bench
+//! quaigh help
+//! # Optimize the logic
+//! quaigh opt mydesign.bench -o optimized.bench
+//! # Check equivalence between the two
+//! quaigh equiv mydesign.bench optimized.bench
+//! # Generate test patterns for the optimized design
+//! quaigh atpg optimized.bench -o atpg.test
 //! ```
 //!
 //! Quaigh is not published on crates.io yet, but you can install it from the git repository using Cargo:
