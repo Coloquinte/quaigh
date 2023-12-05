@@ -1,3 +1,5 @@
+//! Representation and handling of logic networks
+
 mod aig;
 pub mod area;
 mod gates;

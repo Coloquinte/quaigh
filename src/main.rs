@@ -1,11 +1,71 @@
+//! Logic simplification and analysis tools
+//!
+//! This crate provides tools for logic optimization, synthesis, technology mapping and analysis.
+//! Our goal is to provide an easy-to-use library, and improve its quality over time to match industrial tools.
+//!
+//! # Usage
+//!
+//! Quaigh features bounded [equivalence checking](https://en.wikipedia.org/wiki/Formal_equivalence_checking),
+//! [logic simplification](https://en.wikipedia.org/wiki/Logic_optimization) and
+//! [test pattern generation](https://en.wikipedia.org/wiki/Automatic_test_pattern_generation).
+//! More features will be added over time, such as technology mapping.
+//! At the moment, logic simplification is far from state of the art: for production designs, you should
+//! generally stick to the tools included in [Yosys](https://github.com/YosysHQ/yosys).
+//!
+//! ```bash
+//! # Show available commands
+//! # At the moment, only .bench files are supported
+//! quaigh help
+//! # Optimize the logic
+//! quaigh opt mydesign.bench -o optimized.bench
+//! # Check equivalence between the two
+//! quaigh equiv mydesign.bench optimized.bench
+//! # Generate test patterns for the optimized design
+//! quaigh atpg optimized.bench -o atpg.test
+//! ```
+//!
+//! # Installation
+//!
+//! Quaigh is written in Rust. It is not published on crates.io yet, but you can install it from the git
+//! repository using [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html), Rust's
+//! package manager:
+//! ```bash
+//! cargo install --git https://github.com/Coloquinte/quaigh
+//! ```
+//!
+//! # Development
+//!
+//! Quaigh main datastructure is a typical Gate-Inverter-Graph to represent a logic circuit.
+//! Inverters are implicit, occupying just one bit.
+//!
+//! To make interoperability and optimization easier, many kinds of logic are supported:
+//! * Complex gates such as Xor, Mux and Maj3 are all first class citizens and can coexist in the same circuit;
+//! * Flip-flops with enable and reset are represented directly, not as primary inputs and outputs.
+//!
+//! For more information, browse the documentation locally:
+//! ```bash
+//! cargo doc --open --no-deps
+//! ```
+
+#![warn(missing_docs)]
+
+mod network;
+
+pub mod atpg;
+pub mod equiv;
+pub mod io;
+pub mod sim;
+
+pub use network::{area, generators, stats, Aig, Gate, NaryType, Signal};
+
+use atpg::{expose_dff, generate_random_seq_patterns, generate_test_patterns};
 use clap::{Args, Parser, Subcommand};
-use quaigh::atpg::{expose_dff, generate_random_seq_patterns, generate_test_patterns};
-use quaigh::equiv::check_equivalence_bounded;
-use quaigh::io::{read_network_file, read_pattern_file, write_network_file, write_pattern_file};
-use quaigh::sim::simulate_multiple;
-use quaigh::stats;
+use equiv::check_equivalence_bounded;
+use io::{read_network_file, read_pattern_file, write_network_file, write_pattern_file};
+use sim::simulate_multiple;
 use std::path::PathBuf;
 
+/// Command line arguments
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 #[command(propagate_version = true)]
@@ -14,6 +74,7 @@ struct Cli {
     command: Commands,
 }
 
+/// Command line arguments
 #[derive(Subcommand)]
 enum Commands {
     /// Check equivalence between two logic networks
@@ -33,6 +94,7 @@ enum Commands {
     Atpg(AtpgArgs),
 }
 
+/// Command arguments for equivalence checking
 #[derive(Args)]
 struct EquivArgs {
     /// First network to compare
@@ -49,6 +111,7 @@ struct EquivArgs {
     sat_only: bool,
 }
 
+/// Command arguments for optimization
 #[derive(Args)]
 struct OptArgs {
     /// Network to optimize
@@ -59,12 +122,14 @@ struct OptArgs {
     output: PathBuf,
 }
 
+/// Command arguments for network informations
 #[derive(Args)]
 struct ShowArgs {
     /// Network to show
     file: PathBuf,
 }
 
+/// Command arguments for simulation
 #[derive(Args)]
 struct SimulateArgs {
     /// Network to simulate
@@ -83,6 +148,7 @@ struct SimulateArgs {
     expose_ff: bool,
 }
 
+/// Command arguments for test pattern generation
 #[derive(Args)]
 struct AtpgArgs {
     /// Network to write test patterns for

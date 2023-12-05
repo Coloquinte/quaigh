@@ -30,13 +30,13 @@ pub enum Gate {
     And3(Signal, Signal, Signal),
     /// 3-input Xor gate
     Xor3(Signal, Signal, Signal),
-    /// Majority gate
+    /// Majority gate (a + b + c >= 2)
     Maj(Signal, Signal, Signal),
-    /// Multiplexer
+    /// Multiplexer s ? a : b
     Mux(Signal, Signal, Signal),
-    /// D flip-flop
+    /// D flip-flop with enable and reset
     Dff(Signal, Signal, Signal),
-    /// N-input gate
+    /// Arbitrary N-input gate (And/Or/Xor/Nand/Nor/Xnor)
     Nary(Box<[Signal]>, NaryType),
     /// Buf or Not
     Buf(Signal),
