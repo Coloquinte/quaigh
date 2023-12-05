@@ -1,6 +1,9 @@
 use crate::{Aig, NaryType, Signal};
 
 /// Structure for simulation based directly on the network representation
+///
+/// This is simple to write and relatively efficient, but could be greatly improved
+/// with a regular and- or mux-based structure.
 pub struct SimpleSimulator<'a> {
     aig: &'a Aig,
     input_values: Vec<u64>,
@@ -13,15 +16,18 @@ fn pol_to_word(s: Signal) -> u64 {
     (!(pol as u64)).wrapping_add(1)
 }
 
+/// Majority function
 fn maj(a: u64, b: u64, c: u64) -> u64 {
     (b & c) | (a & (b | c))
 }
 
+/// Multiplexer function
 fn mux(s: u64, a: u64, b: u64) -> u64 {
     (s & a) | (!s & b)
 }
 
 impl<'a> SimpleSimulator<'a> {
+    /// Build a simulator by capturing an Aig
     pub fn from_aig(aig: &'a Aig) -> SimpleSimulator<'a> {
         assert!(aig.is_topo_sorted());
         SimpleSimulator {
@@ -31,7 +37,12 @@ impl<'a> SimpleSimulator<'a> {
         }
     }
 
-    pub fn run(&mut self, input_values: &Vec<Vec<u64>>) -> Vec<Vec<u64>> {
+    /// Run the simulation with a list of stuck-at-fault errors
+    pub fn run_with_errors(
+        &mut self,
+        input_values: &Vec<Vec<u64>>,
+        errors: &Vec<Signal>,
+    ) -> Vec<Vec<u64>> {
         self.check();
         self.reset();
         let mut ret = Vec::new();
@@ -40,7 +51,7 @@ impl<'a> SimpleSimulator<'a> {
                 self.run_dff();
             }
             self.copy_inputs(v.as_slice());
-            self.run_comb();
+            self.run_comb_with_errors(errors);
             ret.push(self.get_output_values());
         }
         ret
@@ -52,10 +63,12 @@ impl<'a> SimpleSimulator<'a> {
     }
 
     fn check(&self) {
+        assert!(self.aig.is_topo_sorted());
         assert_eq!(self.input_values.len(), self.aig.nb_inputs());
         assert_eq!(self.node_values.len(), self.aig.nb_nodes());
     }
 
+    // Get the value of a signal in the current state
     fn get_value(&self, s: Signal) -> u64 {
         if s == Signal::zero() {
             0
@@ -69,11 +82,13 @@ impl<'a> SimpleSimulator<'a> {
         }
     }
 
+    // Copy the values of the inputs to the internal state
     fn copy_inputs(&mut self, inputs: &[u64]) {
         assert_eq!(inputs.len(), self.input_values.len());
         self.input_values.copy_from_slice(inputs);
     }
 
+    // Copy the values of the flip-flops for the next cycle
     fn run_dff(&mut self) {
         use crate::Gate::*;
         let mut next_values = self.node_values.clone();
@@ -91,29 +106,40 @@ impl<'a> SimpleSimulator<'a> {
         self.node_values = next_values;
     }
 
-    fn run_comb(&mut self) {
+    /// Return the result of a single gate
+    fn run_gate(&self, i: usize) -> u64 {
         use crate::Gate::*;
+        let g = self.aig.gate(i);
+        match g {
+            And(a, b) => self.get_value(*a) & self.get_value(*b),
+            Xor(a, b) => self.get_value(*a) ^ self.get_value(*b),
+            And3(a, b, c) => self.get_value(*a) & self.get_value(*b) & self.get_value(*c),
+            Xor3(a, b, c) => self.get_value(*a) ^ self.get_value(*b) ^ self.get_value(*c),
+            Maj(a, b, c) => maj(self.get_value(*a), self.get_value(*b), self.get_value(*c)),
+            Mux(a, b, c) => mux(self.get_value(*a), self.get_value(*b), self.get_value(*c)),
+            Dff(_, _, _) => self.node_values[i],
+            Nary(v, tp) => match tp {
+                NaryType::And => self.compute_andn(v, false, false),
+                NaryType::Or => self.compute_andn(v, true, true),
+                NaryType::Nand => self.compute_andn(v, false, true),
+                NaryType::Nor => self.compute_andn(v, true, false),
+                NaryType::Xor => self.compute_xorn(v, false),
+                NaryType::Xnor => self.compute_xorn(v, true),
+            },
+            Buf(s) => self.get_value(*s),
+        }
+    }
+
+    /// Run the combinatorial part of the design with a list of stuck-at-fault errors
+    fn run_comb_with_errors(&mut self, errors: &Vec<Signal>) {
         for i in 0..self.aig.nb_nodes() {
-            let g = self.aig.gate(i);
-            let val = match g {
-                And(a, b) => self.get_value(*a) & self.get_value(*b),
-                Xor(a, b) => self.get_value(*a) ^ self.get_value(*b),
-                And3(a, b, c) => self.get_value(*a) & self.get_value(*b) & self.get_value(*c),
-                Xor3(a, b, c) => self.get_value(*a) ^ self.get_value(*b) ^ self.get_value(*c),
-                Maj(a, b, c) => maj(self.get_value(*a), self.get_value(*b), self.get_value(*c)),
-                Mux(a, b, c) => mux(self.get_value(*a), self.get_value(*b), self.get_value(*c)),
-                Dff(_, _, _) => continue,
-                Nary(v, tp) => match tp {
-                    NaryType::And => self.compute_andn(v, false, false),
-                    NaryType::Or => self.compute_andn(v, true, true),
-                    NaryType::Nand => self.compute_andn(v, false, true),
-                    NaryType::Nor => self.compute_andn(v, true, false),
-                    NaryType::Xor => self.compute_xorn(v, false),
-                    NaryType::Xnor => self.compute_xorn(v, true),
-                },
-                Buf(s) => self.get_value(*s),
-            };
-            self.node_values[i] = val;
+            self.node_values[i] = self.run_gate(i);
+            if errors.contains(&Signal::from_var(i as u32)) {
+                self.node_values[i] = 0u64;
+            }
+            if errors.contains(&!Signal::from_var(i as u32)) {
+                self.node_values[i] = !0u64;
+            }
         }
     }
 
