@@ -1,4 +1,5 @@
 /// Representation of a fault, with its type and location
+#[derive(Clone, Copy, Debug)]
 pub enum Fault {
     /// Output stuck-at fault: the output of the given gate is stuck at a fixed value
     OutputStuckAtFault {

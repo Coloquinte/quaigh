@@ -36,7 +36,7 @@ pub fn expose_dff(aig: &Aig) -> Aig {
 }
 
 /// Analyze which of a set of pattern detect a given fault
-pub fn detects_fault(aig: &Aig, pattern: &Vec<u64>, fault: Fault) -> u64 {
+fn detects_fault(aig: &Aig, pattern: &Vec<u64>, fault: Fault) -> u64 {
     assert!(aig.is_comb());
     assert!(aig.is_topo_sorted());
     let expected = simulate_comb_multi(aig, pattern);
@@ -46,6 +46,14 @@ pub fn detects_fault(aig: &Aig, pattern: &Vec<u64>, fault: Fault) -> u64 {
         detection |= a ^ b;
     }
     detection
+}
+
+/// Analyze whether a pattern detects a given fault
+fn detects_fault_single(aig: &Aig, pattern: &Vec<bool>, fault: Fault) -> bool {
+    let multi_pattern = pattern.iter().map(|b| if *b {!0u64} else {0u64}).collect();
+    let detection = detects_fault(aig, &multi_pattern, fault);
+    assert!(detection == 0u64 || detection == !0u64);
+    detection == !0u64
 }
 
 /// Build an Aig with additional inputs to represent error cases
@@ -194,7 +202,11 @@ fn find_pattern_detecting_fault(aig: &Aig, fault: Fault) -> Option<Vec<bool>> {
     let mut diff = difference(aig, &fault_aig);
     diff.dedup();
     diff.sweep();
-    prove(&diff)
+    let ret = prove(&diff);
+    if let Some(pattern) = &ret {
+        assert!(detects_fault_single(aig, &pattern, fault));
+    }
+    ret
 }
 
 /// Generate random patterns with a given number of timesteps
@@ -254,7 +266,6 @@ pub fn generate_test_patterns(aig: &Aig, seed: u64) -> Vec<Vec<bool>> {
         };
         let new_pattern = find_pattern_detecting_fault(aig, fault);
         if let Some(p) = new_pattern {
-            assert!(analyzer.detects_fault(&p, i));
             detected_faults[i] = true;
             for j in i + 1..analyzer.nb_faults() {
                 if detected_faults[j] {
