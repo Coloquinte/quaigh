@@ -1,9 +1,10 @@
 //! Test pattern generation
 
+use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 
 use crate::equiv::{difference, prove};
-use crate::sim::{simulate_comb, simulate_comb_multi, simulate_comb_multi_with_faults, Fault};
+use crate::sim::{simulate_comb_multi, simulate_comb_multi_with_faults, Fault};
 use crate::{Aig, Gate, Signal};
 
 /// Expose flip_flops as inputs for ATPG
@@ -50,7 +51,10 @@ fn detects_fault(aig: &Aig, pattern: &Vec<u64>, fault: Fault) -> u64 {
 
 /// Analyze whether a pattern detects a given fault
 fn detects_fault_single(aig: &Aig, pattern: &Vec<bool>, fault: Fault) -> bool {
-    let multi_pattern = pattern.iter().map(|b| if *b {!0u64} else {0u64}).collect();
+    let multi_pattern = pattern
+        .iter()
+        .map(|b| if *b { !0u64 } else { 0u64 })
+        .collect();
     let detection = detects_fault(aig, &multi_pattern, fault);
     assert!(detection == 0u64 || detection == !0u64);
     detection == !0u64
@@ -84,88 +88,6 @@ pub fn build_analysis_network(aig: &Aig) -> Aig {
     fault_aig
 }
 
-/// Analysis of test patterns
-pub struct TestPatternAnalyzer {
-    fault_aig: Aig,
-    nb_inputs: usize,
-    nb_outputs: usize,
-    nb_faults: usize,
-}
-
-impl TestPatternAnalyzer {
-    /// Construct a new analyzer from an Aig
-    pub fn from(aig: &Aig) -> TestPatternAnalyzer {
-        let fault_aig = build_analysis_network(aig);
-        let nb_inputs = aig.nb_inputs();
-        let nb_faults = 2 * aig.nb_nodes();
-        let nb_outputs = aig.nb_outputs();
-        assert_eq!(nb_inputs + nb_faults, fault_aig.nb_inputs());
-        TestPatternAnalyzer {
-            fault_aig,
-            nb_inputs,
-            nb_outputs,
-            nb_faults,
-        }
-    }
-
-    /// Return the number of inputs of the analyzed network
-    pub fn nb_inputs(&self) -> usize {
-        self.nb_inputs
-    }
-
-    /// Return the number of inputs of the analyzed network
-    pub fn nb_outputs(&self) -> usize {
-        self.nb_outputs
-    }
-
-    /// Return the number of faults to match
-    pub fn nb_faults(&self) -> usize {
-        self.nb_faults
-    }
-
-    /// Return which faults are detected by a test pattern
-    pub fn detected_faults(&self, patterns: &Vec<Vec<bool>>) -> Vec<bool> {
-        let mut ret = vec![false; self.nb_faults];
-
-        for pattern in patterns {
-            assert_eq!(pattern.len(), self.nb_inputs);
-            let mut input = pattern.clone();
-            for _ in 0..self.nb_faults {
-                input.push(false);
-            }
-            let expected = simulate_comb(&self.fault_aig, &input);
-
-            for i in 0..self.nb_faults {
-                if ret[i] {
-                    continue;
-                }
-                input[self.nb_inputs + i] = true;
-                // Simulate the fault and see if the pattern detects it
-                let res = simulate_comb(&self.fault_aig, &input);
-                ret[i] = res != expected;
-                input[self.nb_inputs + i] = false;
-            }
-        }
-
-        ret
-    }
-
-    /// Returns whether a pattern detects a given fault
-    pub fn detects_fault(&self, pattern: &Vec<bool>, fault_ind: usize) -> bool {
-        assert_eq!(pattern.len(), self.nb_inputs);
-        let mut input = pattern.clone();
-        for _ in 0..self.nb_faults {
-            input.push(false);
-        }
-        let expected = simulate_comb(&self.fault_aig, &input);
-
-        input[self.nb_inputs + fault_ind] = true;
-        // Simulate the fault and see if the pattern detects it
-        let res = simulate_comb(&self.fault_aig, &input);
-        res != expected
-    }
-}
-
 /// Find a new test pattern for a specific fault using a SAT solver
 ///
 /// Each gate may be in one of two cases:
@@ -182,7 +104,6 @@ fn find_pattern_detecting_fault(aig: &Aig, fault: Fault) -> Option<Vec<bool>> {
                     *s
                 }
             }
-            _ => todo!(),
         }
     };
 
@@ -242,53 +163,147 @@ pub fn generate_random_comb_patterns(
     seq_patterns.iter().map(|p| p[0].clone()).collect()
 }
 
-/// Generate test patterns
-pub fn generate_test_patterns(aig: &Aig, seed: u64) -> Vec<Vec<bool>> {
-    assert!(aig.is_comb());
-    let mut patterns =
-        generate_random_comb_patterns(aig.nb_inputs(), 4 * aig.nb_outputs() + 4, seed);
-    let analyzer = TestPatternAnalyzer::from(aig);
-    let mut detected_faults = analyzer.detected_faults(&patterns);
-    let nb_detected_random = detected_faults.iter().filter(|b| **b).count();
-    println!(
-        "Generated {} random patterns, detecting {}/{} faults",
-        patterns.len(),
-        nb_detected_random,
-        analyzer.nb_faults()
-    );
-    for i in 0..analyzer.nb_faults() {
-        if detected_faults[i] {
-            continue;
-        }
-        let fault = Fault::OutputStuckAtFault {
-            gate: i / 2,
-            value: i % 2 != 0,
-        };
-        let new_pattern = find_pattern_detecting_fault(aig, fault);
-        if let Some(p) = new_pattern {
-            detected_faults[i] = true;
-            for j in i + 1..analyzer.nb_faults() {
-                if detected_faults[j] {
-                    continue;
-                }
-                let new_detection = analyzer.detects_fault(&p, j);
-                if new_detection {
-                    detected_faults[j] = true;
-                }
-            }
-            patterns.push(p);
+/// Handling of the actual test pattern generation
+struct TestPatternGenerator<'a> {
+    aig: &'a Aig,
+    faults: Vec<Fault>,
+    patterns: Vec<Vec<bool>>,
+    pattern_detections: Vec<Vec<bool>>,
+    detection: Vec<bool>,
+    rng: SmallRng,
+}
+
+impl<'a> TestPatternGenerator<'a> {
+    pub fn nb_faults(&self) -> usize {
+        self.faults.len()
+    }
+
+    pub fn nb_patterns(&self) -> usize {
+        self.patterns.len()
+    }
+
+    pub fn nb_detected(&self) -> usize {
+        self.detection.iter().filter(|b| **b).count()
+    }
+
+    /// Initialize the generator from a network and a seed
+    pub fn from(aig: &'a Aig, seed: u64) -> TestPatternGenerator {
+        assert!(aig.is_topo_sorted());
+        let faults = Self::get_all_faults(aig);
+        let nb_faults = faults.len();
+        TestPatternGenerator {
+            aig,
+            faults,
+            patterns: Vec::new(),
+            pattern_detections: Vec::new(),
+            detection: vec![false; nb_faults],
+            rng: SmallRng::seed_from_u64(seed),
         }
     }
 
-    let nb_detected_sat = detected_faults.iter().filter(|b| **b).count();
+    /// Get all possible faults in a network
+    fn get_all_faults(aig: &'a Aig) -> Vec<Fault> {
+        let mut ret = Vec::new();
+        for i in 0..aig.nb_nodes() {
+            ret.push(Fault::OutputStuckAtFault {
+                gate: i,
+                value: false,
+            });
+            ret.push(Fault::OutputStuckAtFault {
+                gate: i,
+                value: true,
+            });
+        }
+        ret
+    }
+
+    /// Extend a vector of boolean vectors with 64 elements at once
+    fn extend_vec(v: &mut Vec<Vec<bool>>, added: Vec<u64>) {
+        for i in 0..64 {
+            v.push(added.iter().map(|d| (d >> i) & 1 != 0).collect());
+        }
+    }
+
+    /// Add a new set of patterns to the current set
+    pub fn add_single_pattern(&mut self, pattern: Vec<bool>, check_already_detected: bool) {
+        let mut det = Vec::new();
+        for (i, f) in self.faults.iter().enumerate() {
+            if !check_already_detected && self.detection[i] {
+                continue;
+            }
+            let d = detects_fault_single(self.aig, &pattern, *f);
+            self.detection[i] |= d;
+            det.push(d);
+        }
+        self.patterns.push(pattern);
+        self.pattern_detections.push(det);
+    }
+
+    /// Add a new set of patterns to the current set
+    pub fn add_patterns(&mut self, pattern: Vec<u64>, check_already_detected: bool) {
+        assert!(pattern.len() == self.aig.nb_inputs());
+        let mut det = Vec::new();
+        for (i, f) in self.faults.iter().enumerate() {
+            if !check_already_detected && self.detection[i] {
+                continue;
+            }
+            let d = detects_fault(self.aig, &pattern, *f);
+            self.detection[i] |= d != 0u64;
+            det.push(d);
+        }
+        Self::extend_vec(&mut self.patterns, pattern);
+        Self::extend_vec(&mut self.pattern_detections, det);
+    }
+
+    /// Generate a random pattern and add it to the current set
+    pub fn add_random_patterns(&mut self, check_already_detected: bool) {
+        let pattern = (0..self.aig.nb_inputs())
+            .map(|_| self.rng.gen::<u64>())
+            .collect();
+        self.add_patterns(pattern, check_already_detected);
+    }
+}
+
+/// Generate test patterns
+pub fn generate_test_patterns(aig: &Aig, seed: u64) -> Vec<Vec<bool>> {
+    assert!(aig.is_comb());
+    let mut gen = TestPatternGenerator::from(aig, seed);
+    println!(
+        "Analyzing network with {} inputs, {} outputs and {} possible faults",
+        aig.nb_inputs(),
+        aig.nb_outputs(),
+        gen.nb_faults()
+    );
+    let mut nb_unsuccesful = 0;
+    while nb_unsuccesful < 4 {
+        let nb_detected_before = gen.nb_detected();
+        gen.add_random_patterns(true);
+        if nb_detected_before < gen.nb_detected() {
+            nb_unsuccesful = 0;
+        } else {
+            nb_unsuccesful += 1;
+        }
+    }
+    println!(
+        "Generated {} random patterns, detecting {}/{} faults",
+        gen.nb_patterns(),
+        gen.nb_detected(),
+        gen.nb_faults()
+    );
+    for i in 0..gen.nb_faults() {
+        if gen.detection[i] {
+            continue;
+        }
+        let p = find_pattern_detecting_fault(aig, gen.faults[i]);
+        if let Some(pattern) = p {
+            gen.add_single_pattern(pattern, false);
+        }
+    }
     println!(
         "Generated {} patterns total, detecting {}/{} faults",
-        patterns.len(),
-        nb_detected_sat,
-        analyzer.nb_faults()
+        gen.nb_patterns(),
+        gen.nb_detected(),
+        gen.nb_faults()
     );
-    if nb_detected_sat != analyzer.nb_faults() {
-        println!("Not all faults are detectable!");
-    }
-    patterns
+    gen.patterns
 }
