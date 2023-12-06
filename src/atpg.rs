@@ -229,11 +229,12 @@ impl<'a> TestPatternGenerator<'a> {
         let mut det = Vec::new();
         for (i, f) in self.faults.iter().enumerate() {
             if !check_already_detected && self.detection[i] {
-                continue;
+                det.push(false);
+            } else {
+                let d = detects_fault_single(self.aig, &pattern, *f);
+                self.detection[i] |= d;
+                det.push(d);
             }
-            let d = detects_fault_single(self.aig, &pattern, *f);
-            self.detection[i] |= d;
-            det.push(d);
         }
         self.patterns.push(pattern);
         self.pattern_detections.push(det);
@@ -245,11 +246,12 @@ impl<'a> TestPatternGenerator<'a> {
         let mut det = Vec::new();
         for (i, f) in self.faults.iter().enumerate() {
             if !check_already_detected && self.detection[i] {
-                continue;
+                det.push(0u64);
+            } else {
+                let d = detects_fault(self.aig, &pattern, *f);
+                self.detection[i] |= d != 0u64;
+                det.push(d);
             }
-            let d = detects_fault(self.aig, &pattern, *f);
-            self.detection[i] |= d != 0u64;
-            det.push(d);
         }
         Self::extend_vec(&mut self.patterns, pattern);
         Self::extend_vec(&mut self.pattern_detections, det);
@@ -261,6 +263,90 @@ impl<'a> TestPatternGenerator<'a> {
             .map(|_| self.rng.gen::<u64>())
             .collect();
         self.add_patterns(pattern, check_already_detected);
+    }
+
+    /// Check consistency
+    pub fn check(&self) {
+        assert_eq!(self.patterns.len(), self.pattern_detections.len());
+        for p in &self.patterns {
+            assert_eq!(p.len(), self.aig.nb_inputs());
+        }
+        for p in &self.pattern_detections {
+            assert_eq!(p.len(), self.nb_faults());
+        }
+        assert_eq!(self.detection.len(), self.nb_faults());
+    }
+
+    /// Compress the existing patterns to keep as few as possible.
+    /// This is a minimum set cover problem.
+    /// At the moment we solve it with a simple greedy algorithm,
+    /// taking the pattern that detects the most new faults each time.
+    pub fn compress_patterns(&mut self) {
+        let mut remaining_to_detect = self.nb_detected();
+
+        // Which patterns detect a given fault
+        let mut fault_to_patterns = Vec::new();
+        for f in 0..self.nb_faults() {
+            let mut patterns = Vec::new();
+            for p in 0..self.nb_patterns() {
+                if self.pattern_detections[p][f] {
+                    patterns.push(p);
+                }
+            }
+            fault_to_patterns.push(patterns);
+        }
+
+        // Which faults are detected by a given pattern
+        let mut pattern_to_faults = Vec::new();
+        for p in 0..self.nb_patterns() {
+            let mut faults = Vec::new();
+            for f in 0..self.nb_faults() {
+                if self.pattern_detections[p][f] {
+                    faults.push(f);
+                }
+            }
+            pattern_to_faults.push(faults);
+        }
+
+        // How many new faults each pattern detects
+        let mut nb_detected_by_pattern: Vec<_> =
+            pattern_to_faults.iter().map(|v| v.len()).collect();
+        assert_eq!(fault_to_patterns.len(), self.nb_faults());
+        assert_eq!(pattern_to_faults.len(), self.nb_patterns());
+
+        let mut selected_patterns = Vec::new();
+
+        while remaining_to_detect > 0 {
+            // Pick the pattern that detects the most faults
+            let best_pattern = nb_detected_by_pattern
+                .iter()
+                .enumerate()
+                .max_by(|(_, a), (_, b)| a.cmp(b))
+                .map(|(index, _)| index)
+                .unwrap();
+            selected_patterns.push(best_pattern);
+            remaining_to_detect -= nb_detected_by_pattern[best_pattern];
+
+            // Remove the faults detected by the pattern from consideration
+            assert!(nb_detected_by_pattern[best_pattern] > 0);
+            for f in &pattern_to_faults[best_pattern] {
+                for p in &fault_to_patterns[*f] {
+                    nb_detected_by_pattern[*p] -= 1;
+                }
+                // So we don't remove a fault twice
+                fault_to_patterns[*f].clear();
+            }
+            assert_eq!(nb_detected_by_pattern[best_pattern], 0);
+        }
+
+        let mut new_patterns = Vec::new();
+        let mut new_detections = Vec::new();
+        for p in selected_patterns {
+            new_patterns.push(self.patterns[p].clone());
+            new_detections.push(self.pattern_detections[p].clone());
+        }
+        self.patterns = new_patterns;
+        self.pattern_detections = new_detections;
     }
 }
 
@@ -296,11 +382,21 @@ pub fn generate_test_patterns(aig: &Aig, seed: u64) -> Vec<Vec<bool>> {
         }
         let p = find_pattern_detecting_fault(aig, gen.faults[i]);
         if let Some(pattern) = p {
+            // TODO: generate new patterns opportunistically by mutating this one
             gen.add_single_pattern(pattern, false);
         }
     }
     println!(
         "Generated {} patterns total, detecting {}/{} faults",
+        gen.nb_patterns(),
+        gen.nb_detected(),
+        gen.nb_faults()
+    );
+    gen.check();
+    gen.compress_patterns();
+    gen.check();
+    println!(
+        "Kept {} patterns, detecting {}/{} faults",
         gen.nb_patterns(),
         gen.nb_detected(),
         gen.nb_faults()
