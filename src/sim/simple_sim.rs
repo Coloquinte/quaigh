@@ -1,5 +1,7 @@
 use crate::{Aig, NaryType, Signal};
 
+use super::Fault;
+
 /// Structure for simulation based directly on the network representation
 ///
 /// This is simple to write and relatively efficient, but could be greatly improved
@@ -37,11 +39,16 @@ impl<'a> SimpleSimulator<'a> {
         }
     }
 
+    /// Run the simulation
+    pub fn run(&mut self, input_values: &Vec<Vec<u64>>) -> Vec<Vec<u64>> {
+        self.run_with_faults(input_values, &Vec::new())
+    }
+
     /// Run the simulation with a list of stuck-at-fault errors
-    pub fn run_with_errors(
+    pub fn run_with_faults(
         &mut self,
         input_values: &Vec<Vec<u64>>,
-        errors: &Vec<Signal>,
+        faults: &Vec<Fault>,
     ) -> Vec<Vec<u64>> {
         self.check();
         self.reset();
@@ -51,7 +58,7 @@ impl<'a> SimpleSimulator<'a> {
                 self.run_dff();
             }
             self.copy_inputs(v.as_slice());
-            self.run_comb_with_errors(errors);
+            self.run_comb_with_faults(faults);
             ret.push(self.get_output_values());
         }
         ret
@@ -131,14 +138,17 @@ impl<'a> SimpleSimulator<'a> {
     }
 
     /// Run the combinatorial part of the design with a list of stuck-at-fault errors
-    fn run_comb_with_errors(&mut self, errors: &Vec<Signal>) {
+    fn run_comb_with_faults(&mut self, faults: &Vec<Fault>) {
         for i in 0..self.aig.nb_nodes() {
             self.node_values[i] = self.run_gate(i);
-            if errors.contains(&Signal::from_var(i as u32)) {
-                self.node_values[i] = 0u64;
-            }
-            if errors.contains(&!Signal::from_var(i as u32)) {
-                self.node_values[i] = !0u64;
+            for f in faults {
+                match f {
+                    Fault::OutputStuckAtFault { gate, value } => {
+                        if *gate == i {
+                            self.node_values[i] = if *value { !0u64 } else { 0u64 };
+                        }
+                    }
+                }
             }
         }
     }

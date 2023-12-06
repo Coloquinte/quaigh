@@ -3,7 +3,7 @@
 use rand::{Rng, SeedableRng};
 
 use crate::equiv::{difference, prove};
-use crate::sim::simulate_comb;
+use crate::sim::{simulate_comb, simulate_comb_multi, simulate_comb_multi_with_faults, Fault};
 use crate::{Aig, Gate, Signal};
 
 /// Expose flip_flops as inputs for ATPG
@@ -33,6 +33,19 @@ pub fn expose_dff(aig: &Aig) -> Aig {
     }
     ret.check();
     ret
+}
+
+/// Analyze which of a set of pattern detect a given fault
+pub fn detects_fault(aig: &Aig, pattern: &Vec<u64>, fault: Fault) -> u64 {
+    assert!(aig.is_comb());
+    assert!(aig.is_topo_sorted());
+    let expected = simulate_comb_multi(aig, pattern);
+    let obtained = simulate_comb_multi_with_faults(aig, pattern, &vec![fault]);
+    let mut detection = 0u64;
+    for (a, b) in std::iter::zip(expected, obtained) {
+        detection |= a ^ b;
+    }
+    detection
 }
 
 /// Build an Aig with additional inputs to represent error cases

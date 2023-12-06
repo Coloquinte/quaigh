@@ -1,8 +1,11 @@
 //! Simulation of a logic network
 
+mod fault;
 mod simple_sim;
 
 use crate::Aig;
+
+pub use fault::Fault;
 
 /// Simulate an Aig over multiple timesteps; return the output values
 pub fn simulate(a: &Aig, input_values: &Vec<Vec<bool>>) -> Vec<Vec<bool>> {
@@ -46,7 +49,29 @@ pub(crate) fn simulate_comb_multi(a: &Aig, input_values: &Vec<u64>) -> Vec<u64> 
 pub(crate) fn simulate_multi(a: &Aig, input_values: &Vec<Vec<u64>>) -> Vec<Vec<u64>> {
     use simple_sim::SimpleSimulator;
     let mut sim = SimpleSimulator::from_aig(a);
-    sim.run_with_errors(input_values, &Vec::new())
+    sim.run(input_values)
+}
+
+/// Simulate a combinatorial Aig with 64b inputs with faults; return the output values
+pub(crate) fn simulate_comb_multi_with_faults(
+    a: &Aig,
+    input_values: &Vec<u64>,
+    faults: &Vec<Fault>,
+) -> Vec<u64> {
+    let input = vec![input_values.clone()];
+    let output = simulate_multi_with_faults(a, &input, faults);
+    output[0].clone()
+}
+
+/// Simulate an Aig over multiple timesteps with 64b inputs; return the output values
+pub(crate) fn simulate_multi_with_faults(
+    a: &Aig,
+    input_values: &Vec<Vec<u64>>,
+    faults: &Vec<Fault>,
+) -> Vec<Vec<u64>> {
+    use simple_sim::SimpleSimulator;
+    let mut sim = SimpleSimulator::from_aig(a);
+    sim.run_with_faults(input_values, faults)
 }
 
 #[cfg(test)]
