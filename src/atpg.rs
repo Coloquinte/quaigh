@@ -163,13 +163,18 @@ impl TestPatternAnalyzer {
 /// Each gate may be in one of two cases:
 ///     * in the logic cone after the fault: those need to be duplicated with/without the fault
 ///     * elsewhere, where they don't need to be duplicated
-fn find_pattern_detecting_fault(aig: &Aig, var: usize, pol: bool) -> Option<Vec<bool>> {
+fn find_pattern_detecting_fault(aig: &Aig, fault: Fault) -> Option<Vec<bool>> {
     // Translation of the original signal into the fault
     let fault_translation = |s: &Signal| -> Signal {
-        if s.is_var() && s.var() == var as u32 {
-            Signal::from(!pol) ^ s.is_inverted()
-        } else {
-            *s
+        match fault {
+            Fault::OutputStuckAtFault { gate, value } => {
+                if s.is_var() && s.var() == gate as u32 {
+                    Signal::from(value) ^ s.is_inverted()
+                } else {
+                    *s
+                }
+            }
+            _ => todo!(),
         }
     };
 
@@ -243,7 +248,11 @@ pub fn generate_test_patterns(aig: &Aig, seed: u64) -> Vec<Vec<bool>> {
         if detected_faults[i] {
             continue;
         }
-        let new_pattern = find_pattern_detecting_fault(aig, i / 2, i % 2 == 0);
+        let fault = Fault::OutputStuckAtFault {
+            gate: i / 2,
+            value: i % 2 != 0,
+        };
+        let new_pattern = find_pattern_detecting_fault(aig, fault);
         if let Some(p) = new_pattern {
             assert!(analyzer.detects_fault(&p, i));
             detected_faults[i] = true;
