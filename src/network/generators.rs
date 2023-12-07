@@ -2,7 +2,7 @@
 
 /// Adder generators
 pub mod adder {
-    use crate::{Network, Signal};
+    use crate::{Gate, Network, Signal};
 
     /// A simple and slow ripple-carry adder
     pub fn ripple_carry(len: usize) -> Network {
@@ -11,8 +11,8 @@ pub mod adder {
         for _ in 0..len {
             let a = ret.add_input();
             let b = ret.add_input();
-            let next_c = ret.maj(a, b, c);
-            let o = ret.xor3(a, b, c);
+            let next_c = ret.add(Gate::Maj(a, b, c));
+            let o = ret.add(Gate::Xor3(a, b, c));
             ret.add_output(o);
             c = next_c;
         }
@@ -34,7 +34,7 @@ pub mod carry_chain {
             let propagate = ret.add_input();
             let generate = ret.add_input();
             let d = ret.and(propagate, c);
-            c = ret.or(generate, d);
+            c = !ret.and(!generate, !d);
             ret.add_output(c);
         }
         ret

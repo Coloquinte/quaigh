@@ -144,17 +144,17 @@ mod tests {
         let i1 = aig.add_input();
         let i2 = aig.add_input();
         let i3 = aig.add_input();
-        let x0 = aig.add_gate(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::And));
+        let x0 = aig.add(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::And));
         aig.add_output(x0);
-        let x1 = aig.add_gate(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Xor));
+        let x1 = aig.add(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Xor));
         aig.add_output(x1);
-        let x2 = aig.add_gate(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Or));
+        let x2 = aig.add(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Or));
         aig.add_output(x2);
-        let x3 = aig.add_gate(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Nand));
+        let x3 = aig.add(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Nand));
         aig.add_output(x3);
-        let x4 = aig.add_gate(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Nor));
+        let x4 = aig.add(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Nor));
         aig.add_output(x4);
-        let x5 = aig.add_gate(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Xnor));
+        let x5 = aig.add(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::Xnor));
         aig.add_output(x5);
 
         let pattern = vec![

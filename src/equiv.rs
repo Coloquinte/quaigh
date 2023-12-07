@@ -171,7 +171,7 @@ fn extend_aig_helper(
             continue;
         }
         let g = b.gate(i).remap(|s| t[s]);
-        let s = a.add_gate(g);
+        let s = a.add(g);
         t.insert(b.node(i), s);
         t.insert(!b.node(i), !s);
     }
@@ -200,7 +200,7 @@ fn unroll(aig: &Network, nb_steps: usize) -> Network {
                 let unroll_ff = if step == 0 {
                     Signal::zero()
                 } else {
-                    let mx = ret.mux(t_prev[en], t_prev[d], t_prev[&ff]);
+                    let mx = ret.add_canonical(Gate::Mux(t_prev[en], t_prev[d], t_prev[&ff]));
                     ret.and(mx, !t_prev[res])
                 };
                 t.insert(ff, unroll_ff);
@@ -391,7 +391,7 @@ mod tests {
         let mut b = Network::new();
         b.add_input();
         b.add_input();
-        let ab = b.or(l1, l2);
+        let ab = !b.and(!l1, !l2);
         b.add_output(ab);
         let res = check_equivalence_comb(&a, &b, false);
         assert_ne!(res, Ok(()));
@@ -418,7 +418,7 @@ mod tests {
         let l2 = a.add_input();
         let a1 = a.and(l1, !l2);
         let a2 = a.and(!l1, l2);
-        let ax = a.or(a1, a2);
+        let ax = !a.and(!a1, !a2);
         a.add_output(ax);
         let mut b = Network::new();
         b.add_input();
@@ -437,13 +437,13 @@ mod tests {
         let l3 = a.add_input();
         let a1 = a.and(l1, l2);
         let a2 = a.and(!l1, l3);
-        let ax = a.or(a1, a2);
+        let ax = !a.and(!a1, !a2);
         a.add_output(ax);
         let mut b = Network::new();
         b.add_input();
         b.add_input();
         b.add_input();
-        let bx = b.mux(l1, l2, l3);
+        let bx = b.add_canonical(Gate::Mux(l1, l2, l3));
         b.add_output(bx);
         check_equivalence_comb(&a, &b, false).unwrap();
         check_equivalence_comb(&a, &b, true).unwrap();
@@ -458,13 +458,13 @@ mod tests {
         let a1 = a.and(l1, l2);
         let a2 = a.and(l1, l3);
         let a3 = a.and(l2, l3);
-        let ax = a.or3(a1, a2, a3);
+        let ax = !a.add(Gate::And3(!a1, !a2, !a3));
         a.add_output(ax);
         let mut b = Network::new();
         b.add_input();
         b.add_input();
         b.add_input();
-        let bx = b.maj(l1, l2, l3);
+        let bx = b.add(Gate::Maj(l1, l2, l3));
         b.add_output(bx);
         check_equivalence_comb(&a, &b, false).unwrap();
         check_equivalence_comb(&a, &b, true).unwrap();
@@ -483,7 +483,7 @@ mod tests {
         b.add_input();
         b.add_input();
         b.add_input();
-        let b2 = b.and3(l1, l2, l3);
+        let b2 = b.add(Gate::And3(l1, l2, l3));
         b.add_output(b2);
         check_equivalence_comb(&a, &b, false).unwrap();
         check_equivalence_comb(&a, &b, true).unwrap();
@@ -502,7 +502,7 @@ mod tests {
         b.add_input();
         b.add_input();
         b.add_input();
-        let b2 = b.xor3(l1, l2, l3);
+        let b2 = b.add(Gate::Xor3(l1, l2, l3));
         b.add_output(b2);
         check_equivalence_comb(&a, &b, false).unwrap();
         check_equivalence_comb(&a, &b, true).unwrap();
@@ -524,7 +524,7 @@ mod tests {
             for _ in 0..nb {
                 v.push(b.add_input());
             }
-            let bo = b.add_gate(Gate::Nary(v.into(), NaryType::And));
+            let bo = b.add(Gate::Nary(v.into(), NaryType::And));
             b.add_output(bo);
             check_equivalence_comb(&a, &b, false).unwrap();
             check_equivalence_comb(&a, &b, true).unwrap();
@@ -547,7 +547,7 @@ mod tests {
             for _ in 0..nb {
                 v.push(b.add_input());
             }
-            let bo = b.add_gate(Gate::Nary(v.into(), NaryType::Xor));
+            let bo = b.add(Gate::Nary(v.into(), NaryType::Xor));
             b.add_output(bo);
             check_equivalence_comb(&a, &b, false).unwrap();
             check_equivalence_comb(&a, &b, true).unwrap();
