@@ -80,37 +80,37 @@ fn aig_from_statements(
         match gate_type {
             Input => (),
             Dff => {
-                ret.add_raw_gate(Gate::Dff(sigs[0], Signal::one(), Signal::zero()));
+                ret.add_gate(Gate::Dff(sigs[0], Signal::one(), Signal::zero()));
             }
             Buf => {
-                ret.add_raw_gate(Gate::Buf(sigs[0]));
+                ret.add_gate(Gate::Buf(sigs[0]));
             }
             Not => {
-                ret.add_raw_gate(Gate::Buf(!sigs[0]));
+                ret.add_gate(Gate::Buf(!sigs[0]));
             }
             Vdd => {
-                ret.add_raw_gate(Gate::Buf(Signal::one()));
+                ret.add_gate(Gate::Buf(Signal::one()));
             }
             Vss => {
-                ret.add_raw_gate(Gate::Buf(Signal::zero()));
+                ret.add_gate(Gate::Buf(Signal::zero()));
             }
             And => {
-                ret.add_raw_gate(Gate::Nary(sigs, NaryType::And));
+                ret.add_gate(Gate::Nary(sigs, NaryType::And));
             }
             Nand => {
-                ret.add_raw_gate(Gate::Nary(sigs, NaryType::Nand));
+                ret.add_gate(Gate::Nary(sigs, NaryType::Nand));
             }
             Or => {
-                ret.add_raw_gate(Gate::Nary(sigs, NaryType::Or));
+                ret.add_gate(Gate::Nary(sigs, NaryType::Or));
             }
             Nor => {
-                ret.add_raw_gate(Gate::Nary(sigs, NaryType::Nor));
+                ret.add_gate(Gate::Nary(sigs, NaryType::Nor));
             }
             Xor => {
-                ret.add_raw_gate(Gate::Nary(sigs, NaryType::Xor));
+                ret.add_gate(Gate::Nary(sigs, NaryType::Xor));
             }
             Xnor => {
-                ret.add_raw_gate(Gate::Nary(sigs, NaryType::Xnor));
+                ret.add_gate(Gate::Nary(sigs, NaryType::Xnor));
             }
         }
     }

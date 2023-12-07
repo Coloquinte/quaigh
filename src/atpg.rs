@@ -19,7 +19,7 @@ pub fn expose_dff(aig: &Network) -> Network {
     for i in 0..aig.nb_nodes() {
         if let Gate::Dff(d, en, res) = aig.gate(i) {
             let new_input = ret.add_input();
-            ret.add_raw_gate(Gate::Buf(new_input));
+            ret.add_gate(Gate::Buf(new_input));
             ret.add_output(*d);
             if !en.is_constant() {
                 ret.add_output(*en);
@@ -29,7 +29,7 @@ pub fn expose_dff(aig: &Network) -> Network {
             }
         } else {
             let g = aig.gate(i).clone();
-            ret.add_raw_gate(g);
+            ret.add_gate(g);
         }
     }
     ret.check();
@@ -86,7 +86,7 @@ fn find_pattern_detecting_fault(aig: &Network, fault: Fault) -> Option<Vec<bool>
             continue;
         }
         let g = aig.gate(i).remap(fault_translation);
-        fault_aig.add_raw_gate(g);
+        fault_aig.add_gate(g);
     }
     for i in 0..aig.nb_outputs() {
         fault_aig.add_output(fault_translation(&aig.output(i)));

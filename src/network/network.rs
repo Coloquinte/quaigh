@@ -74,7 +74,7 @@ impl Network {
 
     /// Create an And2 gate
     pub fn and(&mut self, a: Signal, b: Signal) -> Signal {
-        self.add_gate(Gate::And(a, b))
+        self.add_canonical_gate(Gate::And(a, b))
     }
 
     /// Create an Or2 gate
@@ -84,12 +84,12 @@ impl Network {
 
     /// Create a Xor2 gate
     pub fn xor(&mut self, a: Signal, b: Signal) -> Signal {
-        self.add_gate(Gate::Xor(a, b))
+        self.add_canonical_gate(Gate::Xor(a, b))
     }
 
     /// Create an And3 gate
     pub fn and3(&mut self, a: Signal, b: Signal, c: Signal) -> Signal {
-        self.add_gate(Gate::And3(a, b, c))
+        self.add_canonical_gate(Gate::And3(a, b, c))
     }
 
     /// Create an Or3 gate
@@ -99,17 +99,17 @@ impl Network {
 
     /// Create a Xor3 gate
     pub fn xor3(&mut self, a: Signal, b: Signal, c: Signal) -> Signal {
-        self.add_gate(Gate::Xor3(a, b, c))
+        self.add_canonical_gate(Gate::Xor3(a, b, c))
     }
 
     /// Create a Mux gate
     pub fn mux(&mut self, s: Signal, a: Signal, b: Signal) -> Signal {
-        self.add_gate(Gate::Mux(s, a, b))
+        self.add_canonical_gate(Gate::Mux(s, a, b))
     }
 
     /// Create a Maj gate
     pub fn maj(&mut self, a: Signal, b: Signal, c: Signal) -> Signal {
-        self.add_gate(Gate::Maj(a, b, c))
+        self.add_canonical_gate(Gate::Maj(a, b, c))
     }
 
     /// Create an n-ary And as a tree
@@ -158,21 +158,21 @@ impl Network {
 
     /// Create a Dff gate (flip flop)
     pub fn dff(&mut self, data: Signal, enable: Signal, reset: Signal) -> Signal {
-        self.add_gate(Gate::Dff(data, enable, reset))
+        self.add_canonical_gate(Gate::Dff(data, enable, reset))
     }
 
-    /// Add a new gate, normalized
-    pub fn add_gate(&mut self, gate: Gate) -> Signal {
+    /// Add a new gate, and make it canonical. The gate may be simplified immediately
+    pub fn add_canonical_gate(&mut self, gate: Gate) -> Signal {
         use Normalization::*;
         let g = gate.make_canonical();
         match g {
             Copy(l) => l,
-            Node(g, inv) => self.add_raw_gate(g) ^ inv,
+            Node(g, inv) => self.add_gate(g) ^ inv,
         }
     }
 
-    /// Add a new gate, without normalization
-    pub(crate) fn add_raw_gate(&mut self, gate: Gate) -> Signal {
+    /// Add a new gate
+    pub fn add_gate(&mut self, gate: Gate) -> Signal {
         let l = Signal::from_var(self.nodes.len() as u32);
         self.nodes.push(gate);
         l
@@ -557,10 +557,10 @@ mod tests {
         let x1 = Gate::Dff(i1, Signal::one(), Signal::zero());
         let x2 = Gate::Dff(i0, Signal::one(), Signal::zero());
         let x3 = Gate::Dff(i2, i1, Signal::zero());
-        aig.add_raw_gate(x0.clone());
-        aig.add_raw_gate(x1.clone());
-        aig.add_raw_gate(x2.clone());
-        aig.add_raw_gate(x3.clone());
+        aig.add_gate(x0.clone());
+        aig.add_gate(x1.clone());
+        aig.add_gate(x2.clone());
+        aig.add_gate(x3.clone());
         aig.topo_sort();
         assert_eq!(aig.nb_nodes(), 4);
         assert_eq!(aig.gate(0), &x0);

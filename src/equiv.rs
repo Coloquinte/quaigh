@@ -171,7 +171,7 @@ fn extend_aig_helper(
             continue;
         }
         let g = b.gate(i).remap(|s| t[s]);
-        let s = a.add_raw_gate(g);
+        let s = a.add_gate(g);
         t.insert(b.node(i), s);
         t.insert(!b.node(i), !s);
     }
@@ -524,7 +524,7 @@ mod tests {
             for _ in 0..nb {
                 v.push(b.add_input());
             }
-            let bo = b.add_raw_gate(Gate::Nary(v.into(), NaryType::And));
+            let bo = b.add_gate(Gate::Nary(v.into(), NaryType::And));
             b.add_output(bo);
             check_equivalence_comb(&a, &b, false).unwrap();
             check_equivalence_comb(&a, &b, true).unwrap();
@@ -547,7 +547,7 @@ mod tests {
             for _ in 0..nb {
                 v.push(b.add_input());
             }
-            let bo = b.add_raw_gate(Gate::Nary(v.into(), NaryType::Xor));
+            let bo = b.add_gate(Gate::Nary(v.into(), NaryType::Xor));
             b.add_output(bo);
             check_equivalence_comb(&a, &b, false).unwrap();
             check_equivalence_comb(&a, &b, true).unwrap();
