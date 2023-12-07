@@ -239,7 +239,7 @@ pub(crate) fn difference(a: &Network, b: &Network) -> Network {
         let o = eq.xor(sa, sb);
         outputs.push(o);
     }
-    let diff = eq.or_n(&outputs);
+    let diff = eq.add_canonical(Gate::Nary(outputs.into(), NaryType::Or));
     eq.add_output(diff);
     eq
 }

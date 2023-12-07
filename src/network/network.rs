@@ -82,50 +82,6 @@ impl Network {
         self.add_canonical(Gate::Xor(a, b))
     }
 
-    /// Create an n-ary And as a tree
-    pub fn and_n(&mut self, sigs: &Vec<Signal>) -> Signal {
-        if sigs.is_empty() {
-            Signal::one()
-        } else if sigs.len() == 1 {
-            sigs[0]
-        } else {
-            let mut next_sigs = Vec::new();
-            for i in (0..sigs.len()).step_by(2) {
-                if i + 1 < sigs.len() {
-                    next_sigs.push(self.and(sigs[i], sigs[i + 1]));
-                } else {
-                    next_sigs.push(sigs[i]);
-                }
-            }
-            self.and_n(&next_sigs)
-        }
-    }
-
-    /// Create an n-ary Or as a tree
-    pub fn or_n(&mut self, sigs: &Vec<Signal>) -> Signal {
-        let ands = sigs.iter().cloned().map(|s| !s).collect();
-        !self.and_n(&ands)
-    }
-
-    /// Create an n-ary Xor as a tree
-    pub fn xor_n(&mut self, sigs: &Vec<Signal>) -> Signal {
-        if sigs.is_empty() {
-            Signal::zero()
-        } else if sigs.len() == 1 {
-            sigs[0]
-        } else {
-            let mut next_sigs = Vec::new();
-            for i in (0..sigs.len()).step_by(2) {
-                if i + 1 < sigs.len() {
-                    next_sigs.push(self.xor(sigs[i], sigs[i + 1]));
-                } else {
-                    next_sigs.push(sigs[i]);
-                }
-            }
-            self.xor_n(&next_sigs)
-        }
-    }
-
     /// Create a Dff gate (flip flop)
     pub fn dff(&mut self, data: Signal, enable: Signal, reset: Signal) -> Signal {
         self.add_canonical(Gate::Dff(data, enable, reset))
@@ -237,7 +193,7 @@ impl Network {
     ///
     /// Returns the mapping of old variable indices to signals, if needed.
     /// Removed signals are mapped to zero.
-    pub fn dedup(&mut self) -> Vec<Signal> {
+    pub fn dedup(&mut self) -> Box<[Signal]> {
         // Replace each node, in turn, by a simplified version or an equivalent existing node
         // We need the network to be topologically sorted, so that the gate inputs are already replaced
         // Dff gates are an exception to the sorting, and are handled separately
@@ -294,7 +250,7 @@ impl Network {
         self.nodes = new_nodes;
         self.remap_outputs(&translation);
         self.check();
-        translation
+        translation.into()
     }
 
     /// Topologically sort the network; this will invalidate all signals
@@ -442,37 +398,6 @@ mod tests {
         assert_eq!(aig.dff(i0, i1, c1), c0);
         assert!(!aig.is_comb());
         assert!(aig.is_topo_sorted());
-    }
-
-    #[test]
-    fn test_nary() {
-        let mut aig = Network::default();
-        let i0 = aig.add_input();
-        let i1 = aig.add_input();
-        let i2 = aig.add_input();
-        let i3 = aig.add_input();
-        let i4 = aig.add_input();
-
-        assert_eq!(aig.and_n(&Vec::new()), Signal::one());
-        assert_eq!(aig.and_n(&vec![i0]), i0);
-        aig.and_n(&vec![i0, i1]);
-        aig.and_n(&vec![i0, i1, i2]);
-        aig.and_n(&vec![i0, i1, i2, i3]);
-        aig.and_n(&vec![i0, i1, i2, i3, i4]);
-
-        assert_eq!(aig.or_n(&Vec::new()), Signal::zero());
-        assert_eq!(aig.or_n(&vec![i0]), i0);
-        aig.or_n(&vec![i0, i1]);
-        aig.or_n(&vec![i0, i1, i2]);
-        aig.or_n(&vec![i0, i1, i2, i3]);
-        aig.or_n(&vec![i0, i1, i2, i3, i4]);
-
-        assert_eq!(aig.xor_n(&Vec::new()), Signal::zero());
-        assert_eq!(aig.xor_n(&vec![i0]), i0);
-        aig.xor_n(&vec![i0, i1]);
-        aig.xor_n(&vec![i0, i1, i2]);
-        aig.xor_n(&vec![i0, i1, i2, i3]);
-        aig.xor_n(&vec![i0, i1, i2, i3, i4]);
     }
 
     #[test]
