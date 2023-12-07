@@ -26,17 +26,16 @@
 //!
 //! # Installation
 //!
-//! Quaigh is written in Rust. It is not published on crates.io yet, but you can install it from the git
-//! repository using [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html), Rust's
-//! package manager:
+//! Quaigh is written in Rust. It is now published on crates.io, and can be installed using
+//! [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html), Rust's package manager:
 //! ```bash
-//! cargo install --git https://github.com/Coloquinte/quaigh
+//! cargo install quaigh
 //! ```
 //!
 //! # Development
 //!
-//! Quaigh main datastructure is a typical Gate-Inverter-Graph to represent a logic circuit.
-//! Inverters are implicit, occupying just one bit.
+//! Quaigh main datastructure, [`Network`] is a typical Gate-Inverter-Graph to represent a logic circuit.
+//! Inverters are implicit, occupying just one bit in [`Signal`].
 //!
 //! To make interoperability and optimization easier, many kinds of logic are supported:
 //! * Complex gates such as Xor, Mux and Maj3 are all first class citizens and can coexist in the same circuit;
