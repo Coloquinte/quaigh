@@ -14,7 +14,7 @@ use crate::Aig;
 /// Read a logic network from a file
 ///
 /// Following extensions are supported: .bench
-pub fn read_network_file(path: PathBuf) -> Aig {
+pub fn read_network_file(path: &PathBuf) -> Aig {
     let ext = path.extension();
     match ext {
         None => panic!("No extension given"),
@@ -32,7 +32,7 @@ pub fn read_network_file(path: PathBuf) -> Aig {
 /// Write a logic network to a file
 ///
 /// Following extensions are supported: .bench
-pub fn write_network_file(path: PathBuf, aig: &Aig) {
+pub fn write_network_file(path: &PathBuf, aig: &Aig) {
     let ext = path.extension();
     match ext {
         None => panic!("No extension given"),
@@ -48,13 +48,13 @@ pub fn write_network_file(path: PathBuf, aig: &Aig) {
 }
 
 /// Read patterns from a file
-pub fn read_pattern_file(path: PathBuf) -> Vec<Vec<Vec<bool>>> {
+pub fn read_pattern_file(path: &PathBuf) -> Vec<Vec<Vec<bool>>> {
     let f = File::open(path).unwrap();
     read_patterns(f).unwrap()
 }
 
 /// Write patterns to a file
-pub fn write_pattern_file(path: PathBuf, patterns: &Vec<Vec<Vec<bool>>>) {
+pub fn write_pattern_file(path: &PathBuf, patterns: &Vec<Vec<Vec<bool>>>) {
     let mut f = File::create(path).unwrap();
     write_patterns(&mut f, patterns);
 }

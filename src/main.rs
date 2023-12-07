@@ -130,6 +130,53 @@ struct EquivArgs {
     sat_only: bool,
 }
 
+impl EquivArgs {
+    pub fn run(&self) {
+        let aig1 = read_network_file(&self.file1);
+        let aig2 = read_network_file(&self.file2);
+        if aig1.nb_inputs() != aig2.nb_inputs() {
+            println!(
+                "Different number of inputs: {} vs {}. Networks are not equivalent",
+                aig1.nb_inputs(),
+                aig2.nb_inputs()
+            );
+            std::process::exit(1);
+        }
+        if aig1.nb_outputs() != aig2.nb_outputs() {
+            println!(
+                "Different number of outputs: {} vs {}. Networks are not equivalent",
+                aig1.nb_outputs(),
+                aig2.nb_outputs()
+            );
+            std::process::exit(1);
+        }
+        let res = check_equivalence_bounded(&aig1, &aig2, self.num_cycles, !self.sat_only);
+        let is_comb = aig1.is_comb() && aig2.is_comb();
+        match res {
+            Err(err) => {
+                println!("Networks are not equivalent");
+                println!("Test pattern:");
+                // TODO: extract the names here
+                for (i, v) in err.iter().enumerate() {
+                    print!("{}: ", i + 1);
+                    for b in v {
+                        print!("{}", if *b { "0" } else { "1" });
+                    }
+                }
+                std::process::exit(1);
+            }
+            Ok(()) => {
+                if is_comb {
+                    println!("Networks are equivalent");
+                } else {
+                    println!("Networks are equivalent up to {} cycles", self.num_cycles);
+                }
+                std::process::exit(0);
+            }
+        }
+    }
+}
+
 /// Command arguments for optimization
 #[derive(Args)]
 struct OptArgs {
@@ -141,11 +188,31 @@ struct OptArgs {
     output: PathBuf,
 }
 
+impl OptArgs {
+    pub fn run(&self) {
+        let mut aig = read_network_file(&self.file);
+        aig.sweep();
+        aig.dedup();
+        write_network_file(&self.output, &aig);
+    }
+}
+
 /// Command arguments for network informations
 #[derive(Args)]
 struct ShowArgs {
     /// Network to show
     file: PathBuf,
+}
+
+impl ShowArgs {
+    pub fn run(&self) {
+        let mut aig = read_network_file(&self.file);
+        println!("Network stats:\n{}\n\n", stats::stats(&aig));
+
+        aig.sweep();
+        aig.dedup();
+        println!("After deduplication:\n{}", stats::stats(&aig));
+    }
 }
 
 /// Command arguments for simulation
@@ -165,6 +232,18 @@ struct SimulateArgs {
     /// Expose flip-flops as primary inputs. Used after test pattern generation
     #[arg(long)]
     expose_ff: bool,
+}
+
+impl SimulateArgs {
+    pub fn run(&self) {
+        let mut aig = read_network_file(&self.network);
+        if self.expose_ff {
+            aig = expose_dff(&aig);
+        }
+        let input_values = read_pattern_file(&self.input);
+        let output_values = simulate_multiple(&aig, &input_values);
+        write_pattern_file(&self.output, &output_values);
+    }
 }
 
 /// Command arguments for test pattern generation
@@ -190,112 +269,37 @@ struct AtpgArgs {
     num_random: Option<usize>,
 }
 
+impl AtpgArgs {
+    pub fn run(&self) {
+        let mut aig = read_network_file(&self.network);
+
+        if self.num_cycles.is_none() && self.num_random.is_none() {
+            if !aig.is_comb() {
+                println!("Exposing flip-flops for a sequential network");
+                aig = expose_dff(&aig);
+            }
+            let patterns = generate_test_patterns(&aig, self.seed);
+            let seq_patterns = patterns.iter().map(|p| vec![p.clone()]).collect();
+            write_pattern_file(&self.output, &seq_patterns);
+        } else {
+            println!("Generating only random patterns for multiple cycles");
+            let nb_timesteps = self.num_cycles.unwrap_or(1);
+            let nb_patterns = self.num_random.unwrap_or(4 * (aig.nb_inputs() + 1));
+            let seq_patterns =
+                generate_random_seq_patterns(aig.nb_inputs(), nb_timesteps, nb_patterns, self.seed);
+            write_pattern_file(&self.output, &seq_patterns);
+        }
+    }
+}
+
 fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::CheckEquivalence(EquivArgs {
-            file1,
-            file2,
-            num_cycles,
-            sat_only,
-        }) => {
-            let aig1 = read_network_file(file1);
-            let aig2 = read_network_file(file2);
-            if aig1.nb_inputs() != aig2.nb_inputs() {
-                println!(
-                    "Different number of inputs: {} vs {}. Networks are not equivalent",
-                    aig1.nb_inputs(),
-                    aig2.nb_inputs()
-                );
-                std::process::exit(1);
-            }
-            if aig1.nb_outputs() != aig2.nb_outputs() {
-                println!(
-                    "Different number of outputs: {} vs {}. Networks are not equivalent",
-                    aig1.nb_outputs(),
-                    aig2.nb_outputs()
-                );
-                std::process::exit(1);
-            }
-            let res = check_equivalence_bounded(&aig1, &aig2, num_cycles, !sat_only);
-            let is_comb = aig1.is_comb() && aig2.is_comb();
-            match res {
-                Err(err) => {
-                    println!("Networks are not equivalent");
-                    println!("Test pattern:");
-                    // TODO: extract the names here
-                    for (i, v) in err.iter().enumerate() {
-                        print!("{}: ", i + 1);
-                        for b in v {
-                            print!("{}", if *b { "0" } else { "1" });
-                        }
-                    }
-                    std::process::exit(1);
-                }
-                Ok(()) => {
-                    if is_comb {
-                        println!("Networks are equivalent");
-                    } else {
-                        println!("Networks are equivalent up to {} cycles", num_cycles);
-                    }
-                    std::process::exit(0);
-                }
-            }
-        }
-        Commands::Optimize(OptArgs { file, output }) => {
-            let mut aig = read_network_file(file);
-            aig.sweep();
-            aig.dedup();
-            write_network_file(output, &aig);
-        }
-        Commands::Show(ShowArgs { file }) => {
-            let mut aig = read_network_file(file);
-            println!("Network stats:\n{}\n\n", stats::stats(&aig));
-
-            aig.sweep();
-            aig.dedup();
-            println!("After deduplication:\n{}", stats::stats(&aig));
-        }
-        Commands::Simulate(SimulateArgs {
-            network,
-            input,
-            output,
-            expose_ff,
-        }) => {
-            let mut aig = read_network_file(network);
-            if expose_ff {
-                aig = expose_dff(&aig);
-            }
-            let input_values = read_pattern_file(input);
-            let output_values = simulate_multiple(&aig, &input_values);
-            write_pattern_file(output, &output_values);
-        }
-        Commands::Atpg(AtpgArgs {
-            network,
-            output,
-            seed,
-            num_random,
-            num_cycles,
-        }) => {
-            let mut aig = read_network_file(network);
-
-            if num_cycles.is_none() && num_random.is_none() {
-                if !aig.is_comb() {
-                    println!("Exposing flip-flops for a sequential network");
-                    aig = expose_dff(&aig);
-                }
-                let patterns = generate_test_patterns(&aig, seed);
-                let seq_patterns = patterns.iter().map(|p| vec![p.clone()]).collect();
-                write_pattern_file(output, &seq_patterns);
-            } else {
-                println!("Generating only random patterns for multiple cycles");
-                let nb_timesteps = num_cycles.unwrap_or(1);
-                let nb_patterns = num_random.unwrap_or(4 * (aig.nb_inputs() + 1));
-                let seq_patterns =
-                    generate_random_seq_patterns(aig.nb_inputs(), nb_timesteps, nb_patterns, seed);
-                write_pattern_file(output, &seq_patterns);
-            }
-        }
+        Commands::CheckEquivalence(a) => a.run(),
+        Commands::Optimize(a) => a.run(),
+        Commands::Show(a) => a.run(),
+        Commands::Simulate(a) => a.run(),
+        Commands::Atpg(a) => a.run(),
     }
 }
