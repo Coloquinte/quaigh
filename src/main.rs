@@ -77,21 +77,40 @@ struct Cli {
 /// Command line arguments
 #[derive(Subcommand)]
 enum Commands {
-    /// Check equivalence between two logic networks
-    #[clap(alias = "equiv")]
-    CheckEquivalence(EquivArgs),
-    /// Optimize a logic network
-    #[clap(alias = "opt")]
-    Optimize(OptArgs),
     /// Show statistics about a logic network
+    ///
+    /// Will print statistics on the number of inputs, outputs and gates in the network.
     #[clap()]
     Show(ShowArgs),
+
+    /// Optimize a logic network
+    ///
+    /// At the moment this is simple constant propagation and deduplication,
+    /// but will grow in power over time.
+    #[clap(alias = "opt")]
+    Optimize(OptArgs),
+
     /// Simulate a logic network
+    ///
+    /// This uses the same test pattern format as Atalanta, with one bit per input:
+    ///    1: 00011101
+    ///    2: 01110000
     #[clap(alias = "sim")]
     Simulate(SimulateArgs),
-    /// Run test pattern generation for a logic network
+
+    /// Test pattern generation for a logic network
+    ///
+    /// Generate patterns to find all possible faults in a design, assuming
+    /// that the primary inputs, outputs and flip-flops can be scanned.
     #[clap()]
     Atpg(AtpgArgs),
+
+    /// Check equivalence between two logic networks
+    ///
+    /// The command will fail if the two networks are not equivalent, and will output the
+    /// failing test pattern.
+    #[clap(alias = "equiv")]
+    CheckEquivalence(EquivArgs),
 }
 
 /// Command arguments for equivalence checking
@@ -106,7 +125,7 @@ struct EquivArgs {
     #[arg(short = 'c', long, default_value_t = 1)]
     num_cycles: usize,
 
-    /// Use only sat solver, skipping internal optimizations
+    /// Use only the Sat solver, skipping internal optimizations
     #[arg(long)]
     sat_only: bool,
 }
@@ -143,7 +162,7 @@ struct SimulateArgs {
     #[arg(short = 'o', long)]
     output: PathBuf,
 
-    /// Expose flip-flops as primary inputs
+    /// Expose flip-flops as primary inputs. Used after test pattern generation
     #[arg(long)]
     expose_ff: bool,
 }
@@ -162,7 +181,7 @@ struct AtpgArgs {
     #[arg(long, default_value_t = 1)]
     seed: u64,
 
-    /// Attempt to generate sequential patterns instead of combinatorial
+    /// Attempt to generate sequential patterns (random only)
     #[arg(short = 'c', long)]
     num_cycles: Option<usize>,
 
@@ -260,9 +279,8 @@ fn main() {
             num_cycles,
         }) => {
             let mut aig = read_network_file(network);
-            let nb_patterns = num_random.unwrap_or(4 * (aig.nb_inputs() + 1));
 
-            if num_cycles.is_none() {
+            if num_cycles.is_none() && num_random.is_none() {
                 if !aig.is_comb() {
                     println!("Exposing flip-flops for a sequential network");
                     aig = expose_dff(&aig);
@@ -273,6 +291,7 @@ fn main() {
             } else {
                 println!("Generating only random patterns for multiple cycles");
                 let nb_timesteps = num_cycles.unwrap_or(1);
+                let nb_patterns = num_random.unwrap_or(4 * (aig.nb_inputs() + 1));
                 let seq_patterns =
                     generate_random_seq_patterns(aig.nb_inputs(), nb_timesteps, nb_patterns, seed);
                 write_pattern_file(output, &seq_patterns);
