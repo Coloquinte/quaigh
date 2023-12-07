@@ -19,7 +19,10 @@ use std::fmt;
 
 use crate::{Gate, NaryType, Network};
 
-/// Area cost for a network, depending on the gates inside
+/// Area estimation parameters for optimization
+///
+/// Most gates have an area cost. N-ary gates are extrapolated and buffers are ignored.
+/// This is obviously very inaccurate, and is meant to be used as an objective during logic optimization.
 #[derive(Clone, Copy, Debug)]
 pub struct AreaParameters {
     /// Cost of And2

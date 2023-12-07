@@ -54,6 +54,7 @@ pub mod atpg;
 pub mod equiv;
 pub mod io;
 pub mod network;
+pub mod optim;
 pub mod sim;
 
 use clap::Parser;
