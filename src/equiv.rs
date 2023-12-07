@@ -1,10 +1,10 @@
-//! Equivalence checking on Aigs
+//! Equivalence checking
 
 use std::collections::HashMap;
 
 use cat_solver::Solver;
 
-use crate::{Aig, Gate, NaryType, Signal};
+use crate::{Gate, NaryType, Network, Signal};
 
 // TODO: have clean clause builder object to encapsulate this part
 
@@ -55,8 +55,8 @@ fn add_xor_clauses(
     }
 }
 
-/// Export a combinatorial Aig to a CNF formula
-fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
+/// Export a combinatorial network to a CNF formula
+fn to_cnf(aig: &Network) -> Vec<Vec<Signal>> {
     use Gate::*;
     assert!(aig.is_comb());
     let mut ret = Vec::<Vec<Signal>>::new();
@@ -118,7 +118,7 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
                 ret.push(vec![*b, *c, !n]);
                 ret.push(vec![*a, *c, !n]);
             }
-            Dff(_, _, _) => panic!("Combinatorial Aig expected"),
+            Dff(_, _, _) => panic!("Combinatorial network expected"),
             Nary(v, tp) => match tp {
                 NaryType::And => add_and_clauses(&mut ret, v, n, false, false),
                 NaryType::Or => add_and_clauses(&mut ret, v, n, true, true),
@@ -144,8 +144,13 @@ fn to_cnf(aig: &Aig) -> Vec<Vec<Signal>> {
     ret
 }
 
-/// Copy the gates from one Aig to another and fill the existing translation table
-fn extend_aig_helper(a: &mut Aig, b: &Aig, t: &mut HashMap<Signal, Signal>, same_inputs: bool) {
+/// Copy the gates from one network to another and fill the existing translation table
+fn extend_aig_helper(
+    a: &mut Network,
+    b: &Network,
+    t: &mut HashMap<Signal, Signal>,
+    same_inputs: bool,
+) {
     assert!(b.is_topo_sorted());
     assert!(!same_inputs || a.nb_inputs() == b.nb_inputs());
 
@@ -172,17 +177,17 @@ fn extend_aig_helper(a: &mut Aig, b: &Aig, t: &mut HashMap<Signal, Signal>, same
     }
 }
 
-/// Copy the gates from one Aig to another and fill the translation table
-fn extend_aig(a: &mut Aig, b: &Aig) -> HashMap<Signal, Signal> {
+/// Copy the gates from one network to another and fill the translation table
+fn extend_aig(a: &mut Network, b: &Network) -> HashMap<Signal, Signal> {
     let mut t = HashMap::<Signal, Signal>::new();
     extend_aig_helper(a, b, &mut t, true);
     t
 }
 
-/// Unroll a sequential Aig over a fixed number of steps
-fn unroll(aig: &Aig, nb_steps: usize) -> Aig {
+/// Unroll a sequential network over a fixed number of steps
+fn unroll(aig: &Network, nb_steps: usize) -> Network {
     use Gate::*;
-    let mut ret = Aig::new();
+    let mut ret = Network::new();
 
     let mut t_prev = HashMap::new();
     for step in 0..nb_steps {
@@ -216,13 +221,13 @@ fn unroll(aig: &Aig, nb_steps: usize) -> Aig {
     ret
 }
 
-/// Create an AIG with a single output, representing the equivalence of two combinatorial Aigs
-pub(crate) fn difference(a: &Aig, b: &Aig) -> Aig {
+/// Create an AIG with a single output, representing the equivalence of two combinatorial networks
+pub(crate) fn difference(a: &Network, b: &Network) -> Network {
     assert!(a.is_comb() && b.is_comb());
     assert_eq!(a.nb_inputs(), b.nb_inputs());
     assert_eq!(a.nb_outputs(), b.nb_outputs());
 
-    let mut eq = Aig::new();
+    let mut eq = Network::new();
     eq.add_inputs(a.nb_inputs());
     let ta = extend_aig(&mut eq, a);
     let tb = extend_aig(&mut eq, b);
@@ -240,7 +245,7 @@ pub(crate) fn difference(a: &Aig, b: &Aig) -> Aig {
 }
 
 /// Find an assignment of the inputs that sets the single output to 1
-pub(crate) fn prove(a: &Aig) -> Option<Vec<bool>> {
+pub(crate) fn prove(a: &Network) -> Option<Vec<bool>> {
     assert_eq!(a.nb_outputs(), 1);
 
     let clauses = to_cnf(a);
@@ -294,7 +299,7 @@ pub(crate) fn prove(a: &Aig) -> Option<Vec<bool>> {
 }
 
 /// Perform equivalence checking on two combinatorial AIGs
-pub fn check_equivalence_comb(a: &Aig, b: &Aig, optimize: bool) -> Result<(), Vec<bool>> {
+pub fn check_equivalence_comb(a: &Network, b: &Network, optimize: bool) -> Result<(), Vec<bool>> {
     assert!(a.is_comb() && b.is_comb());
     let mut diff = difference(a, b);
     if optimize {
@@ -310,8 +315,8 @@ pub fn check_equivalence_comb(a: &Aig, b: &Aig, optimize: bool) -> Result<(), Ve
 
 /// Perform bounded equivalence checking on two sequential AIGs
 pub fn check_equivalence_bounded(
-    a: &Aig,
-    b: &Aig,
+    a: &Network,
+    b: &Network,
     nb_steps: usize,
     optimize: bool,
 ) -> Result<(), Vec<Vec<bool>>> {
@@ -341,18 +346,18 @@ pub fn check_equivalence_bounded(
 mod tests {
     use crate::equiv::unroll;
     use crate::network::stats::stats;
-    use crate::{Aig, Gate, NaryType, Signal};
+    use crate::{Gate, NaryType, Network, Signal};
 
     use super::{check_equivalence_comb, prove};
 
     #[test]
     fn test_equiv_and() {
-        let mut a = Aig::new();
+        let mut a = Network::new();
         let l1 = a.add_input();
         let l2 = a.add_input();
         let aa = a.and(l1, l2);
         a.add_output(aa);
-        let mut b = Aig::new();
+        let mut b = Network::new();
         b.add_input();
         b.add_input();
         let ab = b.and(l1, l2);
@@ -363,12 +368,12 @@ mod tests {
 
     #[test]
     fn test_not_equiv_and_zero() {
-        let mut a = Aig::new();
+        let mut a = Network::new();
         let l1 = a.add_input();
         let l2 = a.add_input();
         let aa = a.and(l1, l2);
         a.add_output(aa);
-        let mut b = Aig::new();
+        let mut b = Network::new();
         b.add_input();
         b.add_input();
         b.add_output(Signal::zero());
@@ -378,12 +383,12 @@ mod tests {
 
     #[test]
     fn test_not_equiv_and_or() {
-        let mut a = Aig::new();
+        let mut a = Network::new();
         let l1 = a.add_input();
         let l2 = a.add_input();
         let aa = a.and(l1, l2);
         a.add_output(aa);
-        let mut b = Aig::new();
+        let mut b = Network::new();
         b.add_input();
         b.add_input();
         let ab = b.or(l1, l2);
@@ -394,11 +399,11 @@ mod tests {
 
     #[test]
     fn test_not_equiv_one_zero() {
-        let mut a = Aig::new();
+        let mut a = Network::new();
         a.add_input();
         a.add_input();
         a.add_output(Signal::one());
-        let mut b = Aig::new();
+        let mut b = Network::new();
         b.add_input();
         b.add_input();
         b.add_output(Signal::zero());
@@ -408,14 +413,14 @@ mod tests {
 
     #[test]
     fn test_equiv_xor() {
-        let mut a = Aig::new();
+        let mut a = Network::new();
         let l1 = a.add_input();
         let l2 = a.add_input();
         let a1 = a.and(l1, !l2);
         let a2 = a.and(!l1, l2);
         let ax = a.or(a1, a2);
         a.add_output(ax);
-        let mut b = Aig::new();
+        let mut b = Network::new();
         b.add_input();
         b.add_input();
         let bx = b.xor(l1, l2);
@@ -426,7 +431,7 @@ mod tests {
 
     #[test]
     fn test_equiv_mux() {
-        let mut a = Aig::new();
+        let mut a = Network::new();
         let l1 = a.add_input();
         let l2 = a.add_input();
         let l3 = a.add_input();
@@ -434,7 +439,7 @@ mod tests {
         let a2 = a.and(!l1, l3);
         let ax = a.or(a1, a2);
         a.add_output(ax);
-        let mut b = Aig::new();
+        let mut b = Network::new();
         b.add_input();
         b.add_input();
         b.add_input();
@@ -446,7 +451,7 @@ mod tests {
 
     #[test]
     fn test_equiv_maj() {
-        let mut a = Aig::new();
+        let mut a = Network::new();
         let l1 = a.add_input();
         let l2 = a.add_input();
         let l3 = a.add_input();
@@ -455,7 +460,7 @@ mod tests {
         let a3 = a.and(l2, l3);
         let ax = a.or3(a1, a2, a3);
         a.add_output(ax);
-        let mut b = Aig::new();
+        let mut b = Network::new();
         b.add_input();
         b.add_input();
         b.add_input();
@@ -467,14 +472,14 @@ mod tests {
 
     #[test]
     fn test_equiv_and3() {
-        let mut a = Aig::new();
+        let mut a = Network::new();
         let l1 = a.add_input();
         let l2 = a.add_input();
         let l3 = a.add_input();
         let a1 = a.and(l1, l2);
         let a2 = a.and(a1, l3);
         a.add_output(a2);
-        let mut b = Aig::new();
+        let mut b = Network::new();
         b.add_input();
         b.add_input();
         b.add_input();
@@ -486,14 +491,14 @@ mod tests {
 
     #[test]
     fn test_equiv_xor3() {
-        let mut a = Aig::new();
+        let mut a = Network::new();
         let l1 = a.add_input();
         let l2 = a.add_input();
         let l3 = a.add_input();
         let a1 = a.xor(l1, l2);
         let a2 = a.xor(a1, l3);
         a.add_output(a2);
-        let mut b = Aig::new();
+        let mut b = Network::new();
         b.add_input();
         b.add_input();
         b.add_input();
@@ -506,7 +511,7 @@ mod tests {
     #[test]
     fn test_equiv_andn() {
         for nb in 0..8 {
-            let mut a = Aig::new();
+            let mut a = Network::new();
             let mut ao = Signal::one();
             for _ in 0..nb {
                 let inp = a.add_input();
@@ -514,7 +519,7 @@ mod tests {
             }
             a.add_output(ao);
 
-            let mut b = Aig::new();
+            let mut b = Network::new();
             let mut v = Vec::new();
             for _ in 0..nb {
                 v.push(b.add_input());
@@ -529,7 +534,7 @@ mod tests {
     #[test]
     fn test_equiv_xorn() {
         for nb in 0..8 {
-            let mut a = Aig::new();
+            let mut a = Network::new();
             let mut ao = Signal::zero();
             for _ in 0..nb {
                 let inp = a.add_input();
@@ -537,7 +542,7 @@ mod tests {
             }
             a.add_output(ao);
 
-            let mut b = Aig::new();
+            let mut b = Network::new();
             let mut v = Vec::new();
             for _ in 0..nb {
                 v.push(b.add_input());
@@ -551,8 +556,8 @@ mod tests {
 
     #[test]
     fn test_equiv_inputs() {
-        let mut a = Aig::new();
-        let mut b = Aig::new();
+        let mut a = Network::new();
+        let mut b = Network::new();
         for _ in 0..3 {
             let la = a.add_input();
             a.add_output(la);
@@ -565,8 +570,8 @@ mod tests {
 
     #[test]
     fn test_not_equiv_inputs() {
-        let mut a = Aig::new();
-        let mut b = Aig::new();
+        let mut a = Network::new();
+        let mut b = Network::new();
         for _ in 0..3 {
             let la = a.add_input();
             a.add_output(la);
@@ -579,8 +584,8 @@ mod tests {
 
     #[test]
     fn test_unused_inputs() {
-        let mut a = Aig::new();
-        let mut b = Aig::new();
+        let mut a = Network::new();
+        let mut b = Network::new();
         for _ in 0..3 {
             a.add_input();
             b.add_input();
@@ -594,7 +599,7 @@ mod tests {
 
     #[test]
     fn test_simple_unrolling() {
-        let mut a = Aig::new();
+        let mut a = Network::new();
         let i0 = a.add_input();
         let d = a.dff(i0, Signal::one(), Signal::zero());
         a.add_output(d);
@@ -612,7 +617,7 @@ mod tests {
 
     #[test]
     fn test_enable_unrolling() {
-        let mut a = Aig::new();
+        let mut a = Network::new();
         let i0 = a.add_input();
         let i1 = a.add_input();
         let d = a.dff(i0, i1, Signal::zero());
@@ -631,7 +636,7 @@ mod tests {
 
     #[test]
     fn test_prove_and() {
-        let mut a = Aig::new();
+        let mut a = Network::new();
         let l1 = a.add_input();
         let l2 = a.add_input();
         // Add an unused input

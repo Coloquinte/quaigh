@@ -1,4 +1,4 @@
-//! Read and write Aigs to files
+//! Read and write logic networks to files
 
 mod bench;
 mod patterns;
@@ -9,12 +9,12 @@ use std::path::PathBuf;
 pub use bench::{read_bench, write_bench};
 pub use patterns::{read_patterns, write_patterns};
 
-use crate::Aig;
+use crate::Network;
 
 /// Read a logic network from a file
 ///
 /// Following extensions are supported: .bench
-pub fn read_network_file(path: &PathBuf) -> Aig {
+pub fn read_network_file(path: &PathBuf) -> Network {
     let ext = path.extension();
     match ext {
         None => panic!("No extension given"),
@@ -32,7 +32,7 @@ pub fn read_network_file(path: &PathBuf) -> Aig {
 /// Write a logic network to a file
 ///
 /// Following extensions are supported: .bench
-pub fn write_network_file(path: &PathBuf, aig: &Aig) {
+pub fn write_network_file(path: &PathBuf, aig: &Network) {
     let ext = path.extension();
     match ext {
         None => panic!("No extension given"),

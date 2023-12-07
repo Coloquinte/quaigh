@@ -1,8 +1,8 @@
-//! Compute gate statistics on Aigs
+//! Compute gate statistics
 //!
 //! ```
-//! # use quaigh::Aig;
-//! # let aig = Aig::new();
+//! # use quaigh::Network;
+//! # let aig = Network::new();
 //! use quaigh::stats::stats;
 //! let stats = stats(&aig);
 //!
@@ -15,9 +15,9 @@
 
 use std::fmt;
 
-use crate::{Aig, Gate, NaryType};
+use crate::{Gate, NaryType, Network};
 
-/// Number of inputs, outputs and gates in an Aig
+/// Number of inputs, outputs and gates in a network
 #[derive(Clone, Copy, Debug)]
 pub struct NetworkStats {
     /// Number of inputs
@@ -100,8 +100,8 @@ impl fmt::Display for NetworkStats {
     }
 }
 
-/// Compute the statistics of the Aig
-pub fn stats(a: &Aig) -> NetworkStats {
+/// Compute the statistics of the network
+pub fn stats(a: &Network) -> NetworkStats {
     use Gate::*;
     let mut ret = NetworkStats {
         nb_inputs: a.nb_inputs(),

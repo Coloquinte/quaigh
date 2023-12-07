@@ -3,12 +3,12 @@
 mod fault;
 mod simple_sim;
 
-use crate::Aig;
+use crate::Network;
 
 pub use fault::Fault;
 
-/// Simulate an Aig over multiple timesteps; return the output values
-pub fn simulate(a: &Aig, input_values: &Vec<Vec<bool>>) -> Vec<Vec<bool>> {
+/// Simulate a network over multiple timesteps; return the output values
+pub fn simulate(a: &Network, input_values: &Vec<Vec<bool>>) -> Vec<Vec<bool>> {
     let mut multi_input = Vec::<Vec<u64>>::new();
     for v in input_values {
         multi_input.push(v.iter().map(|b| if *b { !0 } else { 0 }).collect());
@@ -21,16 +21,16 @@ pub fn simulate(a: &Aig, input_values: &Vec<Vec<bool>>) -> Vec<Vec<bool>> {
     ret
 }
 
-/// Simulate a combinatorial Aig; return the output values
-pub fn simulate_comb(a: &Aig, input_values: &Vec<bool>) -> Vec<bool> {
+/// Simulate a combinatorial network; return the output values
+pub fn simulate_comb(a: &Network, input_values: &Vec<bool>) -> Vec<bool> {
     assert!(a.is_comb());
     let input = vec![input_values.clone()];
     let output = simulate(a, &input);
     output[0].clone()
 }
 
-/// Simulate an Aig over multiple input patterns; return the output values
-pub fn simulate_multiple(a: &Aig, input_values: &Vec<Vec<Vec<bool>>>) -> Vec<Vec<Vec<bool>>> {
+/// Simulate a network over multiple input patterns; return the output values
+pub fn simulate_multiple(a: &Network, input_values: &Vec<Vec<Vec<bool>>>) -> Vec<Vec<Vec<bool>>> {
     let mut ret = Vec::new();
     for pattern in input_values {
         ret.push(simulate(a, pattern));
@@ -38,23 +38,23 @@ pub fn simulate_multiple(a: &Aig, input_values: &Vec<Vec<Vec<bool>>>) -> Vec<Vec
     ret
 }
 
-/// Simulate a combinatorial Aig with 64b inputs; return the output values
-pub(crate) fn simulate_comb_multi(a: &Aig, input_values: &Vec<u64>) -> Vec<u64> {
+/// Simulate a combinatorial network with 64b inputs; return the output values
+pub(crate) fn simulate_comb_multi(a: &Network, input_values: &Vec<u64>) -> Vec<u64> {
     let input = vec![input_values.clone()];
     let output = simulate_multi(a, &input);
     output[0].clone()
 }
 
-/// Simulate an Aig over multiple timesteps with 64b inputs; return the output values
-pub(crate) fn simulate_multi(a: &Aig, input_values: &Vec<Vec<u64>>) -> Vec<Vec<u64>> {
+/// Simulate a network over multiple timesteps with 64b inputs; return the output values
+pub(crate) fn simulate_multi(a: &Network, input_values: &Vec<Vec<u64>>) -> Vec<Vec<u64>> {
     use simple_sim::SimpleSimulator;
     let mut sim = SimpleSimulator::from_aig(a);
     sim.run(input_values)
 }
 
-/// Simulate a combinatorial Aig with 64b inputs with faults; return the output values
+/// Simulate a combinatorial network with 64b inputs with faults; return the output values
 pub(crate) fn simulate_comb_multi_with_faults(
-    a: &Aig,
+    a: &Network,
     input_values: &Vec<u64>,
     faults: &Vec<Fault>,
 ) -> Vec<u64> {
@@ -63,9 +63,9 @@ pub(crate) fn simulate_comb_multi_with_faults(
     output[0].clone()
 }
 
-/// Simulate an Aig over multiple timesteps with 64b inputs; return the output values
+/// Simulate a network over multiple timesteps with 64b inputs; return the output values
 pub(crate) fn simulate_multi_with_faults(
-    a: &Aig,
+    a: &Network,
     input_values: &Vec<Vec<u64>>,
     faults: &Vec<Fault>,
 ) -> Vec<Vec<u64>> {
@@ -76,13 +76,13 @@ pub(crate) fn simulate_multi_with_faults(
 
 #[cfg(test)]
 mod tests {
-    use crate::{Aig, Gate, NaryType};
+    use crate::{Gate, NaryType, Network};
 
     use super::simulate;
 
     #[test]
     fn test_basic() {
-        let mut aig = Aig::default();
+        let mut aig = Network::default();
         let i0 = aig.add_input();
         let i1 = aig.add_input();
         let i2 = aig.add_input();
@@ -112,7 +112,7 @@ mod tests {
 
     #[test]
     fn test_dff() {
-        let mut aig = Aig::default();
+        let mut aig = Network::default();
         let d = aig.add_input();
         let en = aig.add_input();
         let res = aig.add_input();
@@ -139,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_nary() {
-        let mut aig = Aig::default();
+        let mut aig = Network::default();
         let i0 = aig.add_input();
         let i1 = aig.add_input();
         let i2 = aig.add_input();

@@ -5,13 +5,13 @@ use rand::{Rng, SeedableRng};
 
 use crate::equiv::{difference, prove};
 use crate::sim::{simulate_comb_multi, simulate_comb_multi_with_faults, Fault};
-use crate::{Aig, Gate, Signal};
+use crate::{Gate, Network, Signal};
 
 /// Expose flip_flops as inputs for ATPG
 ///
 /// The inputs are added after the original inputs. Their order matches the order of the flip flops
-pub fn expose_dff(aig: &Aig) -> Aig {
-    let mut ret = Aig::new();
+pub fn expose_dff(aig: &Network) -> Network {
+    let mut ret = Network::new();
     ret.add_inputs(aig.nb_inputs());
     for i in 0..aig.nb_outputs() {
         ret.add_output(aig.output(i));
@@ -37,7 +37,7 @@ pub fn expose_dff(aig: &Aig) -> Aig {
 }
 
 /// Analyze which of a set of pattern detect a given fault
-fn detects_fault(aig: &Aig, pattern: &Vec<u64>, fault: Fault) -> u64 {
+fn detects_fault(aig: &Network, pattern: &Vec<u64>, fault: Fault) -> u64 {
     assert!(aig.is_comb());
     assert!(aig.is_topo_sorted());
     let expected = simulate_comb_multi(aig, pattern);
@@ -50,7 +50,7 @@ fn detects_fault(aig: &Aig, pattern: &Vec<u64>, fault: Fault) -> u64 {
 }
 
 /// Analyze whether a pattern detects a given fault
-fn detects_fault_single(aig: &Aig, pattern: &Vec<bool>, fault: Fault) -> bool {
+fn detects_fault_single(aig: &Network, pattern: &Vec<bool>, fault: Fault) -> bool {
     let multi_pattern = pattern
         .iter()
         .map(|b| if *b { !0u64 } else { 0u64 })
@@ -60,40 +60,12 @@ fn detects_fault_single(aig: &Aig, pattern: &Vec<bool>, fault: Fault) -> bool {
     detection == !0u64
 }
 
-/// Build an Aig with additional inputs to represent error cases
-///
-/// The resulting Aig will have 2 additional inputs per gate, representing a
-/// stuck-at-fault error at the output of the corresponding gate. Keeping these
-/// inputs at 0 preserves the behaviour of the network, while setting 1 simulates
-/// a stuck-at-fault error.
-pub fn build_analysis_network(aig: &Aig) -> Aig {
-    assert!(aig.is_comb() && aig.is_topo_sorted());
-    let mut fault_aig = Aig::new();
-    fault_aig.add_inputs(aig.nb_inputs());
-
-    let mut t = Vec::new();
-    for i in 0..aig.nb_nodes() {
-        let g = aig.gate(i);
-        let out = fault_aig.add_raw_gate(g.remap_order(&t));
-        let saf0_in = fault_aig.add_input();
-        let saf1_in = fault_aig.add_input();
-        let saf0 = fault_aig.and(out, !saf0_in);
-        let saf1 = fault_aig.or(saf0, saf1_in);
-        t.push(saf1);
-    }
-    for i in 0..aig.nb_outputs() {
-        fault_aig.add_output(aig.output(i).remap_order(&t));
-    }
-
-    fault_aig
-}
-
 /// Find a new test pattern for a specific fault using a SAT solver
 ///
 /// Each gate may be in one of two cases:
 ///     * in the logic cone after the fault: those need to be duplicated with/without the fault
 ///     * elsewhere, where they don't need to be duplicated
-fn find_pattern_detecting_fault(aig: &Aig, fault: Fault) -> Option<Vec<bool>> {
+fn find_pattern_detecting_fault(aig: &Network, fault: Fault) -> Option<Vec<bool>> {
     // Translation of the original signal into the fault
     let fault_translation = |s: &Signal| -> Signal {
         match fault {
@@ -107,7 +79,7 @@ fn find_pattern_detecting_fault(aig: &Aig, fault: Fault) -> Option<Vec<bool>> {
         }
     };
 
-    let mut fault_aig = Aig::new();
+    let mut fault_aig = Network::new();
     fault_aig.add_inputs(aig.nb_inputs());
     for i in 0..aig.nb_nodes() {
         if !aig.gate(i).is_comb() {
@@ -165,7 +137,7 @@ pub fn generate_random_comb_patterns(
 
 /// Handling of the actual test pattern generation
 struct TestPatternGenerator<'a> {
-    aig: &'a Aig,
+    aig: &'a Network,
     faults: Vec<Fault>,
     patterns: Vec<Vec<bool>>,
     pattern_detections: Vec<Vec<bool>>,
@@ -187,7 +159,7 @@ impl<'a> TestPatternGenerator<'a> {
     }
 
     /// Initialize the generator from a network and a seed
-    pub fn from(aig: &'a Aig, seed: u64) -> TestPatternGenerator {
+    pub fn from(aig: &'a Network, seed: u64) -> TestPatternGenerator {
         assert!(aig.is_topo_sorted());
         let faults = Self::get_all_faults(aig);
         let nb_faults = faults.len();
@@ -202,7 +174,7 @@ impl<'a> TestPatternGenerator<'a> {
     }
 
     /// Get all possible faults in a network
-    fn get_all_faults(aig: &'a Aig) -> Vec<Fault> {
+    fn get_all_faults(aig: &'a Network) -> Vec<Fault> {
         let mut ret = Vec::new();
         for i in 0..aig.nb_nodes() {
             ret.push(Fault::OutputStuckAtFault {
@@ -351,7 +323,7 @@ impl<'a> TestPatternGenerator<'a> {
 }
 
 /// Generate test patterns
-pub fn generate_test_patterns(aig: &Aig, seed: u64) -> Vec<Vec<bool>> {
+pub fn generate_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
     assert!(aig.is_comb());
     let mut gen = TestPatternGenerator::from(aig, seed);
     println!(

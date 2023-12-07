@@ -7,29 +7,29 @@ use crate::network::signal::Signal;
 
 /// Representation of a logic network as a gate-inverter-graph, used as the main representation for all logic manipulations
 #[derive(Debug, Clone, Default)]
-pub struct Aig {
+pub struct Network {
     nb_inputs: usize,
     nodes: Vec<Gate>,
     outputs: Vec<Signal>,
 }
 
-impl Aig {
-    /// Create a new Aig
+impl Network {
+    /// Create a new network
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Return the number of primary inputs of the Aig
+    /// Return the number of primary inputs
     pub fn nb_inputs(&self) -> usize {
         self.nb_inputs
     }
 
-    /// Return the number of primary outputs of the Aig
+    /// Return the number of primary outputs
     pub fn nb_outputs(&self) -> usize {
         self.outputs.len()
     }
 
-    /// Return the number of nodes in the Aig
+    /// Return the number of nodes in the network
     pub fn nb_nodes(&self) -> usize {
         self.nodes.len()
     }
@@ -178,12 +178,12 @@ impl Aig {
         l
     }
 
-    /// Return whether the Aig is purely combinatorial
+    /// Return whether the network is purely combinatorial
     pub fn is_comb(&self) -> bool {
         self.nodes.iter().all(|g| g.is_comb())
     }
 
-    /// Return whether the Aig is already topologically sorted (except for flip-flops)
+    /// Return whether the network is already topologically sorted (except for flip-flops)
     pub(crate) fn is_topo_sorted(&self) -> bool {
         for (i, g) in self.nodes.iter().enumerate() {
             let ind = i as u32;
@@ -327,7 +327,7 @@ impl Aig {
         translation
     }
 
-    /// Topologically sort the Aig; this will invalidate all signals
+    /// Topologically sort the network; this will invalidate all signals
     ///
     /// Ordering may be changed even if already sorted. Flip-flop ordering is kept as is.
     /// Returns the mapping of old variable indices to signals, if needed.
@@ -400,7 +400,7 @@ impl Aig {
         }
     }
 
-    /// Returns whether a signal is valid (within bounds) in the Aig
+    /// Returns whether a signal is valid (within bounds) in the network
     pub(crate) fn is_valid(&self, s: Signal) -> bool {
         if s.is_input() {
             s.input() < self.nb_inputs() as u32
@@ -412,11 +412,11 @@ impl Aig {
     }
 }
 
-impl fmt::Display for Aig {
+impl fmt::Display for Network {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(
             f,
-            "Aig with {} inputs, {} outputs:",
+            "Network with {} inputs, {} outputs:",
             self.nb_inputs(),
             self.nb_outputs()
         )?;
@@ -432,11 +432,11 @@ impl fmt::Display for Aig {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Aig, Gate, Signal};
+    use crate::{Gate, Network, Signal};
 
     #[test]
     fn test_basic() {
-        let mut aig = Aig::default();
+        let mut aig = Network::default();
         let i0 = aig.add_input();
         let i1 = aig.add_input();
         let x = aig.xor(i0, i1);
@@ -457,7 +457,7 @@ mod tests {
 
     #[test]
     fn test_dff() {
-        let mut aig = Aig::default();
+        let mut aig = Network::default();
         let i0 = aig.add_input();
         let i1 = aig.add_input();
         let i2 = aig.add_input();
@@ -476,7 +476,7 @@ mod tests {
 
     #[test]
     fn test_nary() {
-        let mut aig = Aig::default();
+        let mut aig = Network::default();
         let i0 = aig.add_input();
         let i1 = aig.add_input();
         let i2 = aig.add_input();
@@ -507,7 +507,7 @@ mod tests {
 
     #[test]
     fn test_sweep() {
-        let mut aig = Aig::default();
+        let mut aig = Network::default();
         let i0 = aig.add_input();
         let i1 = aig.add_input();
         let x0 = aig.and(i0, i1);
@@ -533,7 +533,7 @@ mod tests {
 
     #[test]
     fn test_dedup() {
-        let mut aig = Aig::default();
+        let mut aig = Network::default();
         let i0 = aig.add_input();
         let i1 = aig.add_input();
         let i2 = aig.add_input();
@@ -549,7 +549,7 @@ mod tests {
 
     #[test]
     fn test_topo_sort() {
-        let mut aig = Aig::default();
+        let mut aig = Network::default();
         let i0 = aig.add_input();
         let i1 = aig.add_input();
         let i2 = aig.add_input();

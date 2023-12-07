@@ -58,7 +58,7 @@ pub mod network;
 pub mod sim;
 
 use clap::Parser;
-pub use network::{Aig, Gate, NaryType, Signal};
+pub use network::{Gate, NaryType, Network, Signal};
 
 #[doc(hidden)]
 fn main() {

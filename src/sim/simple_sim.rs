@@ -1,4 +1,4 @@
-use crate::{Aig, NaryType, Signal};
+use crate::{NaryType, Network, Signal};
 
 use super::Fault;
 
@@ -7,7 +7,7 @@ use super::Fault;
 /// This is simple to write and relatively efficient, but could be greatly improved
 /// with a regular and- or mux-based structure.
 pub struct SimpleSimulator<'a> {
-    aig: &'a Aig,
+    aig: &'a Network,
     input_values: Vec<u64>,
     node_values: Vec<u64>,
 }
@@ -29,8 +29,8 @@ fn mux(s: u64, a: u64, b: u64) -> u64 {
 }
 
 impl<'a> SimpleSimulator<'a> {
-    /// Build a simulator by capturing an Aig
-    pub fn from_aig(aig: &'a Aig) -> SimpleSimulator<'a> {
+    /// Build a simulator by capturing a network
+    pub fn from_aig(aig: &'a Network) -> SimpleSimulator<'a> {
         assert!(aig.is_topo_sorted());
         SimpleSimulator {
             aig,

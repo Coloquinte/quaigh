@@ -1,8 +1,8 @@
-//! Compute an approximation of the area or of the complexity of an Aig
+//! Compute an approximation of the area or of the complexity of a network
 //!
 //! ```
-//! # use quaigh::Aig;
-//! # let aig = Aig::new();
+//! # use quaigh::Network;
+//! # let aig = Network::new();
 //! use quaigh::area::AreaParameters;
 //!
 //! // To estimate area for VLSI designs
@@ -17,9 +17,9 @@
 
 use std::fmt;
 
-use crate::{Aig, Gate, NaryType};
+use crate::{Gate, NaryType, Network};
 
-/// Area cost for an Aig, depending on the gates inside
+/// Area cost for a network, depending on the gates inside
 #[derive(Clone, Copy, Debug)]
 pub struct AreaParameters {
     /// Cost of And2
@@ -122,8 +122,8 @@ impl AreaParameters {
         }
     }
 
-    /// Compute the area of an Aig
-    pub fn area(&self, a: &Aig) -> usize {
+    /// Compute the area of a network
+    pub fn area(&self, a: &Network) -> usize {
         let mut ret = 0;
         for i in 0..a.nb_nodes() {
             ret += self.gate_area(a.gate(i));

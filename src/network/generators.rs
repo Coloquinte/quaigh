@@ -2,11 +2,11 @@
 
 /// Adder generators
 pub mod adder {
-    use crate::{Aig, Signal};
+    use crate::{Network, Signal};
 
     /// A simple and slow ripple-carry adder
-    pub fn ripple_carry(len: usize) -> Aig {
-        let mut ret = Aig::new();
+    pub fn ripple_carry(len: usize) -> Network {
+        let mut ret = Network::new();
         let mut c = Signal::zero();
         for _ in 0..len {
             let a = ret.add_input();
@@ -24,11 +24,11 @@ pub mod adder {
 
 /// Carry chain generators
 pub mod carry_chain {
-    use crate::{Aig, Signal};
+    use crate::{Network, Signal};
 
     /// A simple and slow ripple-carry chain
-    pub fn ripple_carry(len: usize) -> Aig {
-        let mut ret = Aig::new();
+    pub fn ripple_carry(len: usize) -> Network {
+        let mut ret = Network::new();
         let mut c = Signal::zero();
         for _ in 0..len {
             let propagate = ret.add_input();
@@ -43,12 +43,12 @@ pub mod carry_chain {
 
 /// Simple generators to test functionality
 pub mod testcases {
-    use crate::{Aig, Signal};
+    use crate::{Network, Signal};
 
     /// A circular chain of Dffs with a Xor with input at the start; used to test topological sorting
-    pub fn toggle_chain(len: usize, has_en: bool, has_res: bool) -> Aig {
+    pub fn toggle_chain(len: usize, has_en: bool, has_res: bool) -> Network {
         assert!(len > 0);
-        let mut ret = Aig::new();
+        let mut ret = Network::new();
         let input = ret.add_input();
         let en = if has_en {
             ret.add_input()
@@ -74,8 +74,8 @@ pub mod testcases {
     }
 
     /// An expanding tree of Dffs, used to test deduplication
-    pub fn ff_tree(depth: usize, has_en: bool, has_res: bool, expansion: usize) -> Aig {
-        let mut ret = Aig::new();
+    pub fn ff_tree(depth: usize, has_en: bool, has_res: bool, expansion: usize) -> Network {
+        let mut ret = Network::new();
         let input = ret.add_input();
         let en = if has_en {
             ret.add_input()
