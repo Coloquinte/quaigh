@@ -20,6 +20,18 @@ pub enum NaryType {
 }
 
 /// Logic gate representation
+///
+/// Logic gates have a canonical form.
+/// The canonical form is unique, making it easier to simplify and deduplicate
+/// the logic. Inputs and output may be negated, and constant inputs are simplified.
+///
+/// Canonical form includes:
+///   * And gates (with optional negated inputs)
+///   * Xor gates (no negated input)
+///   * Mux/Maj/Dff
+/// Or/Nor/Nand gates are replaced by And gates.
+/// Xnor gates are replaced by Xor gates.
+/// Buf/Not and trivial gates are omitted.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Gate {
     /// 2-input And gate
@@ -45,21 +57,14 @@ pub enum Gate {
 /// Result of normalizing a logic gate
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Normalization {
-    Copy(Signal),
+    /// A gate, with an optional inverted output
     Node(Gate, bool),
+    /// The trivial case, where the gate reduces to a single signal or constant
+    Copy(Signal),
 }
 
 impl Gate {
     /// Returns whether the gate is in canonical form
-    ///
-    /// The canonical form is unique, making it easier to simplify and deduplicate
-    /// the logic. Inputs and output may be negated, and constant inputs are simplified.
-    ///
-    /// Canonical form includes:
-    ///   * And gates (with optional negated inputs)
-    ///   * Xor gates (no negated input)
-    ///   * Mux/Maj/Dff
-    /// Or/Nor/Nand/Xnor gates are replaced.
     pub fn is_canonical(&self) -> bool {
         use Gate::*;
         match self {
