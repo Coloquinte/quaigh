@@ -16,7 +16,7 @@ do
         name=$(basename "${benchmark}" .bench)
 	echo "Running benchmark ${name} with safe check"
 	output_file="opt/${name}.bench"
-	quaigh opt "${benchmark}" -o "${output_file}" || { echo "Optimization failure on ${name}"; exit 1; }
+	quaigh opt "${benchmark}" -o "${output_file}" --seed 1 || { echo "Optimization failure on ${name}"; exit 1; }
 	quaigh equiv "${benchmark}" "${output_file}" -c 5 --sat-only || { echo "Equivalence failure on ${name}"; exit 1; }
 done
 
@@ -25,6 +25,6 @@ do
         name=$(basename "${benchmark}" .bench)
 	echo "Running benchmark ${name} with fast check"
 	output_file="opt/${name}.bench"
-	quaigh opt "${benchmark}" -o "${output_file}" || { echo "Optimization failure on ${name}"; exit 1; }
+	quaigh opt "${benchmark}" -o "${output_file}" --seed 1 || { echo "Optimization failure on ${name}"; exit 1; }
 	quaigh equiv "${benchmark}" "${output_file}" -c 5 || { echo "Equivalence failure on ${name}"; exit 1; }
 done
