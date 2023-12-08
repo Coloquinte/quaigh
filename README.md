@@ -38,8 +38,8 @@ cargo install quaigh
 
 ## Development
 
-Quaigh main datastructure, [`Network`] is a typical Gate-Inverter-Graph to represent a logic circuit.
-Inverters are implicit, occupying just one bit in [`Signal`].
+Quaigh main datastructure, `Network` is a Gate-Inverter-Graph representation of a logic circuit.
+Inverters are implicit, occupying just one bit in `Signal`.
 
 To make interoperability and optimization easier, many kinds of logic are supported:
 * Complex gates such as Xor, Mux and Maj3 are all first class citizens and can coexist in the same circuit;
