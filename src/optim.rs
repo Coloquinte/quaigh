@@ -2,7 +2,7 @@
 
 use crate::{Gate, NaryType, Network, Signal};
 
-/// Merge dependencies of a gate satisfying a given predicate and not inverted. This is used to merge all And/Xor gates.
+/// Helper functions to merge N-input gates, to specialize by And/Xor
 fn merge_dependencies<F: Fn(&Gate) -> bool>(
     aig: &Network,
     g: &Gate,
@@ -17,10 +17,10 @@ fn merge_dependencies<F: Fn(&Gate) -> bool>(
         if !s.is_var() || s.is_inverted() {
             ret.push(*s);
         } else {
-            let g = aig.gate(s.var() as usize);
-            let deps = g.dependencies();
-            if pred(g) && ret.len() + deps.len() + remaining <= max_size {
-                ret.extend(deps);
+            let prev_g = aig.gate(s.var() as usize);
+            let prev_deps = prev_g.dependencies();
+            if pred(prev_g) && ret.len() + prev_deps.len() + remaining <= max_size {
+                ret.extend(prev_deps);
             } else {
                 ret.push(*s);
             }
