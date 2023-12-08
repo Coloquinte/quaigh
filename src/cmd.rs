@@ -128,11 +128,18 @@ pub struct OptArgs {
     /// Output file for optimized network
     #[arg(short = 'o', long)]
     output: PathBuf,
+
+    /// Seed for randomized algorithms
+    #[arg(long)]
+    seed: Option<u64>,
 }
 
 impl OptArgs {
     pub fn run(&self) {
         let mut aig = read_network_file(&self.file);
+        if let Some(s) = self.seed {
+            aig.shuffle(s);
+        }
         aig.sweep();
         aig.dedup();
         write_network_file(&self.output, &aig);

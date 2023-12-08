@@ -2,6 +2,9 @@ use core::fmt;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
+use rand::seq::SliceRandom;
+use rand::SeedableRng;
+
 use crate::network::gates::{Gate, Normalization};
 use crate::network::signal::Signal;
 
@@ -146,6 +149,15 @@ impl Network {
         translation.into()
     }
 
+    /// Shuffle the network randomly
+    pub fn shuffle(&mut self, seed: u64) {
+        let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
+        let mut order: Vec<u32> = (0..self.nb_nodes() as u32).collect();
+        order.shuffle(&mut rng);
+        self.remap(&order);
+        self.topo_sort();
+    }
+
     /// Remap outputs
     fn remap_outputs(&mut self, translation: &[Signal]) {
         let new_outputs = self
@@ -283,6 +295,7 @@ impl Network {
             .map(|v| v as u32)
             .collect();
         while let Some(v) = to_visit.pop() {
+            // TODO: allow for some randomness here
             // Visit the gate and mark the gates with satisfied dependencies
             if visited[v as usize] {
                 continue;

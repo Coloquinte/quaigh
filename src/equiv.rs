@@ -245,7 +245,7 @@ pub(crate) fn difference(a: &Network, b: &Network) -> Network {
 }
 
 /// Find an assignment of the inputs that sets the single output to 1
-pub(crate) fn prove(a: &Network) -> Option<Vec<bool>> {
+pub fn prove(a: &Network) -> Option<Vec<bool>> {
     assert_eq!(a.nb_outputs(), 1);
 
     let clauses = to_cnf(a);
