@@ -134,6 +134,22 @@ impl Gate {
         return !matches!(self, Gate::Dff(_, _, _));
     }
 
+    /// Returns whether the gate is an And of any arity
+    pub fn is_and(&self) -> bool {
+        return matches!(
+            self,
+            Gate::And(_, _) | Gate::And3(_, _, _) | Gate::Nary(_, NaryType::And)
+        );
+    }
+
+    /// Returns whether the gate is a Xor of any arity
+    pub fn is_xor(&self) -> bool {
+        return matches!(
+            self,
+            Gate::Xor(_, _) | Gate::Xor3(_, _, _) | Gate::Nary(_, NaryType::Xor)
+        );
+    }
+
     /// Obtain all internal variables feeding this gate as combinatorial inputs
     pub(crate) fn comb_vars(&self) -> Vec<u32> {
         if self.is_comb() {
