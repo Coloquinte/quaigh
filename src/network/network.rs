@@ -107,6 +107,13 @@ impl Network {
         l
     }
 
+    /// Replace an existing gate
+    pub fn replace(&mut self, i: usize, gate: Gate) -> Signal {
+        let l = Signal::from_var(i as u32);
+        self.nodes[i] = gate;
+        l
+    }
+
     /// Return whether the network is purely combinatorial
     pub fn is_comb(&self) -> bool {
         self.nodes.iter().all(|g| g.is_comb())
@@ -149,13 +156,15 @@ impl Network {
         translation.into()
     }
 
-    /// Shuffle the network randomly
-    pub fn shuffle(&mut self, seed: u64) {
+    /// Shuffle the network randomly; this will invalidate all signals
+    ///
+    /// Returns the mapping of old variable indices to signals, if needed.
+    pub fn shuffle(&mut self, seed: u64) -> Box<[Signal]> {
         let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
         let mut order: Vec<u32> = (0..self.nb_nodes() as u32).collect();
         order.shuffle(&mut rng);
         self.remap(&order);
-        self.topo_sort();
+        self.topo_sort()
     }
 
     /// Remap outputs
@@ -204,7 +213,6 @@ impl Network {
     /// Remove duplicate logic and make all functions canonical; this will invalidate all signals
     ///
     /// Returns the mapping of old variable indices to signals, if needed.
-    /// Removed signals are mapped to zero.
     pub fn dedup(&mut self) -> Box<[Signal]> {
         // Replace each node, in turn, by a simplified version or an equivalent existing node
         // We need the network to be topologically sorted, so that the gate inputs are already replaced
