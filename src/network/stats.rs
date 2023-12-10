@@ -127,9 +127,29 @@ pub fn stats(a: &Network) -> NetworkStats {
             Maj(_, _, _) => ret.nb_maj += 1,
             Buf(_) => ret.nb_buf += 1,
             Dff(_, _, _) => ret.nb_dff += 1,
-            Nary(_, tp) => match tp {
-                NaryType::And | NaryType::Or | NaryType::Nand | NaryType::Nor => ret.nb_andn += 1,
-                NaryType::Xor | NaryType::Xnor => ret.nb_xorn += 1,
+            Nary(v, tp) => match tp {
+                NaryType::And | NaryType::Or | NaryType::Nand | NaryType::Nor => {
+                    if v.len() <= 1 {
+                        ret.nb_buf += 1
+                    } else if v.len() == 2 {
+                        ret.nb_and += 1
+                    } else if v.len() == 3 {
+                        ret.nb_and3 += 1
+                    } else {
+                        ret.nb_andn += 1
+                    }
+                }
+                NaryType::Xor | NaryType::Xnor => {
+                    if v.len() <= 1 {
+                        ret.nb_buf += 1
+                    } else if v.len() == 2 {
+                        ret.nb_xor += 1
+                    } else if v.len() == 3 {
+                        ret.nb_xor3 += 1
+                    } else {
+                        ret.nb_xorn += 1
+                    }
+                }
             },
         }
     }

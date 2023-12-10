@@ -159,12 +159,8 @@ pub struct ShowArgs {
 impl ShowArgs {
     pub fn run(&self) {
         use crate::network::stats::stats;
-        let mut aig = read_network_file(&self.file);
+        let aig = read_network_file(&self.file);
         println!("Network stats:\n{}\n\n", stats(&aig));
-
-        aig.sweep();
-        aig.dedup();
-        println!("After deduplication:\n{}", stats(&aig));
     }
 }
 
