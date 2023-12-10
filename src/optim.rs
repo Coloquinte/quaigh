@@ -1,5 +1,10 @@
 //! Optimization of logic networks
 
+use std::collections::HashMap;
+use std::iter::zip;
+
+use itertools::Itertools;
+
 use crate::{Gate, NaryType, Network, Signal};
 
 /// Helper functions to merge N-input gates, to specialize by And/Xor
@@ -62,16 +67,99 @@ pub fn flatten_nary(aig: &Network, max_size: usize) -> Network {
     ret
 }
 
+/// Datastructure representing the factorization process
+struct Factoring {
+    gates: Vec<Vec<Signal>>,
+}
+
+impl Factoring {
+    /// Find which pair of signals is most interesting to factor out
+    fn find_best_pair(&self) -> Option<(Signal, Signal)> {
+        // TODO: this is linear in the number of pairs, while we should amortize across iterations
+        // TODO: the number of pairs is quadratic in the number of signals in a gate, while we could ignore non-duplicates
+        let mut count = HashMap::<(Signal, Signal), usize>::new();
+        for v in &self.gates {
+            for (a, b) in v.iter().tuple_combinations() {
+                count.entry((*a, *b)).and_modify(|e| *e += 1).or_insert(1);
+            }
+        }
+        if count.is_empty() {
+            None
+        } else {
+            Some(*count.iter().max_by(|a, b| a.1.cmp(b.1)).unwrap().0)
+        }
+    }
+
+    /// Replace a pair of signals by a new signal in the datastructure
+    fn replace_pair(&mut self, pair: (Signal, Signal), merged: Signal) {
+        for v in &mut self.gates {
+            if v.contains(&pair.0) && v.contains(&pair.1) {
+                v.retain(|s| *s != pair.0 && *s != pair.1);
+                v.push(merged);
+            }
+        }
+    }
+}
+
+/// Helper function to factor an Aig, to specialize by And/Xor
+fn factor_gates<F: Fn(&Gate) -> bool, G: Fn(Signal, Signal) -> Gate>(
+    aig: &Network,
+    pred: F,
+    builder: G,
+) -> Network {
+    assert!(aig.is_topo_sorted());
+    let mut ret = Network::new();
+    ret.add_inputs(aig.nb_inputs());
+
+    let mut inds = Vec::new();
+    let mut gates = Vec::new();
+    for i in 0..aig.nb_nodes() {
+        let g = aig.gate(i);
+        if pred(g) && g.dependencies().len() > 1 {
+            gates.push(g.dependencies());
+            inds.push(i);
+            // Add a dummy gate to be replaced later
+            ret.add(Gate::Buf(Signal::zero()));
+        } else {
+            ret.add(g.clone());
+        }
+    }
+    for i in 0..aig.nb_outputs() {
+        ret.add_output(aig.output(i));
+    }
+
+    let mut f = Factoring { gates };
+    while let Some((a, b)) = f.find_best_pair() {
+        let g = builder(a, b);
+        let new_sig = ret.add(g);
+        f.replace_pair((a, b), new_sig);
+    }
+
+    for (i, g) in zip(inds, f.gates) {
+        assert!(g.len() == 1);
+        ret.replace(i, Gate::Buf(g[0]));
+    }
+
+    ret.topo_sort();
+    ret.dedup();
+    ret
+}
+
 /// Factor And or Xor gates with common inputs
 ///
 /// Transform large gates into trees of binary gates, sharing as many inputs as possible.
+/// The optimization is performed greedily by merging the most used pair of inputs at each step.
+/// There is no delay optimization yet.
 pub fn factor_nary(aig: &Network) -> Network {
-    aig.clone()
+    let aig1 = factor_gates(aig, |g| g.is_and(), |a, b| Gate::And(a, b));
+    let aig2 = factor_gates(&aig1, |g| g.is_xor(), |a, b| Gate::Xor(a, b));
+    aig2
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{optim::flatten_nary, Gate, NaryType, Network, Signal};
+    use crate::optim::flatten_nary;
+    use crate::{Gate, NaryType, Network, Signal};
 
     #[test]
     fn test_flatten_and() {
