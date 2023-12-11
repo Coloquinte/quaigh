@@ -3,7 +3,6 @@
 use crate::atpg::{expose_dff, generate_random_seq_patterns, generate_test_patterns};
 use crate::equiv::check_equivalence_bounded;
 use crate::io::{read_network_file, read_pattern_file, write_network_file, write_pattern_file};
-use crate::optim;
 use crate::sim::simulate_multiple;
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
@@ -143,8 +142,6 @@ impl OptArgs {
         }
         aig.sweep();
         aig.dedup();
-        aig = optim::flatten_nary(&aig, 64);
-        aig = optim::factor_nary(&aig);
         write_network_file(&self.output, &aig);
     }
 }
