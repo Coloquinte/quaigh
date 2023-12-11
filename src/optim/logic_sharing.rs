@@ -166,7 +166,7 @@ pub fn share_logic(aig: &mut Network, flattening_limit: usize) {
 
 #[cfg(test)]
 mod tests {
-    use super::flatten_nary;
+    use super::{factor_nary, flatten_nary};
     use crate::{Gate, NaryType, Network, Signal};
 
     #[test]
@@ -207,5 +207,25 @@ mod tests {
         assert_eq!(aig.nb_nodes(), 1);
         assert_eq!(aig.gate(0), &Gate::Xor3(i4, i2, i1));
         assert_eq!(aig.output(0), !Signal::from_var(0));
+    }
+
+    #[test]
+    fn test_share_and() {
+        let mut aig = Network::new();
+        let i0 = aig.add_input();
+        let i1 = aig.add_input();
+        let i2 = aig.add_input();
+        let i3 = aig.add_input();
+        let i4 = aig.add_input();
+        let x0 = aig.add(Gate::Nary(Box::new([i0, i1, i2]), NaryType::And));
+        let x1 = aig.add(Gate::Nary(Box::new([i0, i1, i2, i3]), NaryType::And));
+        let x2 = aig.add(Gate::Nary(Box::new([i1, i2, i4]), NaryType::And));
+        aig.add_output(x0);
+        aig.add_output(x1);
+        aig.add_output(x2);
+        aig = factor_nary(&aig);
+        assert_eq!(aig.nb_nodes(), 4);
+        // Check that the first gate is the most shared
+        assert_eq!(aig.gate(0), &Gate::And(i2, i1));
     }
 }
