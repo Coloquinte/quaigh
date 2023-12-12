@@ -62,8 +62,8 @@ pub fn flatten_nary(aig: &Network, max_size: usize) -> Network {
     for i in 0..aig.nb_outputs() {
         ret.add_output(aig.output(i));
     }
-    ret.sweep();
-    ret.dedup();
+    ret.cleanup();
+    ret.make_canonical();
     ret
 }
 
@@ -141,7 +141,7 @@ fn factor_gates<F: Fn(&Gate) -> bool, G: Fn(Signal, Signal) -> Gate>(
     }
 
     ret.topo_sort();
-    ret.dedup();
+    ret.make_canonical();
     ret
 }
 

@@ -93,8 +93,8 @@ fn find_pattern_detecting_fault(aig: &Network, fault: Fault) -> Option<Vec<bool>
     }
 
     let mut diff = difference(aig, &fault_aig);
-    diff.dedup();
-    diff.sweep();
+    diff.make_canonical();
+    diff.cleanup();
     let ret = prove(&diff);
     if let Some(pattern) = &ret {
         assert!(detects_fault_single(aig, &pattern, fault));

@@ -185,7 +185,7 @@ fn extend_aig(a: &mut Network, b: &Network) -> HashMap<Signal, Signal> {
 }
 
 /// Unroll a sequential network over a fixed number of steps
-fn unroll(aig: &Network, nb_steps: usize) -> Network {
+pub fn unroll(aig: &Network, nb_steps: usize) -> Network {
     use Gate::*;
     let mut ret = Network::new();
 
@@ -221,8 +221,8 @@ fn unroll(aig: &Network, nb_steps: usize) -> Network {
     ret
 }
 
-/// Create an AIG with a single output, representing the equivalence of two combinatorial networks
-pub(crate) fn difference(a: &Network, b: &Network) -> Network {
+/// Create a network with a single output, representing the equivalence of two combinatorial networks
+pub fn difference(a: &Network, b: &Network) -> Network {
     assert!(a.is_comb() && b.is_comb());
     assert_eq!(a.nb_inputs(), b.nb_inputs());
     assert_eq!(a.nb_outputs(), b.nb_outputs());
@@ -298,13 +298,13 @@ pub fn prove(a: &Network) -> Option<Vec<bool>> {
     }
 }
 
-/// Perform equivalence checking on two combinatorial AIGs
+/// Perform equivalence checking on two combinatorial networks
 pub fn check_equivalence_comb(a: &Network, b: &Network, optimize: bool) -> Result<(), Vec<bool>> {
     assert!(a.is_comb() && b.is_comb());
     let mut diff = difference(a, b);
     if optimize {
-        diff.dedup();
-        diff.sweep();
+        diff.make_canonical();
+        diff.cleanup();
     }
     let res = prove(&diff);
     match res {
@@ -313,7 +313,7 @@ pub fn check_equivalence_comb(a: &Network, b: &Network, optimize: bool) -> Resul
     }
 }
 
-/// Perform bounded equivalence checking on two sequential AIGs
+/// Perform bounded equivalence checking on two sequential networks
 pub fn check_equivalence_bounded(
     a: &Network,
     b: &Network,

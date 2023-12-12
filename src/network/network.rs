@@ -181,7 +181,7 @@ impl Network {
     ///
     /// Returns the mapping of old variable indices to signals, if needed.
     /// Removed signals are mapped to zero.
-    pub fn sweep(&mut self) -> Box<[Signal]> {
+    pub fn cleanup(&mut self) -> Box<[Signal]> {
         // Mark unused logic
         let mut visited = vec![false; self.nb_nodes()];
         let mut to_visit = Vec::<u32>::new();
@@ -213,7 +213,7 @@ impl Network {
     /// Remove duplicate logic and make all functions canonical; this will invalidate all signals
     ///
     /// Returns the mapping of old variable indices to signals, if needed.
-    pub fn dedup(&mut self) -> Box<[Signal]> {
+    pub fn make_canonical(&mut self) -> Box<[Signal]> {
         // Replace each node, in turn, by a simplified version or an equivalent existing node
         // We need the network to be topologically sorted, so that the gate inputs are already replaced
         // Dff gates are an exception to the sorting, and are handled separately
@@ -277,7 +277,7 @@ impl Network {
     ///
     /// Ordering may be changed even if already sorted. Flip-flop ordering is kept as is.
     /// Returns the mapping of old variable indices to signals, if needed.
-    pub(crate) fn topo_sort(&mut self) -> Box<[Signal]> {
+    pub fn topo_sort(&mut self) -> Box<[Signal]> {
         // Count the output dependencies of each gate
         let mut count_deps = vec![0u32; self.nb_nodes()];
         for g in self.nodes.iter() {
@@ -431,7 +431,7 @@ mod tests {
         let _ = aig.and(x0, i1);
         let x3 = !aig.and(!x1, !i1);
         aig.add_output(x3);
-        let t = aig.sweep();
+        let t = aig.cleanup();
         assert_eq!(t.len(), 4);
         assert_eq!(aig.nb_nodes(), 2);
         assert_eq!(aig.nb_outputs(), 1);
@@ -459,7 +459,7 @@ mod tests {
         let x1_s = aig.and(x0_s, i2);
         aig.add_output(x1);
         aig.add_output(x1_s);
-        aig.dedup();
+        aig.make_canonical();
         assert_eq!(aig.nb_nodes(), 2);
     }
 

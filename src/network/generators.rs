@@ -130,8 +130,8 @@ mod tests {
                 for has_res in [false, true] {
                     let mut aig = testcases::toggle_chain(i, has_en, has_res);
                     assert_eq!(aig.nb_nodes(), i + 1);
-                    aig.sweep();
-                    aig.dedup();
+                    aig.cleanup();
+                    aig.make_canonical();
                     assert_eq!(aig.nb_nodes(), i + 1);
                 }
             }
@@ -145,10 +145,10 @@ mod tests {
                 for has_en in [false, true] {
                     for has_res in [false, true] {
                         let mut aig = testcases::ff_tree(i, has_en, has_res, expansion);
-                        aig.sweep();
+                        aig.cleanup();
                         for _ in 0..i {
                             // Run dedup several times, once per Dff level
-                            aig.dedup();
+                            aig.make_canonical();
                         }
                         assert_eq!(aig.nb_nodes(), i);
                     }

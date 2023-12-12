@@ -140,8 +140,8 @@ impl OptArgs {
         if let Some(s) = self.seed {
             aig.shuffle(s);
         }
-        aig.sweep();
-        aig.dedup();
+        aig.cleanup();
+        aig.make_canonical();
         write_network_file(&self.output, &aig);
     }
 }
