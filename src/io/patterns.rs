@@ -2,9 +2,10 @@
 
 use std::io::{BufRead, BufReader, Read, Write};
 
-/// Read multiple sequential test patterns from a file
+/// Read test patterns in Atalanta format
 ///
-/// These files describe input patterns for a design:
+/// Each pattern may contain multiple timesteps. For each timestep, the value of each circuit input is given.
+/// The patterns are formatted as follows:
 /// ```text
 ///     * This is a comment
 ///
@@ -14,7 +15,7 @@ use std::io::{BufRead, BufReader, Read, Write};
 ///     * The index increments at each pattern
 ///     2: 00000
 ///
-///     * A pattern can describe multiple timesteps
+///     * A pattern that contains three timesteps
 ///     3: 01110 00111 01000
 ///
 ///     * The index is optional
@@ -65,9 +66,10 @@ pub fn read_patterns<R: Read>(r: R) -> Result<Vec<Vec<Vec<bool>>>, String> {
     Ok(ret)
 }
 
-/// Write multiple sequential test patterns to a file
+/// Write test patterns in Atalanta format
 ///
-/// These files describe input patterns for a design:
+/// Each pattern may contain multiple timesteps. For each timestep, the value of each circuit input is given.
+/// The patterns are formatted as follows:
 /// ```text
 ///     * This is a comment
 ///
@@ -77,7 +79,7 @@ pub fn read_patterns<R: Read>(r: R) -> Result<Vec<Vec<Vec<bool>>>, String> {
 ///     * The index increments at each pattern
 ///     2: 00000
 ///
-///     * A pattern can describe multiple timesteps
+///     * A pattern that contains three timesteps
 ///     3: 01110 00111 01000
 ///
 ///     * The index is optional

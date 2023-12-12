@@ -184,7 +184,7 @@ fn extend_aig(a: &mut Network, b: &Network) -> HashMap<Signal, Signal> {
     t
 }
 
-/// Unroll a sequential network over a fixed number of steps
+/// Unroll a sequential network over a fixed number of steps, making a larger combinatorial networks
 pub fn unroll(aig: &Network, nb_steps: usize) -> Network {
     use Gate::*;
     let mut ret = Network::new();
@@ -221,7 +221,7 @@ pub fn unroll(aig: &Network, nb_steps: usize) -> Network {
     ret
 }
 
-/// Create a network with a single output, representing the equivalence of two combinatorial networks
+/// Create a network with a single output, representing whether two combinatorial networks give different outputs
 pub fn difference(a: &Network, b: &Network) -> Network {
     assert!(a.is_comb() && b.is_comb());
     assert_eq!(a.nb_inputs(), b.nb_inputs());
@@ -245,6 +245,8 @@ pub fn difference(a: &Network, b: &Network) -> Network {
 }
 
 /// Find an assignment of the inputs that sets the single output to 1
+///
+/// Returns the assignment, or None if no such assignment exists.
 pub fn prove(a: &Network) -> Option<Vec<bool>> {
     assert_eq!(a.nb_outputs(), 1);
 

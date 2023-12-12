@@ -1,4 +1,4 @@
-//! Simulation of a logic network
+//! Simulation of a logic network. Faster, multi-pattern simulation methods are available internally.
 
 mod fault;
 mod simple_sim;
@@ -7,18 +7,29 @@ use crate::Network;
 
 pub use fault::Fault;
 
-/// Simulate a network over multiple timesteps; return the output values
-pub fn simulate(a: &Network, input_values: &Vec<Vec<bool>>) -> Vec<Vec<bool>> {
-    let mut multi_input = Vec::<Vec<u64>>::new();
-    for v in input_values {
-        multi_input.push(v.iter().map(|b| if *b { !0 } else { 0 }).collect());
+/// Simple conversion to 64b format
+fn bool_to_multi(values: &Vec<Vec<bool>>) -> Vec<Vec<u64>> {
+    let mut ret = Vec::<Vec<u64>>::new();
+    for v in values {
+        ret.push(v.iter().map(|b| if *b { !0 } else { 0 }).collect());
     }
-    let multi_ret = simulate_multi(a, &multi_input);
+    ret
+}
+
+/// Simple conversion from 64b format
+fn multi_to_bool(values: &Vec<Vec<u64>>) -> Vec<Vec<bool>> {
     let mut ret = Vec::new();
-    for v in multi_ret {
+    for v in values {
         ret.push(v.iter().map(|b| *b != 0).collect());
     }
     ret
+}
+
+/// Simulate a network over multiple timesteps; return the output values
+pub fn simulate(a: &Network, input_values: &Vec<Vec<bool>>) -> Vec<Vec<bool>> {
+    let multi_input = bool_to_multi(input_values);
+    let multi_ret = simulate_multi(a, &multi_input);
+    multi_to_bool(&multi_ret)
 }
 
 /// Simulate a combinatorial network; return the output values
@@ -26,6 +37,29 @@ pub fn simulate_comb(a: &Network, input_values: &Vec<bool>) -> Vec<bool> {
     assert!(a.is_comb());
     let input = vec![input_values.clone()];
     let output = simulate(a, &input);
+    output[0].clone()
+}
+
+/// Simulate a network over multiple timesteps, with faults injected; return the output values
+pub fn simulate_with_faults(
+    a: &Network,
+    input_values: &Vec<Vec<bool>>,
+    faults: &Vec<Fault>,
+) -> Vec<Vec<bool>> {
+    let multi_input = bool_to_multi(input_values);
+    let multi_ret = simulate_multi_with_faults(a, &multi_input, faults);
+    multi_to_bool(&multi_ret)
+}
+
+/// Simulate a combinatorial network, with faults injected; return the output values
+pub fn simulate_comb_with_faults(
+    a: &Network,
+    input_values: &Vec<bool>,
+    faults: &Vec<Fault>,
+) -> Vec<bool> {
+    assert!(a.is_comb());
+    let input = vec![input_values.clone()];
+    let output = simulate_with_faults(a, &input, faults);
     output[0].clone()
 }
 

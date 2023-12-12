@@ -122,7 +122,7 @@ fn network_from_statements(
     ret
 }
 
-/// Parse a bench file, as used by the ISCAS benchmarks
+/// Read a network in .bench format, as used by the ISCAS benchmarks
 ///
 /// These files describe the design with simple statements like:
 /// ```text
@@ -136,6 +136,8 @@ fn network_from_statements(
 ///     x4 = XOR(x3, x2)
 ///     x5 = BUF(x4)
 ///     x6 = NOT(x5)
+///     x7 = gnd
+///     x8 = vdd
 ///     OUTPUT(x0)
 /// ```
 pub fn read_bench<R: Read>(r: R) -> Result<Network, String> {
@@ -200,7 +202,7 @@ fn sig_to_string(s: &Signal) -> String {
     s.without_inversion().to_string() + (if s.is_inverted() { "_n" } else { "" })
 }
 
-/// Write a bench file, as used by the ISCAS benchmarks
+/// Write a network in .bench format, as used by the ISCAS benchmarks
 ///
 /// These files describe the design with simple statements like:
 /// ```text
@@ -214,6 +216,8 @@ fn sig_to_string(s: &Signal) -> String {
 ///     x4 = XOR(x3, x2)
 ///     x5 = BUF(x4)
 ///     x6 = NOT(x5)
+///     x7 = gnd
+///     x8 = vdd
 ///     OUTPUT(x0)
 /// ```
 pub fn write_bench<W: Write>(w: &mut W, aig: &Network) {

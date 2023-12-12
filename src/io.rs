@@ -48,12 +48,16 @@ pub fn write_network_file(path: &PathBuf, aig: &Network) {
 }
 
 /// Read patterns from a file
+///
+/// Each pattern may contain multiple timesteps. For each timestep, the value of each circuit input is given.
 pub fn read_pattern_file(path: &PathBuf) -> Vec<Vec<Vec<bool>>> {
     let f = File::open(path).unwrap();
     read_patterns(f).unwrap()
 }
 
 /// Write patterns to a file
+///
+/// Each pattern may contain multiple timesteps. For each timestep, the value of each circuit input is given.
 pub fn write_pattern_file(path: &PathBuf, patterns: &Vec<Vec<Vec<bool>>>) {
     let mut f = File::create(path).unwrap();
     write_patterns(&mut f, patterns);

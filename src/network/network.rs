@@ -212,6 +212,7 @@ impl Network {
 
     /// Remove duplicate logic and make all gates canonical; this will invalidate all signals
     ///
+    /// Canonical gates are And, Xor, Mux, Maj and Lut. Everything else will be simplified.
     /// Returns the mapping of old variable indices to signals, if needed.
     pub fn make_canonical(&mut self) -> Box<[Signal]> {
         self.dedup(true)

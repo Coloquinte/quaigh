@@ -125,7 +125,7 @@ pub fn generate_random_seq_patterns(
     ret
 }
 
-/// Generate random patterns
+/// Generate random combinatorial patterns
 pub fn generate_random_comb_patterns(
     nb_inputs: usize,
     nb_patterns: usize,
