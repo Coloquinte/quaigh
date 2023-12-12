@@ -3,7 +3,7 @@
 //! ```
 //! # use quaigh::Network;
 //! # let aig = Network::new();
-//! use quaigh::stats::stats;
+//! use quaigh::network::stats::stats;
 //! let stats = stats(&aig);
 //!
 //! // Check that there is no Xor2 gate

@@ -88,4 +88,4 @@ pub mod network;
 pub mod optim;
 pub mod sim;
 
-pub use network::{area, stats, Gate, NaryType, Network, Signal};
+pub use network::{Gate, NaryType, Network, Signal};

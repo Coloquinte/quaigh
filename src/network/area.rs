@@ -3,7 +3,7 @@
 //! ```
 //! # use quaigh::Network;
 //! # let aig = Network::new();
-//! use quaigh::area::AreaParameters;
+//! use quaigh::network::area::AreaParameters;
 //!
 //! // To estimate area for VLSI designs
 //! println!("VLSI cost: {}", AreaParameters::vlsi().area(&aig));
