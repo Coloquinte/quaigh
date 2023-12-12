@@ -21,7 +21,7 @@ enum GateType {
     Vss,
 }
 
-fn aig_from_statements(
+fn network_from_statements(
     statements: &Vec<(String, GateType, Vec<String>)>,
     outputs: &Vec<String>,
 ) -> Network {
@@ -118,6 +118,7 @@ fn aig_from_statements(
         ret.add_output(name_to_sig[o]);
     }
     ret.topo_sort();
+    ret.check();
     ret
 }
 
@@ -185,7 +186,7 @@ pub fn read_bench<R: Read>(r: R) -> Result<Network, String> {
             return Err("Error during file IO".to_string());
         }
     }
-    Ok(aig_from_statements(&statements, &outputs))
+    Ok(network_from_statements(&statements, &outputs))
 }
 
 /// Ad-hoc to_string function to represent signals in bench files

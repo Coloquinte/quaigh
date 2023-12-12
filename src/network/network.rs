@@ -210,10 +210,22 @@ impl Network {
         self.remap(order.as_slice())
     }
 
-    /// Remove duplicate logic and make all functions canonical; this will invalidate all signals
+    /// Remove duplicate logic and make all gates canonical; this will invalidate all signals
     ///
     /// Returns the mapping of old variable indices to signals, if needed.
     pub fn make_canonical(&mut self) -> Box<[Signal]> {
+        self.dedup(true)
+    }
+
+    /// Remove duplicate logic; this will invalidate all signals
+    ///
+    /// Returns the mapping of old variable indices to signals, if needed.
+    pub fn deduplicate(&mut self) -> Box<[Signal]> {
+        self.dedup(false)
+    }
+
+    /// Remove duplicate logic. Optionally make all gates canonical
+    fn dedup(&mut self, make_canonical: bool) -> Box<[Signal]> {
         // Replace each node, in turn, by a simplified version or an equivalent existing node
         // We need the network to be topologically sorted, so that the gate inputs are already replaced
         // Dff gates are an exception to the sorting, and are handled separately
@@ -223,8 +235,17 @@ impl Network {
             .collect::<Vec<Signal>>();
 
         /// Core function for deduplication
-        fn dedup_node(g: &Gate, h: &mut HashMap<Gate, Signal>, nodes: &mut Vec<Gate>) -> Signal {
-            let normalized = g.make_canonical();
+        fn dedup_node(
+            g: &Gate,
+            h: &mut HashMap<Gate, Signal>,
+            nodes: &mut Vec<Gate>,
+            make_canonical: bool,
+        ) -> Signal {
+            let normalized = if make_canonical {
+                g.make_canonical()
+            } else {
+                Normalization::Node(g.clone(), false)
+            };
             match normalized {
                 Normalization::Copy(sig) => sig,
                 Normalization::Node(g, inv) => {
@@ -248,7 +269,7 @@ impl Network {
         for i in 0..self.nb_nodes() {
             let g = self.gate(i);
             if !g.is_comb() {
-                translation[i] = dedup_node(g, &mut hsh, &mut new_nodes);
+                translation[i] = dedup_node(g, &mut hsh, &mut new_nodes, make_canonical);
             }
         }
 
@@ -256,7 +277,7 @@ impl Network {
         for i in 0..self.nb_nodes() {
             let g = self.gate(i).remap_order(translation.as_slice());
             if g.is_comb() {
-                translation[i] = dedup_node(&g, &mut hsh, &mut new_nodes);
+                translation[i] = dedup_node(&g, &mut hsh, &mut new_nodes, make_canonical);
             }
         }
 
@@ -277,7 +298,7 @@ impl Network {
     ///
     /// Ordering may be changed even if already sorted. Flip-flop ordering is kept as is.
     /// Returns the mapping of old variable indices to signals, if needed.
-    pub fn topo_sort(&mut self) -> Box<[Signal]> {
+    pub(crate) fn topo_sort(&mut self) -> Box<[Signal]> {
         // Count the output dependencies of each gate
         let mut count_deps = vec![0u32; self.nb_nodes()];
         for g in self.nodes.iter() {
@@ -345,6 +366,7 @@ impl Network {
             let v = self.output(i);
             assert!(self.is_valid(v), "Invalid output {v}");
         }
+        assert!(self.is_topo_sorted());
     }
 
     /// Returns whether a signal is valid (within bounds) in the network
