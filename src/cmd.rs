@@ -1,9 +1,9 @@
 //! Command line interface
 
-use crate::atpg::{expose_dff, generate_random_seq_patterns, generate_test_patterns};
+use crate::atpg::{expose_dff, generate_comb_test_patterns, generate_random_seq_patterns};
 use crate::equiv::check_equivalence_bounded;
 use crate::io::{read_network_file, read_pattern_file, write_network_file, write_pattern_file};
-use crate::sim::simulate_multiple;
+use crate::sim::simulate;
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
@@ -187,7 +187,10 @@ impl SimulateArgs {
             aig = expose_dff(&aig);
         }
         let input_values = read_pattern_file(&self.input);
-        let output_values = simulate_multiple(&aig, &input_values);
+        let mut output_values = Vec::new();
+        for pattern in &input_values {
+            output_values.push(simulate(&aig, pattern));
+        }
         write_pattern_file(&self.output, &output_values);
     }
 }
@@ -224,7 +227,7 @@ impl AtpgArgs {
                 println!("Exposing flip-flops for a sequential network");
                 aig = expose_dff(&aig);
             }
-            let patterns = generate_test_patterns(&aig, self.seed);
+            let patterns = generate_comb_test_patterns(&aig, self.seed);
             let seq_patterns = patterns.iter().map(|p| vec![p.clone()]).collect();
             write_pattern_file(&self.output, &seq_patterns);
         } else {

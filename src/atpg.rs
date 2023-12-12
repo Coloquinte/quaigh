@@ -322,8 +322,11 @@ impl<'a> TestPatternGenerator<'a> {
     }
 }
 
-/// Generate test patterns
-pub fn generate_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
+/// Generate combinatorial test patterns
+///
+/// This will generate random test patterns, then try to exercize the remaining faults
+/// using a SAT solver. The networks need to be combinatorial.
+pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
     assert!(aig.is_comb());
     let mut gen = TestPatternGenerator::from(aig, seed);
     println!(

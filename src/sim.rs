@@ -29,15 +29,6 @@ pub fn simulate_comb(a: &Network, input_values: &Vec<bool>) -> Vec<bool> {
     output[0].clone()
 }
 
-/// Simulate a network over multiple input patterns; return the output values
-pub fn simulate_multiple(a: &Network, input_values: &Vec<Vec<Vec<bool>>>) -> Vec<Vec<Vec<bool>>> {
-    let mut ret = Vec::new();
-    for pattern in input_values {
-        ret.push(simulate(a, pattern));
-    }
-    ret
-}
-
 /// Simulate a combinatorial network with 64b inputs; return the output values
 pub(crate) fn simulate_comb_multi(a: &Network, input_values: &Vec<u64>) -> Vec<u64> {
     let input = vec![input_values.clone()];
