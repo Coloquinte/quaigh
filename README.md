@@ -31,14 +31,6 @@ quaigh opt mydesign.bench -o optimized.bench
 quaigh equiv mydesign.bench optimized.bench
 ```
 
-## Installation
-
-Quaigh is written in Rust. It is now published on crates.io, and can be installed using
-[Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html), Rust's package manager:
-```bash
-cargo install quaigh
-```
-
 ## Development
 
 ### Philosophy
@@ -82,10 +74,16 @@ net.add_output(carry);
 net.add_output(out);
 ```
 
-### Library and documentation
-
-Quaigh is distributed as a library as well as a binary program.
-The library is not stable, and the datastructures may change between versions.
-Its documentation is available on [docs.rs](https://docs.rs/crate/quaigh/latest).
-
 <!-- cargo-rdme end -->
+
+## Installation
+
+Quaigh is written in Rust. It is published on crates.io, and can be installed using
+[Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html), Rust's package manager:
+```bash
+cargo install quaigh
+```
+
+The library's documentation is available on [docs.rs](https://docs.rs/crate/quaigh/latest).
+
+
