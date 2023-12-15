@@ -3,6 +3,7 @@
 use crate::atpg::{expose_dff, generate_comb_test_patterns, generate_random_seq_patterns};
 use crate::equiv::check_equivalence_bounded;
 use crate::io::{read_network_file, read_pattern_file, write_network_file, write_pattern_file};
+use crate::optim;
 use crate::sim::simulate;
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
@@ -142,6 +143,7 @@ impl OptArgs {
         }
         aig.cleanup();
         aig.make_canonical();
+        optim::share_logic(&mut aig, 64);
         write_network_file(&self.output, &aig);
     }
 }

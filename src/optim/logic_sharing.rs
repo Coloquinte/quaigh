@@ -1,6 +1,7 @@
 //! Logic sharing in logic networks, acting on N-input And and Xor gates
 
-use std::collections::HashMap;
+use std::cmp;
+use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 
 use itertools::Itertools;
@@ -69,35 +70,157 @@ pub fn flatten_nary(aig: &Network, max_size: usize) -> Network {
 
 /// Datastructure representing the factorization process
 struct Factoring {
+    /// Gates left to factor
     gates: Vec<Vec<Signal>>,
+    /// Next variable index to be allocated
+    next_var: u32,
+    /// Pairs that have already been built
+    built_pairs: Vec<(Signal, Signal)>,
+    /// Pairs organized by bucket of usage count
+    count_to_pair: Vec<HashSet<(Signal, Signal)>>,
+    /// Pairs to their usage location
+    pair_to_gates: HashMap<(Signal, Signal), HashSet<usize>>,
 }
 
 impl Factoring {
-    /// Find which pair of signals is most interesting to factor out
-    fn find_best_pair(&self) -> Option<(Signal, Signal)> {
-        // TODO: this is linear in the number of pairs, while we should amortize across iterations
-        // TODO: the number of pairs is quadratic in the number of signals in a gate, while we could ignore non-duplicates
-        let mut count = HashMap::<(Signal, Signal), usize>::new();
-        for v in &self.gates {
-            for (a, b) in v.iter().tuple_combinations() {
-                count.entry((*a, *b)).and_modify(|e| *e += 1).or_insert(1);
-            }
-        }
-        if count.is_empty() {
-            None
-        } else {
-            Some(*count.iter().max_by(|a, b| a.1.cmp(b.1)).unwrap().0)
+    /// Build from the list of gates
+    fn from_gates(gates: Vec<Vec<Signal>>, next_var: u32) -> Factoring {
+        Factoring {
+            gates,
+            next_var,
+            built_pairs: Vec::new(),
+            count_to_pair: Vec::new(),
+            pair_to_gates: HashMap::new(),
         }
     }
 
-    /// Replace a pair of signals by a new signal in the datastructure
-    fn replace_pair(&mut self, pair: (Signal, Signal), merged: Signal) {
-        for v in &mut self.gates {
-            if v.contains(&pair.0) && v.contains(&pair.1) {
-                v.retain(|s| *s != pair.0 && *s != pair.1);
-                v.push(merged);
+    /// Create a pair from two signals
+    fn make_pair(a: &Signal, b: &Signal) -> (Signal, Signal) {
+        (cmp::min(*a, *b), cmp::max(*a, *b))
+    }
+
+    /// Count the number of time each signal is used
+    fn count_signal_usage(&self) -> HashMap<Signal, u32> {
+        let mut count = HashMap::<Signal, u32>::new();
+        for v in &self.gates {
+            for s in v {
+                count.entry(*s).and_modify(|e| *e += 1).or_insert(1);
             }
         }
+        count
+    }
+
+    /// Gather the gates where each pair is used
+    fn compute_pair_to_gates(&self) -> HashMap<(Signal, Signal), HashSet<usize>> {
+        let mut ret = HashMap::<(Signal, Signal), HashSet<usize>>::new();
+        for (i, v) in self.gates.iter().enumerate() {
+            for (a, b) in v.iter().tuple_combinations() {
+                let p = Factoring::make_pair(a, b);
+                ret.entry(p)
+                    .and_modify(|e| {
+                        e.insert(i);
+                    })
+                    .or_insert(HashSet::from([i]));
+            }
+        }
+        ret
+    }
+
+    /// Setup the datastructures
+    fn setup_initial(&mut self) {
+        self.pair_to_gates = self.compute_pair_to_gates();
+        for (p, gates_touched) in &self.pair_to_gates {
+            let cnt = gates_touched.len();
+            if self.count_to_pair.len() <= cnt {
+                self.count_to_pair.resize(cnt + 1, HashSet::new());
+            }
+            self.count_to_pair[cnt].insert(*p);
+        }
+    }
+
+    /// Remove one pair from everywhere it is used
+    fn replace_pair(&mut self, p: (Signal, Signal)) {
+        let p_out = self.new_var();
+        self.built_pairs.push(p);
+        let gates_touched = self.pair_to_gates.remove(&p).unwrap();
+        self.count_to_pair[gates_touched.len()].remove(&p);
+        for i in gates_touched {
+            self.gates[i].retain(|s| *s != p.0 && *s != p.1);
+            for s in self.gates[i].clone() {
+                self.decrement_pair(Factoring::make_pair(&s, &p.0), i);
+                self.decrement_pair(Factoring::make_pair(&s, &p.1), i);
+                self.increment_pair(Factoring::make_pair(&s, &p_out), i);
+                self.increment_pair(Factoring::make_pair(&s, &p_out), i);
+            }
+            self.gates[i].push(p_out);
+        }
+    }
+
+    /// Decrement the usage of one pair
+    fn decrement_pair(&mut self, p: (Signal, Signal), gate: usize) {
+        let cnt = self.pair_to_gates[&p].len();
+        self.pair_to_gates.entry(p).and_modify(|e| {
+            e.remove(&gate);
+        });
+        self.count_to_pair[cnt].remove(&p);
+        if cnt > 1 {
+            self.count_to_pair[cnt - 1].insert(p);
+        }
+    }
+
+    /// Increment the usage of one pair
+    fn increment_pair(&mut self, p: (Signal, Signal), gate: usize) {
+        self.pair_to_gates
+            .entry(p)
+            .and_modify(|e| {
+                e.insert(gate);
+            })
+            .or_insert(HashSet::from([gate]));
+        let cnt = self.pair_to_gates[&p].len();
+        if self.count_to_pair.len() <= cnt {
+            self.count_to_pair.resize(cnt + 1, HashSet::new());
+        }
+        self.count_to_pair[cnt - 1].remove(&p);
+        self.count_to_pair[cnt].insert(p);
+    }
+
+    /// Allocate the next var to be used in a pair
+    fn new_var(&mut self) -> Signal {
+        let ret = Signal::from_var(self.next_var);
+        self.next_var += 1;
+        ret
+    }
+
+    /// Find the pair to add
+    fn find_best_pair(&mut self) -> Option<(Signal, Signal)> {
+        while !self.count_to_pair.is_empty() {
+            let pairs = self.count_to_pair.last().unwrap();
+            if let Some(p) = pairs.iter().next() {
+                return Some(*p);
+            } else {
+                self.count_to_pair.pop();
+            }
+        }
+        None
+    }
+
+    /// Share logic between the pairs
+    fn consume_pairs(&mut self) {
+        self.setup_initial();
+        while let Some(p) = self.find_best_pair() {
+            self.replace_pair(p);
+        }
+    }
+
+    /// Run factoring of the gates, and return the resulting binary gates to create
+    pub fn run(gates: Vec<Vec<Signal>>, first_var: u32) -> (Vec<(Signal, Signal)>, Vec<Signal>) {
+        let mut f = Factoring::from_gates(gates, first_var);
+        f.consume_pairs();
+        for g in &f.gates {
+            assert!(g.len() == 1);
+        }
+        let replacement = f.gates.iter().map(|g| g[0]).collect();
+        (f.built_pairs, replacement)
     }
 }
 
@@ -108,8 +231,6 @@ fn factor_gates<F: Fn(&Gate) -> bool, G: Fn(Signal, Signal) -> Gate>(
     builder: G,
 ) -> Network {
     assert!(aig.is_topo_sorted());
-    let mut ret = Network::new();
-    ret.add_inputs(aig.nb_inputs());
 
     let mut inds = Vec::new();
     let mut gates = Vec::new();
@@ -118,28 +239,20 @@ fn factor_gates<F: Fn(&Gate) -> bool, G: Fn(Signal, Signal) -> Gate>(
         if pred(g) && g.dependencies().len() > 1 {
             gates.push(g.dependencies());
             inds.push(i);
-            // Add a dummy gate to be replaced later
-            ret.add(Gate::Buf(Signal::zero()));
-        } else {
-            ret.add(g.clone());
         }
     }
-    for i in 0..aig.nb_outputs() {
-        ret.add_output(aig.output(i));
+
+    let mut ret = aig.clone();
+    let (binary_gates, replacements) = Factoring::run(gates, ret.nb_nodes() as u32);
+    for (a, b) in binary_gates {
+        ret.add(builder(a, b));
     }
 
-    let mut f = Factoring { gates };
-    while let Some((a, b)) = f.find_best_pair() {
-        let g = builder(a, b);
-        let new_sig = ret.add(g);
-        f.replace_pair((a, b), new_sig);
+    for (i, g) in zip(inds, replacements) {
+        ret.replace(i, Gate::Buf(g));
     }
 
-    for (i, g) in zip(inds, f.gates) {
-        assert!(g.len() == 1);
-        ret.replace(i, Gate::Buf(g[0]));
-    }
-
+    // Necessary to cleanup as we have gates
     ret.topo_sort();
     ret.make_canonical();
     ret
