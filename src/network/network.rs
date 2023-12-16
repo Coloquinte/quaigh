@@ -361,7 +361,7 @@ impl Network {
     pub fn check(&self) {
         for i in 0..self.nb_nodes() {
             for v in self.gate(i).dependencies() {
-                assert!(self.is_valid(v), "Invalid signal {v}");
+                assert!(self.is_valid(*v), "Invalid signal {v}");
             }
         }
         for i in 0..self.nb_outputs() {

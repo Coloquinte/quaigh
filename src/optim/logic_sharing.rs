@@ -239,7 +239,7 @@ fn factor_gates<F: Fn(&Gate) -> bool, G: Fn(Signal, Signal) -> Gate>(
     for i in 0..aig.nb_nodes() {
         let g = aig.gate(i);
         if pred(g) && g.dependencies().len() > 1 {
-            gates.push(g.dependencies());
+            gates.push(g.dependencies().into());
             inds.push(i);
         }
     }

@@ -1,3 +1,4 @@
+use core::slice;
 use std::{cmp, fmt};
 
 use crate::network::signal::Signal;
@@ -161,21 +162,14 @@ impl Gate {
     }
 
     /// Obtain all signals feeding this gate
-    pub fn dependencies(&self) -> Vec<Signal> {
-        // TODO: return a slice reference without allocation
+    pub fn dependencies(&self) -> &[Signal] {
         use Gate::*;
         match self {
-            Binary([a, b], _) => {
-                vec![*a, *b]
-            }
-            Ternary([a, b, c], _) => {
-                vec![*a, *b, *c]
-            }
-            Nary(v, _) => v.clone().into_vec(),
-            Dff([a, b, c]) => {
-                vec![*a, *b, *c]
-            }
-            Buf(s) => vec![*s],
+            Binary(s, _) => s,
+            Ternary(s, _) => s,
+            Nary(v, _) => v,
+            Dff(s) => s,
+            Buf(s) => slice::from_ref(s),
         }
     }
 
