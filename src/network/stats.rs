@@ -21,47 +21,54 @@ use crate::{
 };
 
 /// Number of inputs, outputs and gates in a network
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct NetworkStats {
     /// Number of inputs
     pub nb_inputs: usize,
     /// Number of outputs
     pub nb_outputs: usize,
-    /// Number of And2
+    /// Number of And and similar gates
     pub nb_and: usize,
-    /// Number of And3
-    pub nb_and3: usize,
-    /// Number of Andn
-    pub nb_andn: usize,
-    /// Number of Xor2
+    /// Number of Xor and similar gates
     pub nb_xor: usize,
-    /// Number of Xor3
-    pub nb_xor3: usize,
-    /// Number of Xorn
-    pub nb_xorn: usize,
     /// Number of Mux
     pub nb_mux: usize,
     /// Number of Maj
     pub nb_maj: usize,
-    /// Number of Buf
+    /// Number of positive Buf
     pub nb_buf: usize,
+    /// Number of Not (negative Buf)
+    pub nb_not: usize,
     /// Number of Dff
     pub nb_dff: usize,
+    /// Arity of And gates
+    pub and_arity: Vec<usize>,
+    /// Arity of Xor gates
+    pub xor_arity: Vec<usize>,
 }
 
 impl NetworkStats {
     /// Total number of gates, including Dff
     pub fn nb_gates(&self) -> usize {
-        self.nb_and
-            + self.nb_and3
-            + self.nb_andn
-            + self.nb_xor
-            + self.nb_xor3
-            + self.nb_xorn
-            + self.nb_mux
-            + self.nb_maj
-            + self.nb_buf
-            + self.nb_dff
+        self.nb_and + self.nb_xor + self.nb_mux + self.nb_maj + self.nb_buf + self.nb_dff
+    }
+
+    /// Record a new and
+    fn add_and(&mut self, sz: usize) {
+        self.nb_and += 1;
+        while self.and_arity.len() <= sz {
+            self.and_arity.push(0);
+        }
+        self.and_arity[sz] += 1;
+    }
+
+    /// Record a new xor
+    fn add_xor(&mut self, sz: usize) {
+        self.nb_xor += 1;
+        while self.xor_arity.len() <= sz {
+            self.xor_arity.push(0);
+        }
+        self.xor_arity[sz] += 1;
     }
 }
 
@@ -71,30 +78,33 @@ impl fmt::Display for NetworkStats {
         writeln!(f, "  Inputs: {}", self.nb_inputs)?;
         writeln!(f, "  Outputs: {}", self.nb_outputs)?;
         writeln!(f, "  Gates: {}", self.nb_gates())?;
-        writeln!(f, "  Dff: {}", self.nb_dff)?;
+        if self.nb_dff != 0 {
+            writeln!(f, "  Dff: {}", self.nb_dff)?;
+        }
         if self.nb_and != 0 {
-            writeln!(f, "  And2: {}", self.nb_and)?;
-        }
-        if self.nb_and3 != 0 {
-            writeln!(f, "  And3: {}", self.nb_and3)?;
-        }
-        if self.nb_andn != 0 {
-            writeln!(f, "  Andn: {}", self.nb_andn)?;
+            writeln!(f, "  And: {}", self.nb_and)?;
+            for (i, nb) in self.and_arity.iter().enumerate() {
+                if *nb != 0 {
+                    writeln!(f, "      {}: {}", i, nb)?;
+                }
+            }
         }
         if self.nb_xor != 0 {
-            writeln!(f, "  Xor2: {}", self.nb_xor)?;
-        }
-        if self.nb_xor3 != 0 {
-            writeln!(f, "  Xor3: {}", self.nb_xor3)?;
-        }
-        if self.nb_xorn != 0 {
-            writeln!(f, "  Xorn: {}", self.nb_xorn)?;
+            writeln!(f, "  Xor: {}", self.nb_xor)?;
+            for (i, nb) in self.xor_arity.iter().enumerate() {
+                if *nb != 0 {
+                    writeln!(f, "      {}: {}", i, nb)?;
+                }
+            }
         }
         if self.nb_mux != 0 {
             writeln!(f, "  Mux: {}", self.nb_mux)?;
         }
         if self.nb_maj != 0 {
             writeln!(f, "  Maj: {}", self.nb_maj)?;
+        }
+        if self.nb_not != 0 {
+            writeln!(f, "  Not: {}", self.nb_not)?;
         }
         if self.nb_buf != 0 {
             writeln!(f, "  Buf: {}", self.nb_buf)?;
@@ -110,48 +120,37 @@ pub fn stats(a: &Network) -> NetworkStats {
         nb_inputs: a.nb_inputs(),
         nb_outputs: a.nb_outputs(),
         nb_and: 0,
-        nb_and3: 0,
-        nb_andn: 0,
         nb_xor: 0,
-        nb_xor3: 0,
-        nb_xorn: 0,
         nb_maj: 0,
         nb_mux: 0,
         nb_buf: 0,
+        nb_not: 0,
         nb_dff: 0,
+        and_arity: Vec::new(),
+        xor_arity: Vec::new(),
     };
     for i in 0..a.nb_nodes() {
         match a.gate(i) {
-            Binary(_, BinaryType::And) => ret.nb_and += 1,
-            Ternary(_, TernaryType::And) => ret.nb_and3 += 1,
-            Binary(_, BinaryType::Xor) => ret.nb_xor += 1,
-            Ternary(_, TernaryType::Xor) => ret.nb_xor3 += 1,
+            Binary(_, BinaryType::And) => ret.add_and(2),
+            Ternary(_, TernaryType::And) => ret.add_and(3),
+            Binary(_, BinaryType::Xor) => ret.add_xor(2),
+            Ternary(_, TernaryType::Xor) => ret.add_xor(3),
             Ternary(_, TernaryType::Mux) => ret.nb_mux += 1,
             Ternary(_, TernaryType::Maj) => ret.nb_maj += 1,
-            Buf(_) => ret.nb_buf += 1,
+            Buf(s) => {
+                if s.is_inverted() {
+                    ret.nb_not += 1;
+                } else {
+                    ret.nb_buf += 1;
+                }
+            }
             Dff(_) => ret.nb_dff += 1,
             Nary(v, tp) => match tp {
                 NaryType::And | NaryType::Or | NaryType::Nand | NaryType::Nor => {
-                    if v.len() <= 1 {
-                        ret.nb_buf += 1
-                    } else if v.len() == 2 {
-                        ret.nb_and += 1
-                    } else if v.len() == 3 {
-                        ret.nb_and3 += 1
-                    } else {
-                        ret.nb_andn += 1
-                    }
+                    ret.add_and(v.len());
                 }
                 NaryType::Xor | NaryType::Xnor => {
-                    if v.len() <= 1 {
-                        ret.nb_buf += 1
-                    } else if v.len() == 2 {
-                        ret.nb_xor += 1
-                    } else if v.len() == 3 {
-                        ret.nb_xor3 += 1
-                    } else {
-                        ret.nb_xorn += 1
-                    }
+                    ret.add_xor(v.len());
                 }
             },
         }
