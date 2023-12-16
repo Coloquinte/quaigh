@@ -11,8 +11,8 @@ pub mod adder {
         for _ in 0..len {
             let a = ret.add_input();
             let b = ret.add_input();
-            let next_c = ret.add(Gate::Maj(a, b, c));
-            let o = ret.add(Gate::Xor3(a, b, c));
+            let next_c = ret.add(Gate::maj(a, b, c));
+            let o = ret.add(Gate::xor3(a, b, c));
             ret.add_output(o);
             c = next_c;
         }

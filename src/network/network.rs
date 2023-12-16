@@ -77,17 +77,17 @@ impl Network {
 
     /// Create an And2 gate
     pub fn and(&mut self, a: Signal, b: Signal) -> Signal {
-        self.add_canonical(Gate::And(a, b))
+        self.add_canonical(Gate::and(a, b))
     }
 
     /// Create a Xor2 gate
     pub fn xor(&mut self, a: Signal, b: Signal) -> Signal {
-        self.add_canonical(Gate::Xor(a, b))
+        self.add_canonical(Gate::xor(a, b))
     }
 
     /// Create a Dff gate (flip flop)
     pub fn dff(&mut self, data: Signal, enable: Signal, reset: Signal) -> Signal {
-        self.add_canonical(Gate::Dff(data, enable, reset))
+        self.add_canonical(Gate::dff(data, enable, reset))
     }
 
     /// Add a new gate, and make it canonical. The gate may be simplified immediately
@@ -493,10 +493,10 @@ mod tests {
         let i0 = aig.add_input();
         let i1 = aig.add_input();
         let i2 = aig.add_input();
-        let x0 = Gate::Dff(i2, Signal::one(), Signal::zero());
-        let x1 = Gate::Dff(i1, Signal::one(), Signal::zero());
-        let x2 = Gate::Dff(i0, Signal::one(), Signal::zero());
-        let x3 = Gate::Dff(i2, i1, Signal::zero());
+        let x0 = Gate::dff(i2, Signal::one(), Signal::zero());
+        let x1 = Gate::dff(i1, Signal::one(), Signal::zero());
+        let x2 = Gate::dff(i0, Signal::one(), Signal::zero());
+        let x3 = Gate::dff(i2, i1, Signal::zero());
         aig.add(x0.clone());
         aig.add(x1.clone());
         aig.add(x2.clone());

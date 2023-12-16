@@ -3,6 +3,7 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, Read, Write};
 
+use crate::network::{BinaryType, TernaryType};
 use crate::{Gate, NaryType, Network, Signal};
 
 #[derive(Clone, Debug)]
@@ -80,7 +81,7 @@ fn network_from_statements(
         match gate_type {
             Input => (),
             Dff => {
-                ret.add(Gate::Dff(sigs[0], Signal::one(), Signal::zero()));
+                ret.add(Gate::Dff([sigs[0], Signal::one(), Signal::zero()]));
             }
             Buf => {
                 ret.add(Gate::Buf(sigs[0]));
@@ -243,10 +244,10 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Network) {
             .join(", ");
         write!(w, "x{} = ", i).unwrap();
         match g {
-            And(_, _) | And3(_, _, _) => {
+            Binary(_, BinaryType::And) | Ternary(_, TernaryType::And) => {
                 writeln!(w, "AND({})", rep).unwrap();
             }
-            Xor(_, _) | Xor3(_, _, _) => {
+            Binary(_, BinaryType::Xor) | Ternary(_, TernaryType::Xor) => {
                 writeln!(w, "XOR({})", rep).unwrap();
             }
             Nary(_, tp) => match tp {
@@ -257,16 +258,16 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Network) {
                 NaryType::Xor => writeln!(w, "XOR({})", rep).unwrap(),
                 NaryType::Xnor => writeln!(w, "XNOR({})", rep).unwrap(),
             },
-            Dff(d, en, res) => {
+            Dff([d, en, res]) => {
                 if *en != Signal::one() || *res != Signal::zero() {
                     panic!("Only DFF without enable or reset are supported");
                 }
                 writeln!(w, "DFF({})", sig_to_string(d)).unwrap();
             }
-            Mux(_, _, _) => {
+            Ternary(_, TernaryType::Mux) => {
                 writeln!(w, "MUX({})", rep).unwrap();
             }
-            Maj(_, _, _) => {
+            Ternary(_, TernaryType::Maj) => {
                 writeln!(w, "MAJ({})", rep).unwrap();
             }
             Buf(s) => {

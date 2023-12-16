@@ -15,7 +15,10 @@
 
 use std::fmt;
 
-use crate::{Gate, NaryType, Network};
+use crate::{
+    network::gates::{BinaryType, TernaryType},
+    Gate, NaryType, Network,
+};
 
 /// Number of inputs, outputs and gates in a network
 #[derive(Clone, Copy, Debug)]
@@ -119,14 +122,14 @@ pub fn stats(a: &Network) -> NetworkStats {
     };
     for i in 0..a.nb_nodes() {
         match a.gate(i) {
-            And(_, _) => ret.nb_and += 1,
-            And3(_, _, _) => ret.nb_and3 += 1,
-            Xor(_, _) => ret.nb_xor += 1,
-            Xor3(_, _, _) => ret.nb_xor3 += 1,
-            Mux(_, _, _) => ret.nb_mux += 1,
-            Maj(_, _, _) => ret.nb_maj += 1,
+            Binary(_, BinaryType::And) => ret.nb_and += 1,
+            Ternary(_, TernaryType::And) => ret.nb_and3 += 1,
+            Binary(_, BinaryType::Xor) => ret.nb_xor += 1,
+            Ternary(_, TernaryType::Xor) => ret.nb_xor3 += 1,
+            Ternary(_, TernaryType::Mux) => ret.nb_mux += 1,
+            Ternary(_, TernaryType::Maj) => ret.nb_maj += 1,
             Buf(_) => ret.nb_buf += 1,
-            Dff(_, _, _) => ret.nb_dff += 1,
+            Dff(_) => ret.nb_dff += 1,
             Nary(v, tp) => match tp {
                 NaryType::And | NaryType::Or | NaryType::Nand | NaryType::Nor => {
                     if v.len() <= 1 {

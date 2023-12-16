@@ -2,6 +2,28 @@ use std::{cmp, fmt};
 
 use crate::network::signal::Signal;
 
+/// Basic types of 2-input gates
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum BinaryType {
+    /// 2-input And gate
+    And,
+    /// 2-input Xor gate
+    Xor,
+}
+
+/// Basic types of 3-input gates
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum TernaryType {
+    /// 3-input And gate
+    And,
+    /// 3-input Xor gate
+    Xor,
+    /// Majority gate (a + b + c >= 2)
+    Maj,
+    /// Multiplexer a ? b : c
+    Mux,
+}
+
 /// Basic types of N-input gates
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum NaryType {
@@ -34,24 +56,16 @@ pub enum NaryType {
 /// Buf/Not and trivial gates are omitted.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Gate {
-    /// 2-input And gate
-    And(Signal, Signal),
-    /// 2-input Xor gate
-    Xor(Signal, Signal),
-    /// 3-input And gate
-    And3(Signal, Signal, Signal),
-    /// 3-input Xor gate
-    Xor3(Signal, Signal, Signal),
-    /// Majority gate (a + b + c >= 2)
-    Maj(Signal, Signal, Signal),
-    /// Multiplexer s ? a : b
-    Mux(Signal, Signal, Signal),
-    /// D flip-flop with enable and reset
-    Dff(Signal, Signal, Signal),
+    /// Arbitrary 2-input gate (And/Xor)
+    Binary([Signal; 2], BinaryType),
+    /// Arbitrary 3-input gate (And/Xor/Mux/Maj)
+    Ternary([Signal; 3], TernaryType),
     /// Arbitrary N-input gate (And/Or/Xor/Nand/Nor/Xnor)
     Nary(Box<[Signal]>, NaryType),
     /// Buf or Not
     Buf(Signal),
+    /// D flip-flop with enable and reset
+    Dff([Signal; 3]),
 }
 
 /// Result of normalizing a logic gate
@@ -64,16 +78,57 @@ pub enum Normalization {
 }
 
 impl Gate {
+    /// Create a 2-input And
+    pub fn and(a: Signal, b: Signal) -> Gate {
+        Gate::Binary([a, b], BinaryType::And)
+    }
+
+    /// Create a 2-input Xor
+    pub fn xor(a: Signal, b: Signal) -> Gate {
+        Gate::Binary([a, b], BinaryType::Xor)
+    }
+
+    /// Create a 3-input And
+    pub fn and3(a: Signal, b: Signal, c: Signal) -> Gate {
+        Gate::Ternary([a, b, c], TernaryType::And)
+    }
+
+    /// Create a 3-input Xor
+    pub fn xor3(a: Signal, b: Signal, c: Signal) -> Gate {
+        Gate::Ternary([a, b, c], TernaryType::Xor)
+    }
+
+    /// Create a Mux
+    pub fn mux(s: Signal, a: Signal, b: Signal) -> Gate {
+        Gate::Ternary([s, a, b], TernaryType::Mux)
+    }
+
+    /// Create a Maj
+    pub fn maj(a: Signal, b: Signal, c: Signal) -> Gate {
+        Gate::Ternary([a, b, c], TernaryType::Maj)
+    }
+
+    /// Create a Dff
+    pub fn dff(d: Signal, en: Signal, res: Signal) -> Gate {
+        Gate::Dff([d, en, res])
+    }
+
     /// Returns whether the gate is in canonical form
     pub fn is_canonical(&self) -> bool {
         use Gate::*;
         match self {
-            And(a, b) => sorted_2(*a, *b) && !a.is_constant(),
-            Xor(a, b) => sorted_2(*a, *b) && !a.is_constant() && no_inv_2(*a, *b),
-            And3(a, b, c) => sorted_3(*a, *b, *c) && !a.is_constant(),
-            Xor3(a, b, c) => sorted_3(*a, *b, *c) && !a.is_constant() && no_inv_3(*a, *b, *c),
-            Maj(a, b, c) => sorted_3(*a, *b, *c) && !a.is_constant() && !a.is_inverted(),
-            Mux(s, a, b) => {
+            Binary([a, b], BinaryType::And) => sorted_2(*a, *b) && !a.is_constant(),
+            Binary([a, b], BinaryType::Xor) => {
+                sorted_2(*a, *b) && !a.is_constant() && no_inv_2(*a, *b)
+            }
+            Ternary([a, b, c], TernaryType::And) => sorted_3(*a, *b, *c) && !a.is_constant(),
+            Ternary([a, b, c], TernaryType::Xor) => {
+                sorted_3(*a, *b, *c) && !a.is_constant() && no_inv_3(*a, *b, *c)
+            }
+            Ternary([a, b, c], TernaryType::Maj) => {
+                sorted_3(*a, *b, *c) && !a.is_constant() && !a.is_inverted()
+            }
+            Ternary([s, a, b], TernaryType::Mux) => {
                 s.ind() != a.ind()
                     && s.ind() != b.ind()
                     && a.ind() != b.ind()
@@ -83,18 +138,18 @@ impl Gate {
                     && !b.is_constant()
                     && !s.is_constant()
             }
-            Dff(d, en, res) => {
+            Nary(v, NaryType::And) => sorted_n(v) && v.len() > 3 && !v[0].is_constant(),
+            Nary(v, NaryType::Xor) => {
+                sorted_n(v) && v.len() > 3 && !v[0].is_constant() && no_inv_n(v)
+            }
+            Nary(_, _) => false,
+            Dff([d, en, res]) => {
                 *en != Signal::zero() && *d != Signal::zero() && *res != Signal::one()
                 // TODO: handle synonyms in the inputs resulting in:
                 //   * const 0 (en == !d, en == res, res == d)
                 //   * remove enable (en == !res)
                 //   * remove data (d == res)
             }
-            Nary(v, NaryType::And) => sorted_n(v) && v.len() > 3 && !v[0].is_constant(),
-            Nary(v, NaryType::Xor) => {
-                sorted_n(v) && v.len() > 3 && !v[0].is_constant() && no_inv_n(v)
-            }
-            Nary(_, _) => false,
             Buf(_) => false,
         }
     }
@@ -110,13 +165,16 @@ impl Gate {
         // TODO: return a slice reference without allocation
         use Gate::*;
         match self {
-            And(a, b) | Xor(a, b) => {
+            Binary([a, b], _) => {
                 vec![*a, *b]
             }
-            Mux(a, b, c) | And3(a, b, c) | Xor3(a, b, c) | Maj(a, b, c) | Dff(a, b, c) => {
+            Ternary([a, b, c], _) => {
                 vec![*a, *b, *c]
             }
             Nary(v, _) => v.clone().into_vec(),
+            Dff([a, b, c]) => {
+                vec![*a, *b, *c]
+            }
             Buf(s) => vec![*s],
         }
     }
@@ -133,14 +191,16 @@ impl Gate {
 
     /// Returns whether the gate is combinatorial
     pub fn is_comb(&self) -> bool {
-        return !matches!(self, Gate::Dff(_, _, _));
+        return !matches!(self, Gate::Dff(_));
     }
 
     /// Returns whether the gate is an And of any arity
     pub fn is_and(&self) -> bool {
         return matches!(
             self,
-            Gate::And(_, _) | Gate::And3(_, _, _) | Gate::Nary(_, NaryType::And)
+            Gate::Binary(_, BinaryType::And)
+                | Gate::Ternary(_, TernaryType::And)
+                | Gate::Nary(_, NaryType::And)
         );
     }
 
@@ -148,7 +208,9 @@ impl Gate {
     pub fn is_xor(&self) -> bool {
         return matches!(
             self,
-            Gate::Xor(_, _) | Gate::Xor3(_, _, _) | Gate::Nary(_, NaryType::Xor)
+            Gate::Binary(_, BinaryType::Xor)
+                | Gate::Ternary(_, TernaryType::Xor)
+                | Gate::Nary(_, NaryType::Xor)
         );
     }
 
@@ -165,13 +227,9 @@ impl Gate {
     pub(crate) fn remap<F: Fn(&Signal) -> Signal>(&self, t: F) -> Gate {
         use Gate::*;
         match self {
-            And(a, b) => And(t(a), t(b)),
-            Xor(a, b) => Xor(t(a), t(b)),
-            And3(a, b, c) => And3(t(a), t(b), t(c)),
-            Xor3(a, b, c) => Xor3(t(a), t(b), t(c)),
-            Mux(a, b, c) => Mux(t(a), t(b), t(c)),
-            Dff(a, b, c) => Dff(t(a), t(b), t(c)),
-            Maj(a, b, c) => Maj(t(a), t(b), t(c)),
+            Binary([a, b], tp) => Binary([t(a), t(b)], *tp),
+            Ternary([a, b, c], tp) => Ternary([t(a), t(b), t(c)], *tp),
+            Dff([a, b, c]) => Dff([t(a), t(b), t(c)]),
             Nary(v, tp) => Nary(v.iter().map(|s| t(s)).collect(), *tp),
             Buf(s) => Buf(t(s)),
         }
@@ -194,7 +252,7 @@ fn make_and(a: Signal, b: Signal, inv: bool) -> Normalization {
     } else if i0 == Signal::one() || i0 == i1 {
         Copy(i1 ^ inv)
     } else {
-        Node(And(i0, i1), inv)
+        Node(Binary([i0, i1], BinaryType::And), inv)
     }
 }
 
@@ -209,7 +267,7 @@ fn make_xor(a: Signal, b: Signal, inv: bool) -> Normalization {
     } else if i0 == i1 {
         Copy(Signal::from(new_inv))
     } else {
-        Node(Xor(i0, i1), new_inv)
+        Node(Binary([i0, i1], BinaryType::Xor), new_inv)
     }
 }
 
@@ -225,7 +283,7 @@ fn make_and3(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
     } else if i1 == i2 {
         make_and(i0, i1, inv)
     } else {
-        Node(And3(i0, i1, i2), inv)
+        Node(Ternary([i0, i1, i2], TernaryType::And), inv)
     }
 }
 
@@ -246,7 +304,7 @@ fn make_xor3(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
     } else if i1 == i2 {
         Copy(i0 ^ new_inv)
     } else {
-        Node(Xor3(i0, i1, i2), new_inv)
+        Node(Ternary([i0, i1, i2], TernaryType::Xor), new_inv)
     }
 }
 
@@ -276,7 +334,7 @@ fn make_mux(s: Signal, a: Signal, b: Signal, inv: bool) -> Normalization {
         // s ? !b : b ==> s ^ b
         make_xor(s, b, inv)
     } else {
-        Node(Mux(s, a, b), inv)
+        Node(Ternary([s, a, b], TernaryType::Mux), inv)
     }
 }
 
@@ -296,7 +354,7 @@ fn make_maj(a: Signal, b: Signal, c: Signal, inv: bool) -> Normalization {
     } else if i0 == Signal::zero() {
         make_and(i1, i2, inv)
     } else {
-        Node(Maj(i0, i1, i2), inv)
+        Node(Ternary([i0, i1, i2], TernaryType::Maj), inv)
     }
 }
 
@@ -307,7 +365,7 @@ fn make_dff(d: Signal, en: Signal, res: Signal, inv: bool) -> Normalization {
     if d == Signal::zero() || en == Signal::zero() || res == Signal::one() {
         Copy(Signal::zero() ^ inv)
     } else {
-        Node(Dff(d, en, res), inv)
+        Node(Dff([d, en, res]), inv)
     }
 }
 
@@ -399,13 +457,13 @@ impl Normalization {
         match self {
             Copy(s) => Copy(*s),
             Node(g, inv) => match g {
-                And(a, b) => make_and(*a, *b, *inv),
-                Xor(a, b) => make_xor(*a, *b, *inv),
-                And3(a, b, c) => make_and3(*a, *b, *c, *inv),
-                Xor3(a, b, c) => make_xor3(*a, *b, *c, *inv),
-                Mux(s, a, b) => make_mux(*s, *a, *b, *inv),
-                Maj(a, b, c) => make_maj(*a, *b, *c, *inv),
-                Dff(d, en, res) => make_dff(*d, *en, *res, *inv),
+                Binary([a, b], BinaryType::And) => make_and(*a, *b, *inv),
+                Binary([a, b], BinaryType::Xor) => make_xor(*a, *b, *inv),
+                Ternary([a, b, c], TernaryType::And) => make_and3(*a, *b, *c, *inv),
+                Ternary([a, b, c], TernaryType::Xor) => make_xor3(*a, *b, *c, *inv),
+                Ternary([s, a, b], TernaryType::Mux) => make_mux(*s, *a, *b, *inv),
+                Ternary([a, b, c], TernaryType::Maj) => make_maj(*a, *b, *c, *inv),
+                Dff([d, en, res]) => make_dff(*d, *en, *res, *inv),
                 Nary(v, t) => {
                     let vi: Box<[Signal]> = v.iter().map(|s| !s).collect();
                     match t {
@@ -427,25 +485,25 @@ impl fmt::Display for Gate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Gate::*;
         match self {
-            And(a, b) => {
+            Binary([a, b], BinaryType::And) => {
                 write!(f, "{a} & {b}")
             }
-            Xor(a, b) => {
+            Binary([a, b], BinaryType::Xor) => {
                 write!(f, "{a} ^ {b}")
             }
-            And3(a, b, c) => {
+            Ternary([a, b, c], TernaryType::And) => {
                 write!(f, "{a} & {b} & {c}")
             }
-            Xor3(a, b, c) => {
+            Ternary([a, b, c], TernaryType::Xor) => {
                 write!(f, "{a} ^ {b} ^ {c}")
             }
-            Mux(s, a, b) => {
+            Ternary([s, a, b], TernaryType::Mux) => {
                 write!(f, "{s} ? {a} : {b}")
             }
-            Maj(a, b, c) => {
+            Ternary([a, b, c], TernaryType::Maj) => {
                 write!(f, "Maj({a}, {b}, {c})")
             }
-            Dff(d, en, res) => {
+            Dff([d, en, res]) => {
                 write!(f, "Dff({d}")?;
                 if *en != Signal::one() {
                     write!(f, ", en={en}")?;
@@ -583,14 +641,14 @@ mod tests {
         for i0 in vars.iter() {
             check_canonization(Buf(*i0));
             for i1 in vars.iter() {
-                check_canonization(And(*i0, *i1));
-                check_canonization(Xor(*i0, *i1));
+                check_canonization(Gate::and(*i0, *i1));
+                check_canonization(Gate::xor(*i0, *i1));
                 for i2 in vars.iter() {
-                    check_canonization(Mux(*i0, *i1, *i2));
-                    check_canonization(Maj(*i0, *i1, *i2));
-                    check_canonization(And3(*i0, *i1, *i2));
-                    check_canonization(Xor3(*i0, *i1, *i2));
-                    check_canonization(Dff(*i0, *i1, *i2));
+                    check_canonization(Gate::mux(*i0, *i1, *i2));
+                    check_canonization(Gate::maj(*i0, *i1, *i2));
+                    check_canonization(Gate::and3(*i0, *i1, *i2));
+                    check_canonization(Gate::xor3(*i0, *i1, *i2));
+                    check_canonization(Gate::dff(*i0, *i1, *i2));
                     for i3 in vars.iter() {
                         check_canonization(Nary(vec![*i0, *i1, *i2, *i3].into(), NaryType::And));
                         check_canonization(Nary(vec![*i0, *i1, *i2, *i3].into(), NaryType::Nand));
@@ -619,24 +677,24 @@ mod tests {
         let i1 = Signal::from_var(1);
 
         // Everything OK
-        assert!(And(i0, i1).is_canonical());
-        assert!(And(i0, !i1).is_canonical());
-        assert!(And(!i0, i1).is_canonical());
-        assert!(And(!i0, !i1).is_canonical());
+        assert!(Gate::and(i0, i1).is_canonical());
+        assert!(Gate::and(i0, !i1).is_canonical());
+        assert!(Gate::and(!i0, i1).is_canonical());
+        assert!(Gate::and(!i0, !i1).is_canonical());
 
         // Wrong ordering
-        assert!(!And(i1, i0).is_canonical());
-        assert!(!And(i1, !i0).is_canonical());
-        assert!(!And(!i1, i0).is_canonical());
-        assert!(!And(!i1, !i0).is_canonical());
+        assert!(!Gate::and(i1, i0).is_canonical());
+        assert!(!Gate::and(i1, !i0).is_canonical());
+        assert!(!Gate::and(!i1, i0).is_canonical());
+        assert!(!Gate::and(!i1, !i0).is_canonical());
 
         // Constant
-        assert!(!And(l0, i1).is_canonical());
-        assert!(!And(l1, i1).is_canonical());
+        assert!(!Gate::and(l0, i1).is_canonical());
+        assert!(!Gate::and(l1, i1).is_canonical());
 
         // Repeatition
-        assert!(!And(i0, i0).is_canonical());
-        assert!(!And(i0, !i0).is_canonical());
+        assert!(!Gate::and(i0, i0).is_canonical());
+        assert!(!Gate::and(i0, !i0).is_canonical());
     }
 
     #[test]
@@ -646,20 +704,20 @@ mod tests {
         let i1 = Signal::from_var(1);
 
         // Everything OK
-        assert!(Xor(i0, i1).is_canonical());
+        assert!(Gate::xor(i0, i1).is_canonical());
 
         // Wrong ordering
-        assert!(!Xor(i1, i0).is_canonical());
+        assert!(!Gate::xor(i1, i0).is_canonical());
 
         // Bad polarity
-        assert!(!Xor(i0, !i1).is_canonical());
-        assert!(!Xor(!i0, i1).is_canonical());
+        assert!(!Gate::xor(i0, !i1).is_canonical());
+        assert!(!Gate::xor(!i0, i1).is_canonical());
 
         // Constant
-        assert!(!Xor(l0, i1).is_canonical());
+        assert!(!Gate::xor(l0, i1).is_canonical());
 
         // Repeatition
-        assert!(!Xor(i0, i0).is_canonical());
+        assert!(!Gate::xor(i0, i0).is_canonical());
     }
 
     #[test]
@@ -671,30 +729,30 @@ mod tests {
         let i2 = Signal::from_var(2);
 
         // Everything OK
-        assert!(Maj(i0, i1, i2).is_canonical());
-        assert!(Maj(i0, !i1, i2).is_canonical());
-        assert!(Maj(i0, !i1, i2).is_canonical());
-        assert!(Maj(i0, !i1, !i2).is_canonical());
+        assert!(Gate::maj(i0, i1, i2).is_canonical());
+        assert!(Gate::maj(i0, !i1, i2).is_canonical());
+        assert!(Gate::maj(i0, !i1, i2).is_canonical());
+        assert!(Gate::maj(i0, !i1, !i2).is_canonical());
 
         // Wrong ordering
-        assert!(!Maj(i0, i2, i1).is_canonical());
-        assert!(!Maj(i1, i0, i2).is_canonical());
+        assert!(!Gate::maj(i0, i2, i1).is_canonical());
+        assert!(!Gate::maj(i1, i0, i2).is_canonical());
 
         // Constant
-        assert!(!Maj(l0, i1, i2).is_canonical());
-        assert!(!Maj(l1, i1, i2).is_canonical());
+        assert!(!Gate::maj(l0, i1, i2).is_canonical());
+        assert!(!Gate::maj(l1, i1, i2).is_canonical());
 
         // Wrong polarity
-        assert!(!Maj(!i0, i1, i2).is_canonical());
-        assert!(!Maj(!i0, !i1, i2).is_canonical());
-        assert!(!Maj(!i0, !i1, i2).is_canonical());
-        assert!(!Maj(!i0, !i1, !i2).is_canonical());
+        assert!(!Gate::maj(!i0, i1, i2).is_canonical());
+        assert!(!Gate::maj(!i0, !i1, i2).is_canonical());
+        assert!(!Gate::maj(!i0, !i1, i2).is_canonical());
+        assert!(!Gate::maj(!i0, !i1, !i2).is_canonical());
 
         // Repeatition
-        assert!(!Maj(i0, i0, i2).is_canonical());
-        assert!(!Maj(i0, !i0, i2).is_canonical());
-        assert!(!Maj(i0, i2, i2).is_canonical());
-        assert!(!Maj(i0, i2, !i2).is_canonical());
+        assert!(!Gate::maj(i0, i0, i2).is_canonical());
+        assert!(!Gate::maj(i0, !i0, i2).is_canonical());
+        assert!(!Gate::maj(i0, i2, i2).is_canonical());
+        assert!(!Gate::maj(i0, i2, !i2).is_canonical());
     }
 
     #[test]
@@ -706,34 +764,34 @@ mod tests {
         let i2 = Signal::from_var(2);
 
         // Everything OK
-        assert!(Mux(i2, i1, i0).is_canonical());
-        assert!(Mux(i2, !i1, i0).is_canonical());
+        assert!(Gate::mux(i2, i1, i0).is_canonical());
+        assert!(Gate::mux(i2, !i1, i0).is_canonical());
 
         // Bad polarity
-        assert!(!Mux(i2, i1, !i0).is_canonical());
-        assert!(!Mux(i2, !i1, !i0).is_canonical());
-        assert!(!Mux(!i2, i1, i0).is_canonical());
-        assert!(!Mux(!i2, !i1, i0).is_canonical());
+        assert!(!Gate::mux(i2, i1, !i0).is_canonical());
+        assert!(!Gate::mux(i2, !i1, !i0).is_canonical());
+        assert!(!Gate::mux(!i2, i1, i0).is_canonical());
+        assert!(!Gate::mux(!i2, !i1, i0).is_canonical());
 
         // Constant anywhere
-        assert!(!Mux(l0, i1, i0).is_canonical());
-        assert!(!Mux(i2, l0, i0).is_canonical());
-        assert!(!Mux(i2, i1, l0).is_canonical());
-        assert!(!Mux(i2, i1, !l0).is_canonical());
-        assert!(!Mux(l1, i1, i0).is_canonical());
-        assert!(!Mux(i2, l1, i0).is_canonical());
-        assert!(!Mux(i2, i1, l1).is_canonical());
-        assert!(!Mux(i2, i1, !l1).is_canonical());
+        assert!(!Gate::mux(l0, i1, i0).is_canonical());
+        assert!(!Gate::mux(i2, l0, i0).is_canonical());
+        assert!(!Gate::mux(i2, i1, l0).is_canonical());
+        assert!(!Gate::mux(i2, i1, !l0).is_canonical());
+        assert!(!Gate::mux(l1, i1, i0).is_canonical());
+        assert!(!Gate::mux(i2, l1, i0).is_canonical());
+        assert!(!Gate::mux(i2, i1, l1).is_canonical());
+        assert!(!Gate::mux(i2, i1, !l1).is_canonical());
 
         // Repeatition anywhere
-        assert!(!Mux(i2, i2, i0).is_canonical());
-        assert!(!Mux(i0, i2, i2).is_canonical());
-        assert!(!Mux(i2, i0, i2).is_canonical());
-        assert!(!Mux(i2, !i2, i0).is_canonical());
-        assert!(!Mux(i0, i2, !i2).is_canonical());
-        assert!(!Mux(i2, i0, !i2).is_canonical());
-        assert!(!Mux(!i2, i2, i0).is_canonical());
-        assert!(!Mux(i0, !i2, i2).is_canonical());
-        assert!(!Mux(!i2, i0, i2).is_canonical());
+        assert!(!Gate::mux(i2, i2, i0).is_canonical());
+        assert!(!Gate::mux(i0, i2, i2).is_canonical());
+        assert!(!Gate::mux(i2, i0, i2).is_canonical());
+        assert!(!Gate::mux(i2, !i2, i0).is_canonical());
+        assert!(!Gate::mux(i0, i2, !i2).is_canonical());
+        assert!(!Gate::mux(i2, i0, !i2).is_canonical());
+        assert!(!Gate::mux(!i2, i2, i0).is_canonical());
+        assert!(!Gate::mux(i0, !i2, i2).is_canonical());
+        assert!(!Gate::mux(!i2, i0, i2).is_canonical());
     }
 }

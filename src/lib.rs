@@ -65,8 +65,8 @@
 //! let i0 = net.add_input();
 //! let i1 = net.add_input();
 //! let i2 = net.add_input();
-//! let carry = net.add(Gate::Maj(i0, i1, i2));
-//! let out = net.add(Gate::Xor3(i0, i1, i2));
+//! let carry = net.add(Gate::maj(i0, i1, i2));
+//! let out = net.add(Gate::xor3(i0, i1, i2));
 //! net.add_output(carry);
 //! net.add_output(out);
 //! ```

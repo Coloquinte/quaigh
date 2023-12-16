@@ -266,8 +266,8 @@ fn factor_gates<F: Fn(&Gate) -> bool, G: Fn(Signal, Signal) -> Gate>(
 /// The optimization is performed greedily by merging the most used pair of inputs at each step.
 /// There is no delay optimization yet.
 pub fn factor_nary(aig: &Network) -> Network {
-    let aig1 = factor_gates(aig, |g| g.is_and(), |a, b| Gate::And(a, b));
-    let aig2 = factor_gates(&aig1, |g| g.is_xor(), |a, b| Gate::Xor(a, b));
+    let aig1 = factor_gates(aig, |g| g.is_and(), |a, b| Gate::and(a, b));
+    let aig2 = factor_gates(&aig1, |g| g.is_xor(), |a, b| Gate::xor(a, b));
     aig2
 }
 
@@ -320,7 +320,7 @@ mod tests {
         aig.add_output(x3);
         aig = flatten_nary(&aig, 64);
         assert_eq!(aig.nb_nodes(), 1);
-        assert_eq!(aig.gate(0), &Gate::Xor3(i4, i2, i1));
+        assert_eq!(aig.gate(0), &Gate::xor3(i4, i2, i1));
         assert_eq!(aig.output(0), !Signal::from_var(0));
     }
 
@@ -341,6 +341,6 @@ mod tests {
         aig = factor_nary(&aig);
         assert_eq!(aig.nb_nodes(), 4);
         // Check that the first gate is the most shared
-        assert_eq!(aig.gate(0), &Gate::And(i2, i1));
+        assert_eq!(aig.gate(0), &Gate::and(i2, i1));
     }
 }

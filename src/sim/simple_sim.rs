@@ -1,4 +1,4 @@
-use crate::{NaryType, Network, Signal};
+use crate::{network::BinaryType, NaryType, Network, Signal};
 
 use super::Fault;
 
@@ -101,7 +101,7 @@ impl<'a> SimpleSimulator<'a> {
         let mut next_values = self.node_values.clone();
         for i in 0..self.aig.nb_nodes() {
             let g = self.aig.gate(i);
-            if let Dff(d, en, res) = g {
+            if let Dff([d, en, res]) = g {
                 let dv = self.get_value(*d);
                 let env = self.get_value(*en);
                 let resv = self.get_value(*res);
@@ -118,13 +118,26 @@ impl<'a> SimpleSimulator<'a> {
         use crate::Gate::*;
         let g = self.aig.gate(i);
         match g {
-            And(a, b) => self.get_value(*a) & self.get_value(*b),
-            Xor(a, b) => self.get_value(*a) ^ self.get_value(*b),
-            And3(a, b, c) => self.get_value(*a) & self.get_value(*b) & self.get_value(*c),
-            Xor3(a, b, c) => self.get_value(*a) ^ self.get_value(*b) ^ self.get_value(*c),
-            Maj(a, b, c) => maj(self.get_value(*a), self.get_value(*b), self.get_value(*c)),
-            Mux(a, b, c) => mux(self.get_value(*a), self.get_value(*b), self.get_value(*c)),
-            Dff(_, _, _) => self.node_values[i],
+            Binary([a, b], tp) => {
+                let va = self.get_value(*a);
+                let vb = self.get_value(*b);
+                match tp {
+                    BinaryType::And => va & vb,
+                    BinaryType::Xor => va ^ vb,
+                }
+            }
+            Ternary([a, b, c], tp) => {
+                let va = self.get_value(*a);
+                let vb = self.get_value(*b);
+                let vc = self.get_value(*c);
+                match tp {
+                    crate::network::TernaryType::And => va & vb & vc,
+                    crate::network::TernaryType::Xor => va ^ vb ^ vc,
+                    crate::network::TernaryType::Maj => maj(va, vb, vc),
+                    crate::network::TernaryType::Mux => mux(va, vb, vc),
+                }
+            }
+            Dff(_) => self.node_values[i],
             Nary(v, tp) => match tp {
                 NaryType::And => self.compute_andn(v, false, false),
                 NaryType::Or => self.compute_andn(v, true, true),

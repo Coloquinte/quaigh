@@ -4,7 +4,10 @@ use std::collections::HashMap;
 
 use cat_solver::Solver;
 
-use crate::{Gate, NaryType, Network, Signal};
+use crate::{
+    network::{BinaryType, TernaryType},
+    Gate, NaryType, Network, Signal,
+};
 
 // TODO: have clean clause builder object to encapsulate this part
 
@@ -64,27 +67,27 @@ fn to_cnf(aig: &Network) -> Vec<Vec<Signal>> {
     for i in 0..aig.nb_nodes() {
         let n = aig.node(i);
         match aig.gate(i) {
-            And(a, b) => {
+            Binary([a, b], BinaryType::And) => {
                 // 3 clauses, 7 literals
                 ret.push(vec![*a, !n]);
                 ret.push(vec![*b, !n]);
                 ret.push(vec![!a, !b, n]);
             }
-            Xor(a, b) => {
+            Binary([a, b], BinaryType::Xor) => {
                 // 4 clauses, 12 literals
                 ret.push(vec![*a, *b, !n]);
                 ret.push(vec![!a, !b, !n]);
                 ret.push(vec![!a, *b, n]);
                 ret.push(vec![*a, !b, n]);
             }
-            And3(a, b, c) => {
+            Ternary([a, b, c], TernaryType::And) => {
                 // 4 clauses, 10 literals
                 ret.push(vec![*a, !n]);
                 ret.push(vec![*b, !n]);
                 ret.push(vec![*c, !n]);
                 ret.push(vec![!a, !b, !c, n]);
             }
-            Xor3(a, b, c) => {
+            Ternary([a, b, c], TernaryType::Xor) => {
                 // 8 clauses, 24 literals, one new variable
                 let v = Signal::from_var(var);
                 var += 1;
@@ -99,7 +102,7 @@ fn to_cnf(aig: &Network) -> Vec<Vec<Signal>> {
                 ret.push(vec![!v, *c, n]);
                 ret.push(vec![v, !c, n]);
             }
-            Mux(s, a, b) => {
+            Ternary([s, a, b], TernaryType::Mux) => {
                 // 4 clauses, 12 literals + 2 redundant clauses
                 ret.push(vec![!s, !a, n]);
                 ret.push(vec![!s, *a, !n]);
@@ -109,7 +112,7 @@ fn to_cnf(aig: &Network) -> Vec<Vec<Signal>> {
                 ret.push(vec![*a, *b, !n]);
                 ret.push(vec![!a, !b, n]);
             }
-            Maj(a, b, c) => {
+            Ternary([a, b, c], TernaryType::Maj) => {
                 // 6 clauses, 18 literals
                 ret.push(vec![!a, !b, n]);
                 ret.push(vec![!b, !c, n]);
@@ -118,7 +121,7 @@ fn to_cnf(aig: &Network) -> Vec<Vec<Signal>> {
                 ret.push(vec![*b, *c, !n]);
                 ret.push(vec![*a, *c, !n]);
             }
-            Dff(_, _, _) => panic!("Combinatorial network expected"),
+            Dff(_) => panic!("Combinatorial network expected"),
             Nary(v, tp) => match tp {
                 NaryType::And => add_and_clauses(&mut ret, v, n, false, false),
                 NaryType::Or => add_and_clauses(&mut ret, v, n, true, true),
@@ -195,12 +198,12 @@ pub fn unroll(aig: &Network, nb_steps: usize) -> Network {
 
         // Convert flip-flops for this step
         for i in 0..aig.nb_nodes() {
-            if let Dff(d, en, res) = aig.gate(i) {
+            if let Dff([d, en, res]) = aig.gate(i) {
                 let ff = aig.node(i);
                 let unroll_ff = if step == 0 {
                     Signal::zero()
                 } else {
-                    let mx = ret.add_canonical(Gate::Mux(t_prev[en], t_prev[d], t_prev[&ff]));
+                    let mx = ret.add_canonical(Gate::mux(t_prev[en], t_prev[d], t_prev[&ff]));
                     ret.and(mx, !t_prev[res])
                 };
                 t.insert(ff, unroll_ff);
@@ -445,7 +448,7 @@ mod tests {
         b.add_input();
         b.add_input();
         b.add_input();
-        let bx = b.add_canonical(Gate::Mux(l1, l2, l3));
+        let bx = b.add_canonical(Gate::mux(l1, l2, l3));
         b.add_output(bx);
         check_equivalence_comb(&a, &b, false).unwrap();
         check_equivalence_comb(&a, &b, true).unwrap();
@@ -460,13 +463,13 @@ mod tests {
         let a1 = a.and(l1, l2);
         let a2 = a.and(l1, l3);
         let a3 = a.and(l2, l3);
-        let ax = !a.add(Gate::And3(!a1, !a2, !a3));
+        let ax = !a.add(Gate::and3(!a1, !a2, !a3));
         a.add_output(ax);
         let mut b = Network::new();
         b.add_input();
         b.add_input();
         b.add_input();
-        let bx = b.add(Gate::Maj(l1, l2, l3));
+        let bx = b.add(Gate::maj(l1, l2, l3));
         b.add_output(bx);
         check_equivalence_comb(&a, &b, false).unwrap();
         check_equivalence_comb(&a, &b, true).unwrap();
@@ -485,7 +488,7 @@ mod tests {
         b.add_input();
         b.add_input();
         b.add_input();
-        let b2 = b.add(Gate::And3(l1, l2, l3));
+        let b2 = b.add(Gate::and3(l1, l2, l3));
         b.add_output(b2);
         check_equivalence_comb(&a, &b, false).unwrap();
         check_equivalence_comb(&a, &b, true).unwrap();
@@ -504,7 +507,7 @@ mod tests {
         b.add_input();
         b.add_input();
         b.add_input();
-        let b2 = b.add(Gate::Xor3(l1, l2, l3));
+        let b2 = b.add(Gate::xor3(l1, l2, l3));
         b.add_output(b2);
         check_equivalence_comb(&a, &b, false).unwrap();
         check_equivalence_comb(&a, &b, true).unwrap();

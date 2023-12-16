@@ -17,7 +17,7 @@ pub fn expose_dff(aig: &Network) -> Network {
         ret.add_output(aig.output(i));
     }
     for i in 0..aig.nb_nodes() {
-        if let Gate::Dff(d, en, res) = aig.gate(i) {
+        if let Gate::Dff([d, en, res]) = aig.gate(i) {
             let new_input = ret.add_input();
             ret.add(Gate::Buf(new_input));
             ret.add_output(*d);

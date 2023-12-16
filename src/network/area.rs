@@ -17,7 +17,10 @@
 
 use std::fmt;
 
-use crate::{Gate, NaryType, Network};
+use crate::{
+    network::gates::{BinaryType, TernaryType},
+    Gate, NaryType, Network,
+};
 
 /// Area estimation parameters for optimization
 ///
@@ -110,17 +113,17 @@ impl AreaParameters {
     pub fn gate_area(&self, g: &Gate) -> usize {
         use Gate::*;
         match g {
-            And(_, _) => self.and,
-            And3(_, _, _) => self.and3,
-            Xor(_, _) => self.xor,
-            Xor3(_, _, _) => self.xor3,
+            Binary(_, BinaryType::And) => self.and,
+            Ternary(_, TernaryType::And) => self.and3,
+            Binary(_, BinaryType::Xor) => self.xor,
+            Ternary(_, TernaryType::Xor) => self.xor3,
             Nary(v, tp) => match tp {
                 NaryType::And | NaryType::Or | NaryType::Nand | NaryType::Nor => self.andn(v.len()),
                 NaryType::Xor | NaryType::Xnor => self.xorn(v.len()),
             },
-            Dff(_, _, _) => self.dff,
-            Mux(_, _, _) => self.mux,
-            Maj(_, _, _) => self.maj,
+            Dff(_) => self.dff,
+            Ternary(_, TernaryType::Mux) => self.mux,
+            Ternary(_, TernaryType::Maj) => self.maj,
             Buf(_) => 0,
         }
     }
