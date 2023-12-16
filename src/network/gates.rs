@@ -107,6 +107,7 @@ impl Gate {
 
     /// Obtain all signals feeding this gate
     pub fn dependencies(&self) -> Vec<Signal> {
+        // TODO: return a slice reference without allocation
         use Gate::*;
         match self {
             And(a, b) | Xor(a, b) => {
@@ -122,6 +123,7 @@ impl Gate {
 
     /// Obtain all internal variables feeding this gate (not inputs or constants)
     pub fn vars(&self) -> Vec<u32> {
+        // TODO: return a concrete iterator instead
         self.dependencies()
             .iter()
             .filter(|s| s.is_var())

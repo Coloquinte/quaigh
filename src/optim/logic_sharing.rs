@@ -80,6 +80,8 @@ struct Factoring {
     count_to_pair: Vec<HashSet<(Signal, Signal)>>,
     /// Pairs to their usage location
     pair_to_gates: HashMap<(Signal, Signal), HashSet<usize>>,
+    // TODO: use faster hashmaps
+    // TODO: handle the usual case (no sharing) separately
 }
 
 impl Factoring {

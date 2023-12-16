@@ -263,6 +263,7 @@ impl Network {
             }
         }
 
+        // TODO: use faster hashing + do not own the Gate
         let mut hsh = HashMap::new();
         let mut new_nodes = Vec::new();
 

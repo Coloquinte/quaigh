@@ -166,6 +166,7 @@ pub fn read_bench<R: Read>(r: R) -> Result<Network, String> {
             } else if parts.len() < 2 {
                 panic!("Too few items on the line");
             } else {
+                // TODO: avoid allocations here and continue working with &str
                 let inputs: Vec<String> = parts[2..].iter().map(|s| s.to_string()).collect();
                 let gate = parts[0].to_string();
                 let g = match parts[1].to_uppercase().as_str() {
