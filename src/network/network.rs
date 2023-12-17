@@ -123,9 +123,11 @@ impl Network {
     pub(crate) fn is_topo_sorted(&self) -> bool {
         for (i, g) in self.nodes.iter().enumerate() {
             let ind = i as u32;
-            for v in g.comb_vars() {
-                if v >= ind {
-                    return false;
+            if g.is_comb() {
+                for v in g.vars() {
+                    if v >= ind {
+                        return false;
+                    }
                 }
             }
         }
@@ -197,7 +199,7 @@ impl Network {
                 continue;
             }
             visited[node] = true;
-            to_visit.extend(self.gate(node).vars().iter());
+            to_visit.extend(self.gate(node).vars());
         }
 
         // Now compute a mapping for all nodes that are reachable
@@ -304,8 +306,10 @@ impl Network {
         // Count the output dependencies of each gate
         let mut count_deps = vec![0u32; self.nb_nodes()];
         for g in self.nodes.iter() {
-            for v in g.comb_vars() {
-                count_deps[v as usize] += 1;
+            if g.is_comb() {
+                for v in g.vars() {
+                    count_deps[v as usize] += 1;
+                }
             }
         }
 
@@ -333,10 +337,13 @@ impl Network {
             }
             visited[v as usize] = true;
             rev_order.push(v);
-            for d in self.gate(v as usize).comb_vars() {
-                count_deps[d as usize] -= 1;
-                if count_deps[d as usize] == 0 {
-                    to_visit.push(d);
+            let g = self.gate(v as usize);
+            if g.is_comb() {
+                for d in g.vars() {
+                    count_deps[d as usize] -= 1;
+                    if count_deps[d as usize] == 0 {
+                        to_visit.push(d);
+                    }
                 }
             }
         }

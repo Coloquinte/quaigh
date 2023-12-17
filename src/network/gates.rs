@@ -174,13 +174,12 @@ impl Gate {
     }
 
     /// Obtain all internal variables feeding this gate (not inputs or constants)
-    pub fn vars(&self) -> Vec<u32> {
+    pub fn vars(&self) -> impl Iterator<Item = u32> + '_ {
         // TODO: return a concrete iterator instead
         self.dependencies()
             .iter()
             .filter(|s| s.is_var())
             .map(|s| s.var())
-            .collect()
     }
 
     /// Returns whether the gate is combinatorial
@@ -206,15 +205,6 @@ impl Gate {
                 | Gate::Ternary(_, TernaryType::Xor)
                 | Gate::Nary(_, NaryType::Xor)
         );
-    }
-
-    /// Obtain all internal variables feeding this gate as combinatorial inputs
-    pub(crate) fn comb_vars(&self) -> Vec<u32> {
-        if self.is_comb() {
-            self.vars()
-        } else {
-            Vec::new()
-        }
     }
 
     /// Apply a remapping of the signals to the gate
