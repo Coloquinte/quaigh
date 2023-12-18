@@ -1,4 +1,7 @@
-//! Logic sharing in logic networks, acting on N-input And and Xor gates
+//! Logic sharing, replacing N-input And and Xor gates by 2-input gates
+//!
+//! This pass will greedily replace the most used 2-input combination to
+//! maximize sharing between gates.
 
 use std::cmp;
 use std::collections::{HashMap, HashSet};
@@ -71,7 +74,7 @@ pub fn flatten_nary(aig: &Network, max_size: usize) -> Network {
 /// Datastructure representing the factorization process
 struct Factoring {
     /// Gates left to factor
-    gates: Vec<Vec<Signal>>,
+    gate_signals: Vec<Vec<Signal>>,
     /// Next variable index to be allocated
     next_var: u32,
     /// Pairs that have already been built
@@ -81,14 +84,14 @@ struct Factoring {
     /// Pairs to their usage location
     pair_to_gates: HashMap<(Signal, Signal), HashSet<usize>>,
     // TODO: use faster hashmaps
-    // TODO: handle the usual case (no sharing) separately
+    // TODO: handle the common case (no sharing) separately
 }
 
 impl Factoring {
     /// Build from the list of gates
     fn from_gates(gates: Vec<Vec<Signal>>, next_var: u32) -> Factoring {
         Factoring {
-            gates,
+            gate_signals: gates,
             next_var,
             built_pairs: Vec::new(),
             count_to_pair: Vec::new(),
@@ -104,7 +107,7 @@ impl Factoring {
     /// Count the number of time each signal is used
     fn count_signal_usage(&self) -> HashMap<Signal, u32> {
         let mut count = HashMap::<Signal, u32>::new();
-        for v in &self.gates {
+        for v in &self.gate_signals {
             for s in v {
                 count.entry(*s).and_modify(|e| *e += 1).or_insert(1);
             }
@@ -112,10 +115,25 @@ impl Factoring {
         count
     }
 
+    /// Process binary gates first, as we need to have them anyway
+    fn consume_binary_gates(&mut self) {
+        for _ in 0..2 {
+            // Two passes, just in case there are new opportunities
+            for i in 0..self.gate_signals.len() {
+                if self.gate_signals[i].len() == 2 {
+                    self.replace_pair(Factoring::make_pair(
+                        &self.gate_signals[i][0],
+                        &self.gate_signals[i][1],
+                    ));
+                }
+            }
+        }
+    }
+
     /// Gather the gates where each pair is used
     fn compute_pair_to_gates(&self) -> HashMap<(Signal, Signal), HashSet<usize>> {
         let mut ret = HashMap::<(Signal, Signal), HashSet<usize>>::new();
-        for (i, v) in self.gates.iter().enumerate() {
+        for (i, v) in self.gate_signals.iter().enumerate() {
             for (a, b) in v.iter().tuple_combinations() {
                 let p = Factoring::make_pair(a, b);
                 ret.entry(p)
@@ -147,14 +165,14 @@ impl Factoring {
         let gates_touched = self.pair_to_gates.remove(&p).unwrap();
         self.count_to_pair[gates_touched.len()].remove(&p);
         for i in gates_touched {
-            self.gates[i].retain(|s| *s != p.0 && *s != p.1);
-            for s in self.gates[i].clone() {
+            self.gate_signals[i].retain(|s| *s != p.0 && *s != p.1);
+            for s in self.gate_signals[i].clone() {
                 self.decrement_pair(Factoring::make_pair(&s, &p.0), i);
                 self.decrement_pair(Factoring::make_pair(&s, &p.1), i);
                 self.increment_pair(Factoring::make_pair(&s, &p_out), i);
                 self.increment_pair(Factoring::make_pair(&s, &p_out), i);
             }
-            self.gates[i].push(p_out);
+            self.gate_signals[i].push(p_out);
         }
     }
 
@@ -209,6 +227,7 @@ impl Factoring {
     /// Share logic between the pairs
     fn consume_pairs(&mut self) {
         self.setup_initial();
+        self.consume_binary_gates();
         while let Some(p) = self.find_best_pair() {
             self.replace_pair(p);
         }
@@ -218,10 +237,10 @@ impl Factoring {
     pub fn run(gates: Vec<Vec<Signal>>, first_var: u32) -> (Vec<(Signal, Signal)>, Vec<Signal>) {
         let mut f = Factoring::from_gates(gates, first_var);
         f.consume_pairs();
-        for g in &f.gates {
+        for g in &f.gate_signals {
             assert!(g.len() == 1);
         }
-        let replacement = f.gates.iter().map(|g| g[0]).collect();
+        let replacement = f.gate_signals.iter().map(|g| g[0]).collect();
         (f.built_pairs, replacement)
     }
 }
