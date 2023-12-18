@@ -75,6 +75,8 @@ pub fn flatten_nary(aig: &Network, max_size: usize) -> Network {
 struct Factoring {
     /// Gates left to factor
     gate_signals: Vec<Vec<Signal>>,
+    /// Signals that occur only once and don't need tending
+    gate_exclusive_signals: Vec<Vec<Signal>>,
     /// Next variable index to be allocated
     next_var: u32,
     /// Pairs that have already been built
@@ -92,6 +94,7 @@ impl Factoring {
     fn from_gates(gates: Vec<Vec<Signal>>, next_var: u32) -> Factoring {
         Factoring {
             gate_signals: gates,
+            gate_exclusive_signals: Vec::new(),
             next_var,
             built_pairs: Vec::new(),
             count_to_pair: Vec::new(),
@@ -113,6 +116,18 @@ impl Factoring {
             }
         }
         count
+    }
+
+    /// Separate signals that occur just once
+    fn separate_exclusive_signals(&mut self) {
+        assert!(self.gate_exclusive_signals.is_empty());
+        let cnt = self.count_signal_usage();
+        for g in &mut self.gate_signals {
+            let mut exclusive = g.clone();
+            g.retain(|s| cnt[s] != 1);
+            exclusive.retain(|s| cnt[s] == 1);
+            self.gate_exclusive_signals.push(exclusive);
+        }
     }
 
     /// Process binary gates first, as we need to have them anyway
@@ -148,6 +163,7 @@ impl Factoring {
 
     /// Setup the datastructures
     fn setup_initial(&mut self) {
+        self.separate_exclusive_signals();
         self.pair_to_gates = self.compute_pair_to_gates();
         for (p, gates_touched) in &self.pair_to_gates {
             let cnt = gates_touched.len();
@@ -158,9 +174,34 @@ impl Factoring {
         }
     }
 
+    /// Finalize the algorithm with the exclusive signals
+    fn finalize(&mut self) {
+        for (g1, g2) in zip(&mut self.gate_signals, &self.gate_exclusive_signals) {
+            g1.extend(g2);
+        }
+        self.gate_exclusive_signals.clear();
+        for g in &mut self.gate_signals {
+            // Create the tree of binary gates
+            while g.len() > 1 {
+                let mut next_g = Vec::new();
+                for i in (0..g.len() - 1).step_by(2) {
+                    let p = Signal::from_var(self.next_var);
+                    self.next_var += 1;
+                    self.built_pairs.push((g[i], g[i + 1]));
+                    next_g.push(p);
+                }
+                if g.len() % 2 != 0 {
+                    next_g.push(*g.last().unwrap());
+                }
+                *g = next_g;
+            }
+        }
+    }
+
     /// Remove one pair from everywhere it is used
     fn replace_pair(&mut self, p: (Signal, Signal)) {
-        let p_out = self.new_var();
+        let p_out = Signal::from_var(self.next_var);
+        self.next_var += 1;
         self.built_pairs.push(p);
         let gates_touched = self.pair_to_gates.remove(&p).unwrap();
         self.count_to_pair[gates_touched.len()].remove(&p);
@@ -204,13 +245,6 @@ impl Factoring {
         self.count_to_pair[cnt].insert(p);
     }
 
-    /// Allocate the next var to be used in a pair
-    fn new_var(&mut self) -> Signal {
-        let ret = Signal::from_var(self.next_var);
-        self.next_var += 1;
-        ret
-    }
-
     /// Find the pair to add
     fn find_best_pair(&mut self) -> Option<(Signal, Signal)> {
         while !self.count_to_pair.is_empty() {
@@ -231,15 +265,20 @@ impl Factoring {
         while let Some(p) = self.find_best_pair() {
             self.replace_pair(p);
         }
+        for g in &self.gate_signals {
+            assert!(g.len() <= 1);
+        }
+        self.finalize();
+
+        for g in &self.gate_signals {
+            assert!(g.len() == 1);
+        }
     }
 
     /// Run factoring of the gates, and return the resulting binary gates to create
     pub fn run(gates: Vec<Vec<Signal>>, first_var: u32) -> (Vec<(Signal, Signal)>, Vec<Signal>) {
         let mut f = Factoring::from_gates(gates, first_var);
         f.consume_pairs();
-        for g in &f.gate_signals {
-            assert!(g.len() == 1);
-        }
         let replacement = f.gate_signals.iter().map(|g| g[0]).collect();
         (f.built_pairs, replacement)
     }
