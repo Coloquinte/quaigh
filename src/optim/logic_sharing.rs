@@ -44,27 +44,25 @@ fn merge_dependencies<F: Fn(&Gate) -> bool>(
 /// To avoid quadratic blowup, a maximum size can be specified. Gates that do not share inputs will be
 /// flattened regardless of their size.
 pub fn flatten_nary(aig: &Network, max_size: usize) -> Network {
-    let mut ret = Network::new();
-    ret.add_inputs(aig.nb_inputs());
-    for i in 0..aig.nb_nodes() {
-        let g = aig.gate(i);
-        let merged = if g.is_and() {
-            Gate::Nary(
-                merge_dependencies(&ret, g, max_size, |t| t.is_and()),
-                NaryType::And,
-            )
-        } else if g.is_xor() {
-            Gate::Nary(
-                merge_dependencies(&ret, g, max_size, |t| t.is_xor()),
-                NaryType::Xor,
-            )
-        } else {
-            g.clone()
-        };
-        ret.add(merged);
-    }
-    for i in 0..aig.nb_outputs() {
-        ret.add_output(aig.output(i));
+    let mut ret = aig.clone();
+    for i in 0..ret.nb_nodes() {
+        if ret.gate(i).is_and() {
+            ret.replace(
+                i,
+                Gate::Nary(
+                    merge_dependencies(&ret, ret.gate(i), max_size, |t| t.is_and()),
+                    NaryType::And,
+                ),
+            );
+        } else if ret.gate(i).is_xor() {
+            ret.replace(
+                i,
+                Gate::Nary(
+                    merge_dependencies(&ret, ret.gate(i), max_size, |t| t.is_xor()),
+                    NaryType::Xor,
+                ),
+            );
+        }
     }
     ret.cleanup();
     ret.make_canonical();
