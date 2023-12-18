@@ -505,26 +505,17 @@ impl fmt::Display for Gate {
                 };
                 let inv = match tp {
                     NaryType::Nand | NaryType::Nor | NaryType::Xnor => true,
-                    _ => false,
+                    NaryType::And | NaryType::Or | NaryType::Xor => false,
                 };
+                let st = v
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>()
+                    .join(sep);
                 if inv {
-                    write!(
-                        f,
-                        "!({})",
-                        v.iter()
-                            .map(|s| s.to_string())
-                            .collect::<Vec<_>>()
-                            .join(sep)
-                    )
+                    write!(f, "!({})", st)
                 } else {
-                    write!(
-                        f,
-                        "{}",
-                        v.iter()
-                            .map(|s| s.to_string())
-                            .collect::<Vec<_>>()
-                            .join(sep)
-                    )
+                    write!(f, "{}", st)
                 }
             }
             Buf(s) => {
