@@ -193,6 +193,9 @@ mod test {
         aig.add(Gate::and(x0, x1));
         aig.add(Gate::and(!x0, x1));
         aig.add(Gate::and(!x1, !x0));
+        let x2 = aig.add(Gate::and(i0, i1));
+        let x3 = aig.add(Gate::and(!i0, !i1));
+        aig.add(Gate::and(!x2, !x3));
 
         let mut pattern = Network::new();
         pattern.add_inputs(2);
@@ -206,5 +209,33 @@ mod test {
         assert_eq!(matcher.matches(&aig, 3), None);
         assert_eq!(matcher.matches(&aig, 4), None);
         assert_eq!(matcher.matches(&aig, 5), Some(vec![!i0, !i1]));
+        assert_eq!(matcher.matches(&aig, 8), Some(vec![i0, !i1]));
+    }
+
+    /// Test more complex pattern matching
+    #[test]
+    fn test_complex_mux() {
+        let mut aig = Network::new();
+        aig.add_inputs(3);
+        let i0 = Signal::from_input(0);
+        let i1 = Signal::from_input(1);
+        let i2 = Signal::from_input(2);
+        let x0 = aig.add(Gate::and(i0, i1));
+        let x1 = aig.add(Gate::and(!i0, i2));
+        aig.add(Gate::and(!x0, !x1));
+        let x2 = aig.add(Gate::and(i0, i1));
+        let x3 = aig.add(Gate::and(!i0, !i1));
+        aig.add(Gate::and(!x2, !x3));
+
+        let mut pattern = Network::new();
+        pattern.add_inputs(3);
+        let p0 = pattern.add(Gate::and(i0, !i1));
+        let p1 = pattern.add(Gate::and(!i0, !i2));
+        let o = pattern.add(Gate::and(!p0, !p1));
+        pattern.add_output(o);
+
+        let mut matcher = Matcher::from_pattern(&pattern);
+        assert_eq!(matcher.matches(&aig, 2), Some(vec![i0, !i1, !i2]));
+        assert_eq!(matcher.matches(&aig, 5), Some(vec![i0, !i1, i1]));
     }
 }
