@@ -1,5 +1,5 @@
 //! Optimization of logic networks
 
-mod logic_sharing;
+mod share_logic;
 
-pub use logic_sharing::share_logic;
+pub use share_logic::share_logic;
