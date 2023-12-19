@@ -1,3 +1,7 @@
+[![Quaigh crate](https://img.shields.io/crates/v/quaigh.svg)](https://crates.io/crates/quaigh)
+[![Quaigh documentation](https://docs.rs/quaigh/badge.svg)](https://docs.rs/quaigh)
+[![Build status](https://github.com/Coloquinte/quaigh/actions/workflows/build.yml/badge.svg)](https://github.com/Coloquinte/quaigh/actions/workflows/build.yml)
+
 # Quaigh
 
 <!-- cargo-rdme start -->
