@@ -50,8 +50,8 @@
 //! `Network` is a typical Gate-Inverter-Graph representation of a logic circuit.
 //! Inverters are implicit, occupying just one bit in `Signal`.
 //! It supports many kinds of logic, and all can coexist in the same circuit:
-//! * Complex gates such as Xor, Mux and Maj3 are all first class citizens;
-//! * Flip-flops with enable and reset are represented directly.
+//! *   Complex gates such as Xor, Mux and Maj3 are all first class citizens;
+//! *   Flip-flops with enable and reset are represented directly.
 //!
 //! Since the structure targets logic optimization, it maintains some limitations to make algorithms simpler.
 //! All gates have a single output, representing a single binary value.

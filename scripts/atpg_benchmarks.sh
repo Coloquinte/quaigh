@@ -1,8 +1,6 @@
 #!/bin/bash
 
 dirs="atpg"
-time_limit=600
-iter_limit=1000000
 
 cd benchmarks
 
