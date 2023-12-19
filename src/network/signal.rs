@@ -21,6 +21,11 @@ impl Signal {
         Signal { a: 1 }
     }
 
+    /// A placeholder signal
+    pub(crate) fn placeholder() -> Signal {
+        Signal { a: 0x8000_0000 }
+    }
+
     /// Create a signal from a variable index
     pub fn from_var(v: u32) -> Signal {
         Self::from_ind(v + 1)
@@ -60,7 +65,7 @@ impl Signal {
 
     /// Returns true if the signal represents a design input
     pub fn is_input(&self) -> bool {
-        self.a & 0x7000000 != 0
+        self.a & 0x8000_0000 != 0
     }
 
     /// Returns true if the signal represents an internal variable
@@ -167,7 +172,9 @@ impl fmt::Display for Signal {
             if self.is_inverted() {
                 write!(f, "!")?;
             }
-            if self.is_input() {
+            if *self == Signal::placeholder() {
+                write!(f, "##")
+            } else if self.is_input() {
                 // Representation of inputs
                 let v = self.input();
                 write!(f, "i{v}")
@@ -184,7 +191,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_signal() {
+    fn test_constant() {
         let l0 = Signal::zero();
         let l1 = Signal::one();
         assert_eq!(l0, !l1);
@@ -193,8 +200,15 @@ mod tests {
         assert!(l1.is_inverted());
         assert_eq!(format!("{l0}"), "0");
         assert_eq!(format!("{l1}"), "1");
+    }
+
+    #[test]
+    fn test_var() {
         for v in 0u32..10u32 {
             let l = Signal::from_var(v);
+            assert!(l.is_var());
+            assert!(!l.is_constant());
+            assert!(!l.is_input());
             assert_eq!(l.var(), v);
             assert_eq!((!l).var(), v);
             assert!(!l.is_inverted());
@@ -203,8 +217,15 @@ mod tests {
             assert_eq!(l ^ true, !l);
             assert_eq!(format!("{l}"), format!("x{v}"));
         }
+    }
+
+    #[test]
+    fn test_input() {
         for v in 0u32..10u32 {
             let l = Signal::from_input(v);
+            assert!(!l.is_var());
+            assert!(!l.is_constant());
+            assert!(l.is_input());
             assert_eq!(l.input(), v);
             assert_eq!((!l).input(), v);
             assert!(!l.is_inverted());
@@ -213,6 +234,14 @@ mod tests {
             assert_eq!(l ^ true, !l);
             assert_eq!(format!("{l}"), format!("i{v}"));
         }
+    }
+
+    #[test]
+    fn test_placeholder() {
+        let s = Signal::placeholder();
+        assert!(s.is_input());
+        assert_eq!(s.input(), 0x3fff_ffff);
+        assert_eq!(format!("{s}"), "##");
     }
 
     #[test]
