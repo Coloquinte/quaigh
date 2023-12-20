@@ -769,4 +769,14 @@ mod tests {
         assert!(!Gate::mux(i0, !i2, i2).is_canonical());
         assert!(!Gate::mux(!i2, i0, i2).is_canonical());
     }
+
+    /// Check that the size used for Gate does not increase
+    ///
+    /// This is currently too high due to the NAry variant, where the Box uses 16 bytes.
+    /// This could be made lower with another level of indirection, or with an ad-hoc type
+    /// to replace Box.
+    #[test]
+    fn test_representation_size() {
+        assert!(std::mem::size_of::<Gate>() <= 6 * std::mem::size_of::<Signal>());
+    }
 }
