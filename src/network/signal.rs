@@ -5,7 +5,7 @@ use std::ops::{BitXor, BitXorAssign, Not};
 ///
 /// May be 0, 1, x or !x.
 /// Design inputs and constants get a special representation.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Debug, Default)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Default)]
 pub struct Signal {
     a: u32,
 }
@@ -183,6 +183,12 @@ impl fmt::Display for Signal {
                 write!(f, "x{v}")
             }
         }
+    }
+}
+
+impl fmt::Debug for Signal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }
 
