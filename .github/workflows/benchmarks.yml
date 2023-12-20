@@ -5,11 +5,11 @@ on:
     branches: [ "*" ]
 
 
-name: Optimization
+name: Benchmarks
 
 jobs:
-  check:
-    name: Optimization
+  benchmarks:
+    name: Run
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -35,5 +35,8 @@ jobs:
       - name: Download benchmarks
         run: bash scripts/download_benchmarks.sh
 
-      - name: Run
+      - name: Optimization
         run: bash scripts/opt_benchmarks.sh
+
+      - name: Test pattern generation
+        run: bash scripts/atpg_benchmarks.sh

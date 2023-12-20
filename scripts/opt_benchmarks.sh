@@ -17,7 +17,7 @@ do
 	quaigh opt "${benchmark}" -o "${output_file}" || { echo "Optimization failure on ${name}"; exit 1; }
 	determinism_output_file="opt/${name}_check.bench"
 	quaigh opt "${benchmark}" -o "${determinism_output_file}" || { echo "Optimization failure on ${name}"; exit 1; }
-	diff "${output_file}" "${determinism_output_file}" || { echo "Determinism failure on ${name}"; exit 1; }
+	diff "${output_file}" "${determinism_output_file}" || { echo "Optimization determinism failure on ${name}"; exit 1; }
 	echo "Initial stats:"
 	quaigh show "${benchmark}"
 	echo "Final stats:"
