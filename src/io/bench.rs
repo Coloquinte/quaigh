@@ -18,6 +18,7 @@ enum GateType {
     Nor,
     Xor,
     Xnor,
+    Mux,
     Vdd,
     Vss,
 }
@@ -113,6 +114,9 @@ fn network_from_statements(
             Xnor => {
                 ret.add(Gate::Nary(sigs, NaryType::Xnor));
             }
+            Mux => {
+                ret.add(Gate::mux(sigs[0], sigs[1], sigs[2]));
+            }
         }
     }
     for o in outputs {
@@ -177,6 +181,7 @@ pub fn read_bench<R: Read>(r: R) -> Result<Network, String> {
                     "NOR" => Nor,
                     "XOR" => Xor,
                     "XNOR" => Xnor,
+                    "MUX" => Mux,
                     "BUF" | "BUFF" => Buf,
                     "NOT" => Not,
                     "DFF" => Dff,
