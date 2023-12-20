@@ -238,4 +238,105 @@ mod test {
         assert_eq!(matcher.matches(&aig, 2), Some(vec![i0, !i1, !i2]));
         assert_eq!(matcher.matches(&aig, 5), Some(vec![i0, !i1, i1]));
     }
+
+    /// Test the matching of constants
+    #[test]
+    fn test_constants() {
+        let mut aig = Network::new();
+        aig.add_inputs(3);
+        let i0 = Signal::from_input(0);
+        let i1 = Signal::from_input(1);
+        let i2 = Signal::from_input(2);
+        aig.add(Gate::and(i0, Signal::zero()));
+        aig.add(Gate::and(i0, Signal::one()));
+        aig.add(Gate::and(!i0, Signal::zero()));
+        aig.add(Gate::and(i1, Signal::zero()));
+        aig.add(Gate::and(i1, Signal::one()));
+        aig.add(Gate::and(!i1, Signal::zero()));
+        aig.add(Gate::and(i2, Signal::zero()));
+        aig.add(Gate::and(i2, Signal::one()));
+        aig.add(Gate::and(!i2, Signal::zero()));
+
+        let mut pattern = Network::new();
+        pattern.add_inputs(1);
+        let o = pattern.add(Gate::and(i0, Signal::zero()));
+        pattern.add_output(o);
+
+        let mut matcher = Matcher::from_pattern(&pattern);
+        assert_eq!(matcher.matches(&aig, 0), Some(vec![i0]));
+        assert_eq!(matcher.matches(&aig, 1), None);
+        assert_eq!(matcher.matches(&aig, 2), Some(vec![!i0]));
+        assert_eq!(matcher.matches(&aig, 3), Some(vec![i1]));
+        assert_eq!(matcher.matches(&aig, 4), None);
+        assert_eq!(matcher.matches(&aig, 5), Some(vec![!i1]));
+        assert_eq!(matcher.matches(&aig, 6), Some(vec![i2]));
+        assert_eq!(matcher.matches(&aig, 7), None);
+        assert_eq!(matcher.matches(&aig, 8), Some(vec![!i2]));
+    }
+
+    /// Test matching with a loop
+    #[test]
+    fn test_loop() {
+        let mut aig = Network::new();
+        aig.add_inputs(3);
+        let d = Signal::from_input(0);
+        let en = Signal::from_input(1);
+
+        // Loop corresponding to a Dff enable
+        aig.add(Gate::mux(en, d, Signal::from_var(1)));
+        aig.add(Gate::dff(
+            Signal::from_var(0),
+            Signal::one(),
+            Signal::zero(),
+        ));
+
+        // Not a loop
+        aig.add(Gate::mux(en, d, Signal::from_input(2)));
+        aig.add(Gate::dff(
+            Signal::from_var(2),
+            Signal::one(),
+            Signal::zero(),
+        ));
+
+        // Loop corresponding to the opposite Dff enable
+        aig.add(Gate::mux(!en, d, Signal::from_var(5)));
+        aig.add(Gate::dff(
+            Signal::from_var(4),
+            Signal::one(),
+            Signal::zero(),
+        ));
+
+        // Loop with a toggle that shouldn't be matched
+        aig.add(Gate::mux(en, d, !Signal::from_var(7)));
+        aig.add(Gate::dff(
+            Signal::from_var(6),
+            Signal::one(),
+            Signal::zero(),
+        ));
+
+        // Loop with a toggle that shouldn't be matched
+        aig.add(Gate::mux(en, d, Signal::from_var(9)));
+        aig.add(Gate::dff(
+            !Signal::from_var(8),
+            Signal::one(),
+            Signal::zero(),
+        ));
+
+        let mut pattern = Network::new();
+        pattern.add_inputs(2);
+        pattern.add(Gate::mux(en, d, Signal::from_var(1)));
+        pattern.add(Gate::dff(
+            Signal::from_var(0),
+            Signal::one(),
+            Signal::zero(),
+        ));
+        pattern.add_output(Signal::from_var(1));
+
+        let mut matcher = Matcher::from_pattern(&pattern);
+        assert_eq!(matcher.matches(&aig, 1), Some(vec![d, en]));
+        assert_eq!(matcher.matches(&aig, 3), None);
+        assert_eq!(matcher.matches(&aig, 5), Some(vec![d, !en]));
+        assert_eq!(matcher.matches(&aig, 7), None);
+        assert_eq!(matcher.matches(&aig, 9), None);
+    }
 }

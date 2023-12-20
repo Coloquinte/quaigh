@@ -10,6 +10,7 @@ use crate::{Gate, NaryType, Network, Signal};
 enum GateType {
     Input,
     Dff,
+    DffRSE,
     Buf,
     Not,
     And,
@@ -83,6 +84,10 @@ fn network_from_statements(
             Input => (),
             Dff => {
                 ret.add(Gate::Dff([sigs[0], Signal::one(), Signal::zero()]));
+            }
+            DffRSE => {
+                assert_eq!(sigs[1], Signal::zero());
+                ret.add(Gate::Dff([sigs[0], sigs[3], sigs[1]]));
             }
             Buf => {
                 ret.add(Gate::Buf(sigs[0]));
@@ -185,6 +190,7 @@ pub fn read_bench<R: Read>(r: R) -> Result<Network, String> {
                     "BUF" | "BUFF" => Buf,
                     "NOT" => Not,
                     "DFF" => Dff,
+                    "DFFRSE" => DffRSE,
                     "VDD" => Vdd,
                     "GND" => Vss,
                     _ => panic!("Unwnown gate type {}", parts[1]),
@@ -265,9 +271,17 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Network) {
             },
             Dff([d, en, res]) => {
                 if *en != Signal::one() || *res != Signal::zero() {
-                    panic!("Only DFF without enable or reset are supported");
+                    writeln!(
+                        w,
+                        "DFFRSE({}, {}, gnd, {})",
+                        sig_to_string(d),
+                        sig_to_string(res),
+                        sig_to_string(en)
+                    )
+                    .unwrap();
+                } else {
+                    writeln!(w, "DFF({})", sig_to_string(d)).unwrap();
                 }
-                writeln!(w, "DFF({})", sig_to_string(d)).unwrap();
             }
             Ternary(_, TernaryType::Mux) => {
                 writeln!(w, "MUX({})", rep).unwrap();
