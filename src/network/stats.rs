@@ -29,8 +29,12 @@ pub struct NetworkStats {
     pub nb_outputs: usize,
     /// Number of And and similar gates
     pub nb_and: usize,
+    /// Arity of And gates
+    pub and_arity: Vec<usize>,
     /// Number of Xor and similar gates
     pub nb_xor: usize,
+    /// Arity of Xor gates
+    pub xor_arity: Vec<usize>,
     /// Number of Mux
     pub nb_mux: usize,
     /// Number of Maj
@@ -41,10 +45,10 @@ pub struct NetworkStats {
     pub nb_not: usize,
     /// Number of Dff
     pub nb_dff: usize,
-    /// Arity of And gates
-    pub and_arity: Vec<usize>,
-    /// Arity of Xor gates
-    pub xor_arity: Vec<usize>,
+    /// Number of Dff with enable
+    pub nb_dffe: usize,
+    /// Number of Dff with reset
+    pub nb_dffr: usize,
 }
 
 impl NetworkStats {
@@ -80,6 +84,12 @@ impl fmt::Display for NetworkStats {
         writeln!(f, "  Gates: {}", self.nb_gates())?;
         if self.nb_dff != 0 {
             writeln!(f, "  Dff: {}", self.nb_dff)?;
+            if self.nb_dffe != 0 {
+                writeln!(f, "      enable: {}", self.nb_dff)?;
+            }
+            if self.nb_dffr != 0 {
+                writeln!(f, "      reset: {}", self.nb_dff)?;
+            }
         }
         if self.nb_and != 0 {
             writeln!(f, "  And: {}", self.nb_and)?;
@@ -120,14 +130,16 @@ pub fn stats(a: &Network) -> NetworkStats {
         nb_inputs: a.nb_inputs(),
         nb_outputs: a.nb_outputs(),
         nb_and: 0,
+        and_arity: Vec::new(),
         nb_xor: 0,
+        xor_arity: Vec::new(),
         nb_maj: 0,
         nb_mux: 0,
         nb_buf: 0,
         nb_not: 0,
         nb_dff: 0,
-        and_arity: Vec::new(),
-        xor_arity: Vec::new(),
+        nb_dffe: 0,
+        nb_dffr: 0,
     };
     for i in 0..a.nb_nodes() {
         match a.gate(i) {
@@ -144,7 +156,15 @@ pub fn stats(a: &Network) -> NetworkStats {
                     ret.nb_buf += 1;
                 }
             }
-            Dff(_) => ret.nb_dff += 1,
+            Dff([_, en, res]) => {
+                ret.nb_dff += 1;
+                if !en.is_constant() {
+                    ret.nb_dffe += 1;
+                }
+                if !res.is_constant() {
+                    ret.nb_dffr += 1;
+                }
+            }
             Nary(v, tp) => match tp {
                 NaryType::And | NaryType::Or | NaryType::Nand | NaryType::Nor => {
                     ret.add_and(v.len());
