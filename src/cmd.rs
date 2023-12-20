@@ -130,6 +130,10 @@ pub struct OptArgs {
     #[arg(short = 'o', long)]
     output: PathBuf,
 
+    /// Effort level
+    #[arg(long, default_value_t = 1)]
+    effort: u64,
+
     /// Seed for randomized algorithms
     #[arg(long)]
     seed: Option<u64>,
@@ -144,6 +148,11 @@ impl OptArgs {
         aig.cleanup();
         aig.make_canonical();
         optim::share_logic(&mut aig, 64);
+        for _ in 0..self.effort {
+            optim::infer_xor_mux(&mut aig);
+            optim::infer_dffe(&mut aig);
+            optim::share_logic(&mut aig, 64);
+        }
         write_network_file(&self.output, &aig);
     }
 }
