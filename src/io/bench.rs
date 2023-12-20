@@ -320,6 +320,8 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Network) {
             }
         }
     }
+    let mut signals_with_inv = signals_with_inv.iter().collect::<Vec<_>>();
+    signals_with_inv.sort();
     for s in signals_with_inv {
         writeln!(w, "{}_n = NOT({})", s, s).unwrap();
     }

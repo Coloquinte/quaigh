@@ -96,7 +96,7 @@ impl Factoring {
             next_var,
             built_pairs: Vec::new(),
             count_to_pair: Vec::new(),
-            pair_to_gates: HashMap::new(),
+            pair_to_gates: HashMap::default(),
         }
     }
 
@@ -107,7 +107,7 @@ impl Factoring {
 
     /// Count the number of time each signal is used
     fn count_signal_usage(&self) -> HashMap<Signal, u32> {
-        let mut count = HashMap::<Signal, u32>::new();
+        let mut count = HashMap::<Signal, u32>::default();
         for v in &self.gate_signals {
             for s in v {
                 count.entry(*s).and_modify(|e| *e += 1).or_insert(1);
@@ -145,7 +145,7 @@ impl Factoring {
 
     /// Gather the gates where each pair is used
     fn compute_pair_to_gates(&self) -> HashMap<(Signal, Signal), HashSet<usize>> {
-        let mut ret = HashMap::<(Signal, Signal), HashSet<usize>>::new();
+        let mut ret = HashMap::<(Signal, Signal), HashSet<usize>>::default();
         for (i, v) in self.gate_signals.iter().enumerate() {
             for (a, b) in v.iter().tuple_combinations() {
                 let p = Factoring::make_pair(a, b);
@@ -153,7 +153,11 @@ impl Factoring {
                     .and_modify(|e| {
                         e.insert(i);
                     })
-                    .or_insert(HashSet::from([i]));
+                    .or_insert({
+                        let mut hsh = HashSet::default();
+                        hsh.insert(i);
+                        hsh
+                    });
             }
         }
         ret
@@ -166,7 +170,7 @@ impl Factoring {
         for (p, gates_touched) in &self.pair_to_gates {
             let cnt = gates_touched.len();
             if self.count_to_pair.len() <= cnt {
-                self.count_to_pair.resize(cnt + 1, HashSet::new());
+                self.count_to_pair.resize(cnt + 1, HashSet::default());
             }
             self.count_to_pair[cnt].insert(*p);
         }
@@ -234,10 +238,14 @@ impl Factoring {
             .and_modify(|e| {
                 e.insert(gate);
             })
-            .or_insert(HashSet::from([gate]));
+            .or_insert({
+                let mut hsh = HashSet::default();
+                hsh.insert(gate);
+                hsh
+            });
         let cnt = self.pair_to_gates[&p].len();
         if self.count_to_pair.len() <= cnt {
-            self.count_to_pair.resize(cnt + 1, HashSet::new());
+            self.count_to_pair.resize(cnt + 1, HashSet::default());
         }
         self.count_to_pair[cnt - 1].remove(&p);
         self.count_to_pair[cnt].insert(p);

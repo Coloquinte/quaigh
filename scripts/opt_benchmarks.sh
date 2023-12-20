@@ -9,12 +9,15 @@ do
 	mkdir -p "${dir}"
 done
 
-for benchmark in bench/*.bench
+for benchmark in bench/c*.bench bench/s*.bench bench/b*.bench
 do
         name=$(basename "${benchmark}" .bench)
 	echo "Running benchmark ${name}"
 	output_file="opt/${name}.bench"
-	quaigh opt "${benchmark}" -o "${output_file}" --seed 1 || { echo "Optimization failure on ${name}"; exit 1; }
+	quaigh opt "${benchmark}" -o "${output_file}" || { echo "Optimization failure on ${name}"; exit 1; }
+	determinism_output_file="opt/${name}_check.bench"
+	quaigh opt "${benchmark}" -o "${determinism_output_file}" || { echo "Optimization failure on ${name}"; exit 1; }
+	diff "${output_file}" "${determinism_output_file}" || { echo "Determinism failure on ${name}"; exit 1; }
 	echo "Initial stats:"
 	quaigh show "${benchmark}"
 	echo "Final stats:"
