@@ -4,9 +4,9 @@
 //! maximize sharing between gates.
 
 use std::cmp;
-use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 
+use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 
 use crate::{Gate, NaryType, Network, Signal};
@@ -80,9 +80,9 @@ struct Factoring {
     /// Pairs that have already been built
     built_pairs: Vec<(Signal, Signal)>,
     /// Pairs organized by bucket of usage count
-    count_to_pair: Vec<HashSet<(Signal, Signal)>>,
+    count_to_pair: Vec<FxHashSet<(Signal, Signal)>>,
     /// Pairs to their usage location
-    pair_to_gates: HashMap<(Signal, Signal), HashSet<usize>>,
+    pair_to_gates: FxHashMap<(Signal, Signal), FxHashSet<usize>>,
     // TODO: use faster hashmaps
     // TODO: handle the common case (no sharing) separately
 }
@@ -96,7 +96,7 @@ impl Factoring {
             next_var,
             built_pairs: Vec::new(),
             count_to_pair: Vec::new(),
-            pair_to_gates: HashMap::default(),
+            pair_to_gates: FxHashMap::default(),
         }
     }
 
@@ -106,8 +106,8 @@ impl Factoring {
     }
 
     /// Count the number of time each signal is used
-    fn count_signal_usage(&self) -> HashMap<Signal, u32> {
-        let mut count = HashMap::<Signal, u32>::default();
+    fn count_signal_usage(&self) -> FxHashMap<Signal, u32> {
+        let mut count = FxHashMap::<Signal, u32>::default();
         for v in &self.gate_signals {
             for s in v {
                 count.entry(*s).and_modify(|e| *e += 1).or_insert(1);
@@ -144,8 +144,8 @@ impl Factoring {
     }
 
     /// Gather the gates where each pair is used
-    fn compute_pair_to_gates(&self) -> HashMap<(Signal, Signal), HashSet<usize>> {
-        let mut ret = HashMap::<(Signal, Signal), HashSet<usize>>::default();
+    fn compute_pair_to_gates(&self) -> FxHashMap<(Signal, Signal), FxHashSet<usize>> {
+        let mut ret = FxHashMap::<(Signal, Signal), FxHashSet<usize>>::default();
         for (i, v) in self.gate_signals.iter().enumerate() {
             for (a, b) in v.iter().tuple_combinations() {
                 let p = Factoring::make_pair(a, b);
@@ -154,7 +154,7 @@ impl Factoring {
                         e.insert(i);
                     })
                     .or_insert({
-                        let mut hsh = HashSet::default();
+                        let mut hsh = FxHashSet::default();
                         hsh.insert(i);
                         hsh
                     });
@@ -170,7 +170,7 @@ impl Factoring {
         for (p, gates_touched) in &self.pair_to_gates {
             let cnt = gates_touched.len();
             if self.count_to_pair.len() <= cnt {
-                self.count_to_pair.resize(cnt + 1, HashSet::default());
+                self.count_to_pair.resize(cnt + 1, FxHashSet::default());
             }
             self.count_to_pair[cnt].insert(*p);
         }
@@ -239,13 +239,13 @@ impl Factoring {
                 e.insert(gate);
             })
             .or_insert({
-                let mut hsh = HashSet::default();
+                let mut hsh = FxHashSet::default();
                 hsh.insert(gate);
                 hsh
             });
         let cnt = self.pair_to_gates[&p].len();
         if self.count_to_pair.len() <= cnt {
-            self.count_to_pair.resize(cnt + 1, HashSet::default());
+            self.count_to_pair.resize(cnt + 1, FxHashSet::default());
         }
         self.count_to_pair[cnt - 1].remove(&p);
         self.count_to_pair[cnt].insert(p);
