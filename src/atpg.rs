@@ -202,7 +202,7 @@ impl<'a> TestPatternGenerator<'a> {
         }
     }
 
-    /// Add a new set of patterns to the current set
+    /// Add a single pattern to the current set
     pub fn add_single_pattern(&mut self, pattern: Vec<bool>, check_already_detected: bool) {
         let mut det = Vec::new();
         for (i, f) in self.faults.iter().enumerate() {
@@ -216,6 +216,34 @@ impl<'a> TestPatternGenerator<'a> {
         }
         self.patterns.push(pattern);
         self.pattern_detections.push(det);
+    }
+
+    /// Add a single pattern and random variations to the current set
+    pub fn add_random_patterns_from(&mut self, pattern: Vec<bool>, check_already_detected: bool) {
+        let mut patterns = Vec::new();
+        let num_rounds = 4; // Generate mostly 0s, with 1/16 values being ones
+        for b in pattern {
+            let mut val = if b { !0 } else { 0 };
+            let mut change = !0;
+            for _ in 0..num_rounds {
+                change &= self.rng.gen::<u64>();
+            }
+            val ^= change;
+            val &= !1; // Ensure that the first pattern is the original one
+            patterns.push(val);
+        }
+        let mut det = Vec::new();
+        for (i, f) in self.faults.iter().enumerate() {
+            if !check_already_detected && self.detection[i] {
+                det.push(0u64);
+            } else {
+                let d = detects_fault(self.aig, &patterns, *f);
+                self.detection[i] |= d != 0u64;
+                det.push(d);
+            }
+        }
+        Self::extend_vec(&mut self.patterns, patterns);
+        Self::extend_vec(&mut self.pattern_detections, det);
     }
 
     /// Add a new set of patterns to the current set
@@ -374,7 +402,7 @@ pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
         let p = find_pattern_detecting_fault(aig, gen.faults[i]);
         if let Some(pattern) = p {
             // TODO: generate new patterns opportunistically by mutating this one
-            gen.add_single_pattern(pattern, false);
+            gen.add_random_patterns_from(pattern, false);
         } else {
             unobservable += 1;
         }
