@@ -371,7 +371,7 @@ pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
             "Analyzing network with {} inputs, {} outputs and {} possible faults",
             aig.nb_inputs(),
             aig.nb_outputs(),
-            gen.nb_faults()
+            gen.nb_faults(),
         ))
         .unwrap();
     loop {
@@ -389,10 +389,11 @@ pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
     }
     progress
         .write(format!(
-            "Generated {} random patterns, detecting {}/{} faults",
+            "Generated {} random patterns, detecting {}/{} faults ({:.2}% coverage)",
             gen.nb_patterns(),
             gen.nb_detected(),
-            gen.nb_faults()
+            gen.nb_faults(),
+            100.0 * (gen.nb_detected() as f64) / (gen.nb_faults() as f64)
         ))
         .unwrap();
     let mut unobservable = 0;
@@ -402,7 +403,6 @@ pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
         }
         let p = find_pattern_detecting_fault(aig, gen.faults[i]);
         if let Some(pattern) = p {
-            // TODO: generate new patterns opportunistically by mutating this one
             gen.add_random_patterns_from(pattern, false);
         } else {
             unobservable += 1;
@@ -418,10 +418,11 @@ pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
     }
     progress
         .write(format!(
-            "Generated {} patterns total, detecting {}/{} faults",
+            "Generated {} patterns total, detecting {}/{} faults ({:.2}% coverage)",
             gen.nb_patterns(),
             gen.nb_detected(),
-            gen.nb_faults()
+            gen.nb_faults(),
+            100.0 * (gen.nb_detected() as f64) / (gen.nb_faults() as f64)
         ))
         .unwrap();
     gen.check();
@@ -429,10 +430,11 @@ pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
     gen.check();
     progress
         .write(format!(
-            "Kept {} patterns, detecting {}/{} faults",
+            "Kept {} patterns, detecting {}/{} faults ({:.2}% coverage)",
             gen.nb_patterns(),
             gen.nb_detected(),
-            gen.nb_faults()
+            gen.nb_faults(),
+            100.0 * (gen.nb_detected() as f64) / (gen.nb_faults() as f64)
         ))
         .unwrap();
     gen.patterns
