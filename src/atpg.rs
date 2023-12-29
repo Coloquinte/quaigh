@@ -10,7 +10,10 @@ use crate::{Gate, Network, Signal};
 
 /// Expose flip_flops as inputs for ATPG
 ///
-/// The inputs are added after the original inputs. Their order matches the order of the flip flops
+/// Flip-flop outputs are exposed are primary inputs. Flip-flop inputs, including
+/// enable and reset, become primary outputs.
+/// The new inputs and outputs are added after the original inputs, and their order
+/// matches the order of the flip flops.
 pub fn expose_dff(aig: &Network) -> Network {
     let mut ret = Network::new();
     ret.add_inputs(aig.nb_inputs());
@@ -66,6 +69,8 @@ fn detects_fault_single(aig: &Network, pattern: &Vec<bool>, fault: Fault) -> boo
 /// Each gate may be in one of two cases:
 ///     * in the logic cone after the fault: those need to be duplicated with/without the fault
 ///     * elsewhere, where they don't need to be duplicated
+/// To keep things simpler, we create the full network with/without the fault, and let basic
+/// deduplication handle the rest.
 fn find_pattern_detecting_fault(aig: &Network, fault: Fault) -> Option<Vec<bool>> {
     // Translation of the original signal into the fault
     let fault_translation = |s: &Signal| -> Signal {
@@ -340,17 +345,18 @@ pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
             gen.nb_faults()
         ))
         .unwrap();
-    let mut nb_unsuccesful = 0;
-    while nb_unsuccesful < 4 {
+    loop {
         let nb_detected_before = gen.nb_detected();
         gen.add_random_patterns(true);
-        if nb_detected_before < gen.nb_detected() {
-            nb_unsuccesful = 0;
-            progress.update_to(gen.nb_detected()).unwrap();
-        } else {
-            nb_unsuccesful += 1;
-        }
+        let nb_detected_after = gen.nb_detected();
         progress.set_postfix(format!("patterns={}", gen.nb_patterns()));
+        progress.update_to(gen.nb_detected()).unwrap();
+        if nb_detected_after == gen.nb_faults() {
+            break;
+        }
+        if ((nb_detected_after - nb_detected_before) as f64) < (0.01 * gen.nb_faults() as f64) {
+            break;
+        }
     }
     progress
         .write(format!(
@@ -369,7 +375,6 @@ pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
         if let Some(pattern) = p {
             // TODO: generate new patterns opportunistically by mutating this one
             gen.add_single_pattern(pattern, false);
-            progress.update_to(gen.nb_detected()).unwrap();
         } else {
             unobservable += 1;
         }
@@ -378,6 +383,7 @@ pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
             gen.nb_patterns(),
             unobservable
         ));
+        progress.update_to(gen.nb_detected()).unwrap();
     }
     progress
         .write(format!(
