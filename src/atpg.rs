@@ -1,5 +1,6 @@
 //! Test pattern generation
 
+use kdam::{tqdm, BarExt};
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 
@@ -325,32 +326,41 @@ impl<'a> TestPatternGenerator<'a> {
 /// Generate combinatorial test patterns
 ///
 /// This will generate random test patterns, then try to exercize the remaining faults
-/// using a SAT solver. The networks need to be combinatorial.
+/// using a SAT solver. The network needs to be combinatorial.
 pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
     assert!(aig.is_comb());
     let mut gen = TestPatternGenerator::from(aig, seed);
-    println!(
-        "Analyzing network with {} inputs, {} outputs and {} possible faults",
-        aig.nb_inputs(),
-        aig.nb_outputs(),
-        gen.nb_faults()
-    );
+    let mut progress = tqdm!(total = gen.nb_faults());
+    progress.set_description("Faults processed");
+    progress
+        .write(format!(
+            "Analyzing network with {} inputs, {} outputs and {} possible faults",
+            aig.nb_inputs(),
+            aig.nb_outputs(),
+            gen.nb_faults()
+        ))
+        .unwrap();
     let mut nb_unsuccesful = 0;
     while nb_unsuccesful < 4 {
         let nb_detected_before = gen.nb_detected();
         gen.add_random_patterns(true);
         if nb_detected_before < gen.nb_detected() {
             nb_unsuccesful = 0;
+            progress.update_to(gen.nb_detected()).unwrap();
         } else {
             nb_unsuccesful += 1;
         }
+        progress.set_postfix(format!("patterns={}", gen.nb_patterns()));
     }
-    println!(
-        "Generated {} random patterns, detecting {}/{} faults",
-        gen.nb_patterns(),
-        gen.nb_detected(),
-        gen.nb_faults()
-    );
+    progress
+        .write(format!(
+            "Generated {} random patterns, detecting {}/{} faults",
+            gen.nb_patterns(),
+            gen.nb_detected(),
+            gen.nb_faults()
+        ))
+        .unwrap();
+    let mut unobservable = 0;
     for i in 0..gen.nb_faults() {
         if gen.detection[i] {
             continue;
@@ -359,22 +369,34 @@ pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
         if let Some(pattern) = p {
             // TODO: generate new patterns opportunistically by mutating this one
             gen.add_single_pattern(pattern, false);
+            progress.update_to(gen.nb_detected()).unwrap();
+        } else {
+            unobservable += 1;
         }
+        progress.set_postfix(format!(
+            "patterns={} unobservable={}",
+            gen.nb_patterns(),
+            unobservable
+        ));
     }
-    println!(
-        "Generated {} patterns total, detecting {}/{} faults",
-        gen.nb_patterns(),
-        gen.nb_detected(),
-        gen.nb_faults()
-    );
+    progress
+        .write(format!(
+            "Generated {} patterns total, detecting {}/{} faults",
+            gen.nb_patterns(),
+            gen.nb_detected(),
+            gen.nb_faults()
+        ))
+        .unwrap();
     gen.check();
     gen.compress_patterns();
     gen.check();
-    println!(
-        "Kept {} patterns, detecting {}/{} faults",
-        gen.nb_patterns(),
-        gen.nb_detected(),
-        gen.nb_faults()
-    );
+    progress
+        .write(format!(
+            "Kept {} patterns, detecting {}/{} faults",
+            gen.nb_patterns(),
+            gen.nb_detected(),
+            gen.nb_faults()
+        ))
+        .unwrap();
     gen.patterns
 }
