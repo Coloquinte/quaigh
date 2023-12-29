@@ -203,6 +203,7 @@ impl<'a> TestPatternGenerator<'a> {
     }
 
     /// Add a single pattern to the current set
+    #[allow(dead_code)]
     pub fn add_single_pattern(&mut self, pattern: Vec<bool>, check_already_detected: bool) {
         let mut det = Vec::new();
         for (i, f) in self.faults.iter().enumerate() {
@@ -411,7 +412,9 @@ pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
             gen.nb_patterns(),
             unobservable
         ));
-        progress.update_to(gen.nb_detected()).unwrap();
+        progress
+            .update_to(gen.nb_detected() + unobservable)
+            .unwrap();
     }
     progress
         .write(format!(
