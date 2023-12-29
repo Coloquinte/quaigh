@@ -4,10 +4,6 @@ This file lists useful developments ideas for Quaigh.
 
 # Optimization and transformations
 
-## Pattern matching
-
-A simple pattern matching API would go a long way to detect more complex gates such as Xor, Mux and Enable/Reset on Dff.
-
 ## 2-level simplification
 
 2-level simplification of Sum-of-Products and Exclusive-Sum-of-Products is very common and useful.

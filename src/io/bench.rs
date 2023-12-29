@@ -161,21 +161,28 @@ pub fn read_bench<R: Read>(r: R) -> Result<Network, String> {
             if t.is_empty() || t.starts_with('#') {
                 continue;
             }
-            let parts: Vec<_> = t
-                .split(&['=', '(', ',', ')'])
-                .map(|s| s.trim())
-                .filter(|s| !s.is_empty())
-                .collect();
-
-            if parts.len() == 2 && ["INPUT", "OUTPUT"].contains(&parts[0]) {
-                if parts[0] == "INPUT" {
+            if !t.contains("=") {
+                let parts: Vec<_> = t
+                    .split(&['(', ')'])
+                    .map(|s| s.trim())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                assert_eq!(parts.len(), 2);
+                if ["INPUT", "PINPUT"].contains(&parts[0]) {
                     statements.push((parts[1].to_string(), Input, Vec::new()));
-                } else {
+                } else if ["OUTPUT", "POUTPUT"].contains(&parts[0]) {
                     outputs.push(parts[1].to_string());
+                } else {
+                    panic!("Unknown keyword {}", parts[0]);
                 }
-            } else if parts.len() < 2 {
-                panic!("Too few items on the line");
             } else {
+                let parts: Vec<_> = t
+                    .split(&['=', '(', ',', ')'])
+                    .map(|s| s.trim())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                assert!(parts.len() >= 2);
+
                 // TODO: avoid allocations here and continue working with &str
                 let inputs: Vec<String> = parts[2..].iter().map(|s| s.to_string()).collect();
                 let gate = parts[0].to_string();
