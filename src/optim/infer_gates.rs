@@ -1,6 +1,7 @@
 //! Infer Xor and Mux gates from And gates
 
-use crate::{network::matcher::Matcher, Gate, Network, Signal};
+use crate::network::matcher::Matcher;
+use crate::{Gate, Network, Signal};
 
 fn mux_pattern() -> Network {
     let mut pattern = Network::new();

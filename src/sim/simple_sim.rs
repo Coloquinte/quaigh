@@ -1,4 +1,5 @@
-use crate::{network::BinaryType, NaryType, Network, Signal};
+use crate::network::BinaryType;
+use crate::{NaryType, Network, Signal};
 
 use super::Fault;
 

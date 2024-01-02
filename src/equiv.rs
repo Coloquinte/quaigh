@@ -4,10 +4,8 @@ use std::collections::HashMap;
 
 use cat_solver::Solver;
 
-use crate::{
-    network::{BinaryType, TernaryType},
-    Gate, NaryType, Network, Signal,
-};
+use crate::network::{BinaryType, TernaryType};
+use crate::{Gate, NaryType, Network, Signal};
 
 // TODO: have clean clause builder object to encapsulate this part
 
