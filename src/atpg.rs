@@ -5,7 +5,7 @@ use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 
 use crate::equiv::{difference, prove};
-use crate::sim::{simulate_comb_multi, simulate_comb_multi_with_faults, Fault};
+use crate::sim::{detects_fault, detects_fault_multi, Fault};
 use crate::{Gate, Network, Signal};
 
 /// Expose flip_flops as inputs for ATPG
@@ -38,30 +38,6 @@ pub fn expose_dff(aig: &Network) -> Network {
     }
     ret.check();
     ret
-}
-
-/// Analyze which of a set of pattern detect a given fault
-fn detects_fault(aig: &Network, pattern: &Vec<u64>, fault: Fault) -> u64 {
-    assert!(aig.is_comb());
-    assert!(aig.is_topo_sorted());
-    let expected = simulate_comb_multi(aig, pattern);
-    let obtained = simulate_comb_multi_with_faults(aig, pattern, &vec![fault]);
-    let mut detection = 0u64;
-    for (a, b) in std::iter::zip(expected, obtained) {
-        detection |= a ^ b;
-    }
-    detection
-}
-
-/// Analyze whether a pattern detects a given fault
-fn detects_fault_single(aig: &Network, pattern: &Vec<bool>, fault: Fault) -> bool {
-    let multi_pattern = pattern
-        .iter()
-        .map(|b| if *b { !0u64 } else { 0u64 })
-        .collect();
-    let detection = detects_fault(aig, &multi_pattern, fault);
-    assert!(detection == 0u64 || detection == !0u64);
-    detection == !0u64
 }
 
 /// Find a new test pattern for a specific fault using a SAT solver
@@ -103,7 +79,7 @@ fn find_pattern_detecting_fault(aig: &Network, fault: Fault) -> Option<Vec<bool>
     diff.cleanup();
     let ret = prove(&diff);
     if let Some(pattern) = &ret {
-        assert!(detects_fault_single(aig, &pattern, fault));
+        assert!(detects_fault(aig, &pattern, fault));
     }
     ret
 }
@@ -167,7 +143,7 @@ impl<'a> TestPatternGenerator<'a> {
     /// Initialize the generator from a network and a seed
     pub fn from(aig: &'a Network, seed: u64) -> TestPatternGenerator {
         assert!(aig.is_topo_sorted());
-        let faults = Self::get_all_faults(aig);
+        let faults = Fault::all(aig);
         let nb_faults = faults.len();
         TestPatternGenerator {
             aig,
@@ -177,22 +153,6 @@ impl<'a> TestPatternGenerator<'a> {
             detection: vec![false; nb_faults],
             rng: SmallRng::seed_from_u64(seed),
         }
-    }
-
-    /// Get all possible faults in a network
-    fn get_all_faults(aig: &'a Network) -> Vec<Fault> {
-        let mut ret = Vec::new();
-        for i in 0..aig.nb_nodes() {
-            ret.push(Fault::OutputStuckAtFault {
-                gate: i,
-                value: false,
-            });
-            ret.push(Fault::OutputStuckAtFault {
-                gate: i,
-                value: true,
-            });
-        }
-        ret
     }
 
     /// Extend a vector of boolean vectors with 64 elements at once
@@ -210,7 +170,7 @@ impl<'a> TestPatternGenerator<'a> {
             if !check_already_detected && self.detection[i] {
                 det.push(false);
             } else {
-                let d = detects_fault_single(self.aig, &pattern, *f);
+                let d = detects_fault(self.aig, &pattern, *f);
                 self.detection[i] |= d;
                 det.push(d);
             }
@@ -238,7 +198,7 @@ impl<'a> TestPatternGenerator<'a> {
             if !check_already_detected && self.detection[i] {
                 det.push(0u64);
             } else {
-                let d = detects_fault(self.aig, &patterns, *f);
+                let d = detects_fault_multi(self.aig, &patterns, *f);
                 self.detection[i] |= d != 0u64;
                 det.push(d);
             }
@@ -255,7 +215,7 @@ impl<'a> TestPatternGenerator<'a> {
             if !check_already_detected && self.detection[i] {
                 det.push(0u64);
             } else {
-                let d = detects_fault(self.aig, &pattern, *f);
+                let d = detects_fault_multi(self.aig, &pattern, *f);
                 self.detection[i] |= d != 0u64;
                 det.push(d);
             }
