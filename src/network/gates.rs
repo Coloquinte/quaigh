@@ -219,6 +219,18 @@ impl Gate {
         }
     }
 
+    /// Apply a remapping of the signals to the gate that takes the position as argument
+    pub(crate) fn remap_with_ind<F: Fn(&Signal, usize) -> Signal>(&self, t: F) -> Gate {
+        use Gate::*;
+        match self {
+            Binary([a, b], tp) => Binary([t(a, 0), t(b, 1)], *tp),
+            Ternary([a, b, c], tp) => Ternary([t(a, 0), t(b, 1), t(c, 2)], *tp),
+            Dff([a, b, c]) => Dff([t(a, 0), t(b, 1), t(c, 2)]),
+            Nary(v, tp) => Nary(v.iter().enumerate().map(|(i, s)| t(s, i)).collect(), *tp),
+            Buf(s) => Buf(t(s, 0)),
+        }
+    }
+
     /// Apply a remapping of variable order to the gate
     pub(crate) fn remap_order(&self, t: &[Signal]) -> Gate {
         let f = |s: &Signal| s.remap_order(t);

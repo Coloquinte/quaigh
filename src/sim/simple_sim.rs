@@ -163,8 +163,49 @@ impl<'a> SimpleSimulator<'a> {
         }
     }
 
+    /// Return the result of a single gate with a fault on an input
+    pub fn run_gate_with_input_stuck(&self, i: usize, input: usize, value: bool) -> u64 {
+        // TODO: this is an ugly duplication but I don't see how to make it cleaner
+        assert!(input < self.aig.gate(i).dependencies().len());
+        let v = if value { !0u64 } else { 0u64 };
+        use crate::Gate::*;
+        let g = self.aig.gate(i);
+        match g {
+            Binary([a, b], tp) => {
+                let va = if input == 0 { v } else { self.get_value(*a) };
+                let vb = if input == 1 { v } else { self.get_value(*b) };
+                match tp {
+                    BinaryType::And => va & vb,
+                    BinaryType::Xor => va ^ vb,
+                }
+            }
+            Ternary([a, b, c], tp) => {
+                let va = if input == 0 { v } else { self.get_value(*a) };
+                let vb = if input == 1 { v } else { self.get_value(*b) };
+                let vc = if input == 2 { v } else { self.get_value(*c) };
+                match tp {
+                    crate::network::TernaryType::And => va & vb & vc,
+                    crate::network::TernaryType::Xor => va ^ vb ^ vc,
+                    crate::network::TernaryType::Maj => maj(va, vb, vc),
+                    crate::network::TernaryType::Mux => mux(va, vb, vc),
+                }
+            }
+            Dff(_) => self.node_values[i],
+            Nary(v, tp) => match tp {
+                NaryType::And => self.compute_andn_with_input_stuck(v, false, false, input, value),
+                NaryType::Or => self.compute_andn_with_input_stuck(v, true, true, input, value),
+                NaryType::Nand => self.compute_andn_with_input_stuck(v, false, true, input, value),
+                NaryType::Nor => self.compute_andn_with_input_stuck(v, true, false, input, value),
+                NaryType::Xor => self.compute_xorn_with_input_stuck(v, false, input, value),
+                NaryType::Xnor => self.compute_xorn_with_input_stuck(v, true, input, value),
+            },
+            Buf(s) => self.get_value(*s),
+        }
+    }
+
     /// Run the combinatorial part of the design with a list of stuck-at-fault errors
     pub fn run_comb_with_faults(&mut self, faults: &Vec<Fault>) {
+        assert!(!Fault::has_duplicate_gate(faults));
         for i in 0..self.aig.nb_nodes() {
             self.node_values[i] = self.run_gate(i);
             for f in faults {
@@ -172,6 +213,12 @@ impl<'a> SimpleSimulator<'a> {
                     Fault::OutputStuckAtFault { gate, value } => {
                         if *gate == i {
                             self.node_values[i] = if *value { !0u64 } else { 0u64 };
+                        }
+                    }
+                    Fault::InputStuckAtFault { gate, input, value } => {
+                        if *gate == i {
+                            self.node_values[i] =
+                                self.run_gate_with_input_stuck(*gate, *input, *value);
                         }
                     }
                 }
@@ -202,6 +249,49 @@ impl<'a> SimpleSimulator<'a> {
         let mut ret = 0u64;
         for s in v {
             ret ^= self.get_value(*s);
+        }
+        if inv_out {
+            !ret
+        } else {
+            ret
+        }
+    }
+
+    fn compute_andn_with_input_stuck(
+        &self,
+        v: &[Signal],
+        inv_in: bool,
+        inv_out: bool,
+        input: usize,
+        value: bool,
+    ) -> u64 {
+        let val = if value ^ inv_in { !0u64 } else { 0u64 };
+        let mut ret = !0u64;
+        for (i, s) in v.iter().enumerate() {
+            ret &= if i == input {
+                val
+            } else {
+                self.get_value(s ^ inv_in)
+            };
+        }
+        if inv_out {
+            !ret
+        } else {
+            ret
+        }
+    }
+
+    fn compute_xorn_with_input_stuck(
+        &self,
+        v: &[Signal],
+        inv_out: bool,
+        input: usize,
+        value: bool,
+    ) -> u64 {
+        let val = if value { !0u64 } else { 0u64 };
+        let mut ret = 0u64;
+        for (i, s) in v.iter().enumerate() {
+            ret ^= if i == input { val } else { self.get_value(*s) };
         }
         if inv_out {
             !ret

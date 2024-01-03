@@ -50,31 +50,27 @@ pub fn expose_dff(aig: &Network) -> Network {
 /// To keep things simpler, we create the full network with/without the fault, and let basic
 /// deduplication handle the rest.
 fn find_pattern_detecting_fault(aig: &Network, fault: Fault) -> Option<Vec<bool>> {
-    // Translation of the original signal into the fault
-    let fault_translation = |s: &Signal| -> Signal {
-        match fault {
-            Fault::OutputStuckAtFault { gate, value } => {
-                if s.is_var() && s.var() == gate as u32 {
-                    Signal::from(value) ^ s.is_inverted()
-                } else {
-                    *s
-                }
-            }
+    assert!(aig.is_comb());
+
+    let mut fault_aig = aig.clone();
+    match fault {
+        Fault::OutputStuckAtFault { gate, value } => {
+            fault_aig.replace(gate, Gate::Buf(Signal::from(value)));
+        }
+        Fault::InputStuckAtFault { gate, input, value } => {
+            let g =
+                aig.gate(gate).remap_with_ind(
+                    |s, i| {
+                        if i == input {
+                            Signal::from(value)
+                        } else {
+                            *s
+                        }
+                    },
+                );
+            fault_aig.replace(gate, g);
         }
     };
-
-    let mut fault_aig = Network::new();
-    fault_aig.add_inputs(aig.nb_inputs());
-    for i in 0..aig.nb_nodes() {
-        if !aig.gate(i).is_comb() {
-            continue;
-        }
-        let g = aig.gate(i).remap(fault_translation);
-        fault_aig.add(g);
-    }
-    for i in 0..aig.nb_outputs() {
-        fault_aig.add_output(fault_translation(&aig.output(i)));
-    }
 
     let mut diff = difference(aig, &fault_aig);
     diff.make_canonical();

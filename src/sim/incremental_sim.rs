@@ -77,6 +77,10 @@ impl<'a> IncrementalSimulator<'a> {
             Fault::OutputStuckAtFault { gate, value } => {
                 self.update_gate(gate, if value { !0 } else { 0 });
             }
+            Fault::InputStuckAtFault { gate, input, value } => {
+                let value = self.incr_sim.run_gate_with_input_stuck(gate, input, value);
+                self.update_gate(gate, value)
+            }
         }
         while let Some(Reverse(i)) = self.update_queue.pop() {
             let v = self.incr_sim.run_gate(i);
