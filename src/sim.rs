@@ -64,29 +64,11 @@ pub fn simulate_comb_with_faults(
     output[0].clone()
 }
 
-/// Simulate a combinatorial network with 64b inputs; return the output values
-pub(crate) fn simulate_comb_multi(a: &Network, input_values: &Vec<u64>) -> Vec<u64> {
-    let input = vec![input_values.clone()];
-    let output = simulate_multi(a, &input);
-    output[0].clone()
-}
-
 /// Simulate a network over multiple timesteps with 64b inputs; return the output values
 pub(crate) fn simulate_multi(a: &Network, input_values: &Vec<Vec<u64>>) -> Vec<Vec<u64>> {
     use simple_sim::SimpleSimulator;
     let mut sim = SimpleSimulator::from_aig(a);
     sim.run(input_values)
-}
-
-/// Simulate a combinatorial network with 64b inputs with faults; return the output values
-pub(crate) fn simulate_comb_multi_with_faults(
-    a: &Network,
-    input_values: &Vec<u64>,
-    faults: &Vec<Fault>,
-) -> Vec<u64> {
-    let input = vec![input_values.clone()];
-    let output = simulate_multi_with_faults(a, &input, faults);
-    output[0].clone()
 }
 
 /// Simulate a network over multiple timesteps with 64b inputs; return the output values
