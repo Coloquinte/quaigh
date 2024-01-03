@@ -176,3 +176,36 @@ pub fn stats(a: &Network) -> NetworkStats {
 
     ret
 }
+
+/// Count how many times each gate is used
+pub fn count_gate_usage(aig: &Network) -> Vec<usize> {
+    let mut ret = vec![0; aig.nb_nodes()];
+    for i in 0..aig.nb_nodes() {
+        for j in aig.gate(i).vars() {
+            ret[j as usize] += 1;
+        }
+    }
+    ret
+}
+
+/// Return which gates use each gate
+pub fn gate_users(aig: &Network) -> Vec<Vec<usize>> {
+    let mut ret = vec![vec![]; aig.nb_nodes()];
+    for i in 0..aig.nb_nodes() {
+        for j in aig.gate(i).vars() {
+            ret[j as usize].push(i);
+        }
+    }
+    ret
+}
+
+/// Mark whether each gate is an output
+pub fn gate_is_output(aig: &Network) -> Vec<bool> {
+    let mut ret = vec![false; aig.nb_nodes()];
+    for i in 0..aig.nb_outputs() {
+        if aig.output(i).is_var() {
+            ret[aig.output(i).var() as usize] = true;
+        }
+    }
+    ret
+}
