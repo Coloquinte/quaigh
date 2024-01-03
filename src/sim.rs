@@ -1,9 +1,10 @@
 //! Simulation of a logic network. Faster, multi-pattern simulation methods are available internally.
 
 mod fault;
+mod incremental_sim;
 mod simple_sim;
 
-use crate::Network;
+use crate::{sim::incremental_sim::IncrementalSimulator, Network};
 
 pub use fault::Fault;
 
@@ -107,15 +108,11 @@ pub(crate) fn detects_faults_multi(
 ) -> Vec<u64> {
     assert!(aig.is_comb());
     assert!(aig.is_topo_sorted());
-    let expected = simulate_comb_multi(aig, pattern);
+    let mut incr_sim = IncrementalSimulator::from_aig(aig);
+    incr_sim.run_initial(pattern);
     let mut detections = Vec::new();
-    for fault in faults {
-        let obtained = simulate_comb_multi_with_faults(aig, pattern, &vec![*fault]);
-        let mut detection = 0u64;
-        for (a, b) in std::iter::zip(&expected, obtained) {
-            detection |= a ^ b;
-        }
-        detections.push(detection);
+    for f in faults {
+        detections.push(incr_sim.detects_fault(*f));
     }
     detections
 }

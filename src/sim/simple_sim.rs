@@ -7,10 +7,11 @@ use super::Fault;
 ///
 /// This is simple to write and relatively efficient, but could be greatly improved
 /// with a regular and- or mux-based structure.
+#[derive(Clone, Debug)]
 pub struct SimpleSimulator<'a> {
     aig: &'a Network,
-    input_values: Vec<u64>,
-    node_values: Vec<u64>,
+    pub input_values: Vec<u64>,
+    pub node_values: Vec<u64>,
 }
 
 /// Convert the inversion to a word for bitwise operations
@@ -42,7 +43,18 @@ impl<'a> SimpleSimulator<'a> {
 
     /// Run the simulation
     pub fn run(&mut self, input_values: &Vec<Vec<u64>>) -> Vec<Vec<u64>> {
-        self.run_with_faults(input_values, &Vec::new())
+        self.check();
+        self.reset();
+        let mut ret = Vec::new();
+        for (i, v) in input_values.iter().enumerate() {
+            if i != 0 {
+                self.run_dff();
+            }
+            self.copy_inputs(v.as_slice());
+            self.run_comb();
+            ret.push(self.get_output_values());
+        }
+        ret
     }
 
     /// Run the simulation with a list of stuck-at-fault errors
@@ -65,7 +77,7 @@ impl<'a> SimpleSimulator<'a> {
         ret
     }
 
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.input_values = vec![0; self.aig.nb_inputs()];
         self.node_values = vec![0; self.aig.nb_nodes()];
     }
@@ -91,13 +103,13 @@ impl<'a> SimpleSimulator<'a> {
     }
 
     // Copy the values of the inputs to the internal state
-    fn copy_inputs(&mut self, inputs: &[u64]) {
+    pub fn copy_inputs(&mut self, inputs: &[u64]) {
         assert_eq!(inputs.len(), self.input_values.len());
         self.input_values.copy_from_slice(inputs);
     }
 
     // Copy the values of the flip-flops for the next cycle
-    fn run_dff(&mut self) {
+    pub fn run_dff(&mut self) {
         use crate::Gate::*;
         let mut next_values = self.node_values.clone();
         for i in 0..self.aig.nb_nodes() {
@@ -115,7 +127,7 @@ impl<'a> SimpleSimulator<'a> {
     }
 
     /// Return the result of a single gate
-    fn run_gate(&self, i: usize) -> u64 {
+    pub fn run_gate(&self, i: usize) -> u64 {
         use crate::Gate::*;
         let g = self.aig.gate(i);
         match g {
@@ -152,7 +164,7 @@ impl<'a> SimpleSimulator<'a> {
     }
 
     /// Run the combinatorial part of the design with a list of stuck-at-fault errors
-    fn run_comb_with_faults(&mut self, faults: &Vec<Fault>) {
+    pub fn run_comb_with_faults(&mut self, faults: &Vec<Fault>) {
         for i in 0..self.aig.nb_nodes() {
             self.node_values[i] = self.run_gate(i);
             for f in faults {
@@ -164,6 +176,13 @@ impl<'a> SimpleSimulator<'a> {
                     }
                 }
             }
+        }
+    }
+
+    /// Run the combinatorial part of the design
+    pub fn run_comb(&mut self) {
+        for i in 0..self.aig.nb_nodes() {
+            self.node_values[i] = self.run_gate(i);
         }
     }
 
