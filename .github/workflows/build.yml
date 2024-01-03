@@ -5,11 +5,11 @@ on:
     branches: [ "*" ]
 
 
-name: Build and test
+name: Test
 
 jobs:
   build:
-    name: Build and test
+    name: Test
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -49,3 +49,21 @@ jobs:
         run: |
           cargo install cargo-rdme
           cargo rdme --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+          override: true
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
+          name: Clippy Output
