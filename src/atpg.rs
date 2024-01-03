@@ -1,11 +1,13 @@
 //! Test pattern generation
 
+use std::iter::zip;
+
 use kdam::{tqdm, BarExt};
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 
 use crate::equiv::{difference, prove};
-use crate::sim::{detects_fault, detects_fault_multi, Fault};
+use crate::sim::{detects_faults, detects_faults_multi, Fault};
 use crate::{Gate, Network, Signal};
 
 /// Expose flip_flops as inputs for ATPG
@@ -79,7 +81,7 @@ fn find_pattern_detecting_fault(aig: &Network, fault: Fault) -> Option<Vec<bool>
     diff.cleanup();
     let ret = prove(&diff);
     if let Some(pattern) = &ret {
-        assert!(detects_fault(aig, &pattern, fault));
+        assert_eq!(detects_faults(aig, &pattern, &vec![fault]), vec![true]);
     }
     ret
 }
@@ -162,18 +164,28 @@ impl<'a> TestPatternGenerator<'a> {
         }
     }
 
+    /// Obtain all faults, or only the ones that are not yet detected, and their index
+    pub fn get_faults(&self, check_already_detected: bool) -> (Vec<Fault>, Vec<usize>) {
+        let mut faults = Vec::new();
+        let mut indices = Vec::new();
+        for (i, f) in self.faults.iter().enumerate() {
+            if check_already_detected || !self.detection[i] {
+                faults.push(*f);
+                indices.push(i);
+            }
+        }
+        (faults, indices)
+    }
+
     /// Add a single pattern to the current set
     #[allow(dead_code)]
     pub fn add_single_pattern(&mut self, pattern: Vec<bool>, check_already_detected: bool) {
-        let mut det = Vec::new();
-        for (i, f) in self.faults.iter().enumerate() {
-            if !check_already_detected && self.detection[i] {
-                det.push(false);
-            } else {
-                let d = detects_fault(self.aig, &pattern, *f);
-                self.detection[i] |= d;
-                det.push(d);
-            }
+        let (faults, indices) = self.get_faults(check_already_detected);
+        let detected = detects_faults(self.aig, &pattern, &faults);
+        let mut det = vec![false; self.nb_faults()];
+        for (i, d) in zip(indices, detected) {
+            self.detection[i] |= d;
+            det[i] = d;
         }
         self.patterns.push(pattern);
         self.pattern_detections.push(det);
@@ -193,34 +205,19 @@ impl<'a> TestPatternGenerator<'a> {
             val &= !1; // Ensure that the first pattern is the original one
             patterns.push(val);
         }
-        let mut det = Vec::new();
-        for (i, f) in self.faults.iter().enumerate() {
-            if !check_already_detected && self.detection[i] {
-                det.push(0u64);
-            } else {
-                let d = detects_fault_multi(self.aig, &patterns, *f);
-                self.detection[i] |= d != 0u64;
-                det.push(d);
-            }
-        }
-        Self::extend_vec(&mut self.patterns, patterns);
-        Self::extend_vec(&mut self.pattern_detections, det);
+        self.add_patterns(patterns, check_already_detected);
     }
 
     /// Add a new set of patterns to the current set
-    pub fn add_patterns(&mut self, pattern: Vec<u64>, check_already_detected: bool) {
-        assert!(pattern.len() == self.aig.nb_inputs());
-        let mut det = Vec::new();
-        for (i, f) in self.faults.iter().enumerate() {
-            if !check_already_detected && self.detection[i] {
-                det.push(0u64);
-            } else {
-                let d = detects_fault_multi(self.aig, &pattern, *f);
-                self.detection[i] |= d != 0u64;
-                det.push(d);
-            }
+    pub fn add_patterns(&mut self, patterns: Vec<u64>, check_already_detected: bool) {
+        let (faults, indices) = self.get_faults(check_already_detected);
+        let detected = detects_faults_multi(self.aig, &patterns, &faults);
+        let mut det = vec![0; self.nb_faults()];
+        for (i, d) in zip(indices, detected) {
+            self.detection[i] |= d != 0;
+            det[i] = d;
         }
-        Self::extend_vec(&mut self.patterns, pattern);
+        Self::extend_vec(&mut self.patterns, patterns);
         Self::extend_vec(&mut self.pattern_detections, det);
     }
 

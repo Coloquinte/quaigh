@@ -100,27 +100,40 @@ pub(crate) fn simulate_multi_with_faults(
 }
 
 /// Analyze which of a set of pattern detect a given fault
-pub(crate) fn detects_fault_multi(aig: &Network, pattern: &Vec<u64>, fault: Fault) -> u64 {
+pub(crate) fn detects_faults_multi(
+    aig: &Network,
+    pattern: &Vec<u64>,
+    faults: &Vec<Fault>,
+) -> Vec<u64> {
     assert!(aig.is_comb());
     assert!(aig.is_topo_sorted());
     let expected = simulate_comb_multi(aig, pattern);
-    let obtained = simulate_comb_multi_with_faults(aig, pattern, &vec![fault]);
-    let mut detection = 0u64;
-    for (a, b) in std::iter::zip(expected, obtained) {
-        detection |= a ^ b;
+    let mut detections = Vec::new();
+    for fault in faults {
+        let obtained = simulate_comb_multi_with_faults(aig, pattern, &vec![*fault]);
+        let mut detection = 0u64;
+        for (a, b) in std::iter::zip(&expected, obtained) {
+            detection |= a ^ b;
+        }
+        detections.push(detection);
     }
-    detection
+    detections
 }
 
 /// Analyze whether a pattern detects a given fault
-pub(crate) fn detects_fault(aig: &Network, pattern: &Vec<bool>, fault: Fault) -> bool {
+pub(crate) fn detects_faults(aig: &Network, pattern: &Vec<bool>, faults: &Vec<Fault>) -> Vec<bool> {
     let multi_pattern = pattern
         .iter()
         .map(|b| if *b { !0u64 } else { 0u64 })
         .collect();
-    let detection = detects_fault_multi(aig, &multi_pattern, fault);
-    assert!(detection == 0u64 || detection == !0u64);
-    detection == !0u64
+    let detections = detects_faults_multi(aig, &multi_pattern, faults);
+    detections
+        .iter()
+        .map(|d| {
+            debug_assert!(*d == 0u64 || *d == !0u64);
+            *d != 0
+        })
+        .collect()
 }
 
 #[cfg(test)]
