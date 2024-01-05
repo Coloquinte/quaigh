@@ -1,7 +1,7 @@
-use crate::{network::stats, Gate, Network};
+use crate::{network::stats, Gate, NaryType, Network, Signal};
 
 /// Representation of a fault, with its type and location
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Fault {
     /// Output stuck-at fault: the output of the given gate is stuck at a fixed value
     OutputStuckAtFault {
@@ -24,42 +24,78 @@ pub enum Fault {
 impl Fault {
     /// Get all possible faults in a network
     pub fn all(aig: &Network) -> Vec<Fault> {
-        let usage = stats::count_gate_usage(aig);
         let mut ret = Vec::new();
-        for i in 0..aig.nb_nodes() {
-            ret.push(Fault::OutputStuckAtFault {
-                gate: i,
-                value: false,
-            });
-            ret.push(Fault::OutputStuckAtFault {
-                gate: i,
-                value: true,
-            });
-            if let Gate::Buf(_) = aig.gate(i) {
-                // Input stuck for a buffer is already covered by the output fault
-                continue;
+        for gate in 0..aig.nb_nodes() {
+            for value in [false, true] {
+                ret.push(Fault::OutputStuckAtFault { gate, value });
             }
-            for (j, s) in aig.gate(i).dependencies().iter().enumerate() {
-                if s.is_var() && usage[s.var() as usize] == 1 {
-                    // No need to handle input stuck fault if this gate is the only user
-                    continue;
+            for input in 0..aig.gate(gate).dependencies().len() {
+                for value in [false, true] {
+                    ret.push(Fault::InputStuckAtFault { gate, input, value });
                 }
-                ret.push(Fault::InputStuckAtFault {
-                    gate: i,
-                    input: j,
-                    value: false,
-                });
-                ret.push(Fault::InputStuckAtFault {
-                    gate: i,
-                    input: j,
-                    value: true,
-                });
             }
         }
-        // TODO: mark redundant faults above, and remove them here
-        // TODO: handle Buf-like gates, where the previous output fault is redundant if used once
-        // TODO: handle And-like gates, where one of the stuck directions is redundant with the output fault
-        // TODO: handle Xor-like gates, where the errors are covered by the output faults
+        ret
+    }
+
+    /// Get all possible non-redundant faults in a network
+    pub fn all_unique(aig: &Network) -> Vec<Fault> {
+        let mut ret = Fault::all(aig);
+        let redundant = Fault::redundant_faults(aig);
+        ret.retain(|f| !redundant.binary_search(f).is_ok());
+        ret
+    }
+
+    /// List the redundant faults in a network
+    ///
+    /// A fault is redundant if it is covered by other faults.
+    /// The redundancy found here must be acyclic, so that we do not discard a group of equivalent faults.
+    /// When determining redundancy, we always keep the output stuck-at fault, and if equivalent
+    /// faults are the same type we keep the later one.
+    pub fn redundant_faults(aig: &Network) -> Vec<Fault> {
+        let usage = stats::count_gate_usage(aig);
+        // The signal is used once, so we can discard its input stuck-at fault
+        let is_single_use = |s: &Signal| -> bool { s.is_var() && usage[s.var() as usize] <= 1 };
+        let mut ret = Vec::new();
+        for gate in 0..aig.nb_nodes() {
+            let g = aig.gate(gate);
+            for (input, s) in g.dependencies().iter().enumerate() {
+                for value in [false, true] {
+                    if is_single_use(s) {
+                        // Fault covered by an output stuck-at fault, because the output is used only once
+                        ret.push(Fault::InputStuckAtFault { gate, input, value });
+                    }
+                    if g.is_xor_like() || g.is_buf_like() {
+                        // Fault redundant because this is a Xor-like gate: it is equivalent to faults on the output
+                        ret.push(Fault::InputStuckAtFault { gate, input, value });
+                        if is_single_use(s) {
+                            ret.push(Fault::OutputStuckAtFault {
+                                gate: s.var() as usize,
+                                value,
+                            });
+                        }
+                    }
+                    if g.is_and_like() {
+                        // Some faults are redundant because this is an And-like gate: one of the values forces the gate
+                        let input_inv = matches!(
+                            g,
+                            Gate::Nary(_, NaryType::Or) | Gate::Nary(_, NaryType::Nor)
+                        );
+                        if value == input_inv {
+                            ret.push(Fault::InputStuckAtFault { gate, input, value });
+                            if is_single_use(s) {
+                                ret.push(Fault::OutputStuckAtFault {
+                                    gate: s.var() as usize,
+                                    value,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ret.sort();
+        ret.dedup();
         ret
     }
 

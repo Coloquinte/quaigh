@@ -141,7 +141,7 @@ impl<'a> TestPatternGenerator<'a> {
     /// Initialize the generator from a network and a seed
     pub fn from(aig: &'a Network, seed: u64) -> TestPatternGenerator {
         assert!(aig.is_topo_sorted());
-        let faults = Fault::all(aig);
+        let faults = Fault::all_unique(aig);
         let nb_faults = faults.len();
         TestPatternGenerator {
             aig,
@@ -316,15 +316,18 @@ impl<'a> TestPatternGenerator<'a> {
 /// using a SAT solver. The network needs to be combinatorial.
 pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
     assert!(aig.is_comb());
+    let faults = Fault::all(aig);
+    let unique_faults = Fault::all_unique(aig);
     let mut gen = TestPatternGenerator::from(aig, seed);
     let mut progress = tqdm!(total = gen.nb_faults());
     progress.set_description("Faults processed");
     progress
         .write(format!(
-            "Analyzing network with {} inputs, {} outputs and {} possible faults",
+            "Analyzing network with {} inputs, {} outputs, {} faults, {} unique faults",
             aig.nb_inputs(),
             aig.nb_outputs(),
-            gen.nb_faults(),
+            faults.len(),
+            unique_faults.len(),
         ))
         .unwrap();
     loop {

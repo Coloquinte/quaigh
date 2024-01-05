@@ -45,6 +45,11 @@ pub enum Commands {
     ///
     /// Generate patterns to find all possible faults in a design, assuming
     /// that the primary inputs, outputs and flip-flops can be scanned.
+    /// Full fault coverage is achieved using a SAT solver.
+    ///
+    /// Fault types are:
+    ///   * Output stuck-at fault, where the output of the gate is stuck at a constant value
+    ///   * Input stuck-at fault, where the input of the gate is stuck at a constant value
     #[clap()]
     Atpg(AtpgArgs),
 

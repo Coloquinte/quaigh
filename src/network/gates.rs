@@ -207,6 +207,35 @@ impl Gate {
         );
     }
 
+    /// Returns whether the gate is an And, Or, Nand or Nor of any arity
+    pub fn is_and_like(&self) -> bool {
+        return matches!(
+            self,
+            Gate::Binary(_, BinaryType::And)
+                | Gate::Ternary(_, TernaryType::And)
+                | Gate::Nary(_, NaryType::And)
+                | Gate::Nary(_, NaryType::Nand)
+                | Gate::Nary(_, NaryType::Or)
+                | Gate::Nary(_, NaryType::Nor)
+        );
+    }
+
+    /// Returns whether the gate is a Xor, Xnor of any arity
+    pub fn is_xor_like(&self) -> bool {
+        return matches!(
+            self,
+            Gate::Binary(_, BinaryType::Xor)
+                | Gate::Ternary(_, TernaryType::Xor)
+                | Gate::Nary(_, NaryType::Xor)
+                | Gate::Nary(_, NaryType::Xnor)
+        );
+    }
+
+    /// Returns whether the gate is a Buf
+    pub fn is_buf_like(&self) -> bool {
+        return matches!(self, Gate::Buf(_));
+    }
+
     /// Apply a remapping of the signals to the gate
     pub(crate) fn remap<F: Fn(&Signal) -> Signal>(&self, t: F) -> Gate {
         use Gate::*;
