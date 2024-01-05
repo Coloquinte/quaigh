@@ -199,7 +199,7 @@ impl<'a> SimpleSimulator<'a> {
                 NaryType::Xor => self.compute_xorn_with_input_stuck(v, false, input, value),
                 NaryType::Xnor => self.compute_xorn_with_input_stuck(v, true, input, value),
             },
-            Buf(s) => self.get_value(*s),
+            Buf(_) => v,
         }
     }
 
