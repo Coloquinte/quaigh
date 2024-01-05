@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{network::stats, Gate, NaryType, Network, Signal};
 
 /// Representation of a fault, with its type and location
@@ -54,7 +56,7 @@ impl Fault {
     /// faults are the same type we keep the later one.
     pub fn redundant_faults(aig: &Network) -> Vec<Fault> {
         let usage = stats::count_gate_usage(aig);
-        // The signal is used once, so we can discard its input stuck-at fault
+        // Returns whether the signal is a variable that is used once, so that its input stuck-at fault and output stuck-at fault are equivalent
         let is_single_use = |s: &Signal| -> bool { s.is_var() && usage[s.var() as usize] <= 1 };
         let mut ret = Vec::new();
         for gate in 0..aig.nb_nodes() {
@@ -62,7 +64,7 @@ impl Fault {
             for (input, s) in g.dependencies().iter().enumerate() {
                 for value in [false, true] {
                     if is_single_use(s) {
-                        // Fault covered by an output stuck-at fault, because the output is used only once
+                        // Fault covered by a previous output stuck-at fault, because the output is used only once
                         ret.push(Fault::InputStuckAtFault { gate, input, value });
                     }
                     if g.is_xor_like() || g.is_buf_like() {
@@ -115,5 +117,24 @@ impl Fault {
             }
         }
         false
+    }
+}
+
+impl fmt::Display for Fault {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Fault::OutputStuckAtFault { gate, value } => {
+                write!(f, "Gate {} output stuck at {}", gate, i32::from(*value))
+            }
+            Fault::InputStuckAtFault { gate, input, value } => {
+                write!(
+                    f,
+                    "Gate {} input {} stuck at {}",
+                    gate,
+                    input,
+                    i32::from(*value)
+                )
+            }
+        }
     }
 }

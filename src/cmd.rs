@@ -232,6 +232,10 @@ pub struct AtpgArgs {
     /// Number of random patterns to generate
     #[arg(short = 'r', long)]
     num_random: Option<usize>,
+
+    /// Do not remove redundant faults beforehand
+    #[arg(long, default_value_t = false)]
+    with_redundant_faults: bool,
 }
 
 impl AtpgArgs {
@@ -243,7 +247,7 @@ impl AtpgArgs {
                 println!("Exposing flip-flops for a sequential network");
                 aig = expose_dff(&aig);
             }
-            let patterns = generate_comb_test_patterns(&aig, self.seed);
+            let patterns = generate_comb_test_patterns(&aig, self.seed, self.with_redundant_faults);
             let seq_patterns = patterns.iter().map(|p| vec![p.clone()]).collect();
             write_pattern_file(&self.output, &seq_patterns);
         } else {

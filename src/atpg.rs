@@ -139,13 +139,12 @@ impl<'a> TestPatternGenerator<'a> {
     }
 
     /// Initialize the generator from a network and a seed
-    pub fn from(aig: &'a Network, seed: u64) -> TestPatternGenerator {
+    pub fn from(aig: &'a Network, faults: Vec<Fault>, seed: u64) -> TestPatternGenerator {
         assert!(aig.is_topo_sorted());
-        let faults = Fault::all_unique(aig);
         let nb_faults = faults.len();
         TestPatternGenerator {
             aig,
-            faults,
+            faults: faults,
             patterns: Vec::new(),
             pattern_detections: Vec::new(),
             detection: vec![false; nb_faults],
@@ -314,11 +313,25 @@ impl<'a> TestPatternGenerator<'a> {
 ///
 /// This will generate random test patterns, then try to exercize the remaining faults
 /// using a SAT solver. The network needs to be combinatorial.
-pub fn generate_comb_test_patterns(aig: &Network, seed: u64) -> Vec<Vec<bool>> {
+pub fn generate_comb_test_patterns(
+    aig: &Network,
+    seed: u64,
+    with_redundant_faults: bool,
+) -> Vec<Vec<bool>> {
     assert!(aig.is_comb());
     let faults = Fault::all(aig);
     let unique_faults = Fault::all_unique(aig);
-    let mut gen = TestPatternGenerator::from(aig, seed);
+
+    let mut gen = TestPatternGenerator::from(
+        aig,
+        if with_redundant_faults {
+            faults.clone()
+        } else {
+            unique_faults.clone()
+        },
+        seed,
+    );
+
     let mut progress = tqdm!(total = gen.nb_faults());
     progress.set_description("Faults processed");
     progress
