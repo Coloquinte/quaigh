@@ -241,7 +241,15 @@ impl<'a> TestPatternGenerator<'a> {
     /// At the moment we solve it with a simple greedy algorithm,
     /// taking the pattern that detects the most new faults each time.
     pub fn compress_patterns(&mut self) {
+        let mut progress =
+            tqdm!(total = 2 * self.nb_faults() * self.nb_patterns() + self.nb_detected());
+        progress.set_description("Compression progress");
+        progress
+            .set_bar_format("{desc}{percentage:3.0}%|{animation}| [{elapsed}<{remaining}{postfix}]")
+            .unwrap();
+        progress.set_postfix(format!("patterns=-"));
         let mut remaining_to_detect = self.nb_detected();
+        let mut it = 0;
 
         // Which patterns detect a given fault
         let mut fault_to_patterns = Vec::new();
@@ -250,6 +258,10 @@ impl<'a> TestPatternGenerator<'a> {
             for p in 0..self.nb_patterns() {
                 if self.pattern_detections[p][f] {
                     patterns.push(p);
+                }
+                it += 1;
+                if it % 256 == 0 {
+                    progress.update_to(it).unwrap();
                 }
             }
             fault_to_patterns.push(patterns);
@@ -263,6 +275,10 @@ impl<'a> TestPatternGenerator<'a> {
                 if self.pattern_detections[p][f] {
                     faults.push(f);
                 }
+                it += 1;
+                if it % 256 == 0 {
+                    progress.update_to(it).unwrap();
+                }
             }
             pattern_to_faults.push(faults);
         }
@@ -274,7 +290,7 @@ impl<'a> TestPatternGenerator<'a> {
         assert_eq!(pattern_to_faults.len(), self.nb_patterns());
 
         let mut selected_patterns = Vec::new();
-
+        progress.update_to(it).unwrap();
         while remaining_to_detect > 0 {
             // Pick the pattern that detects the most faults
             let best_pattern = nb_detected_by_pattern
@@ -285,6 +301,10 @@ impl<'a> TestPatternGenerator<'a> {
                 .unwrap();
             selected_patterns.push(best_pattern);
             remaining_to_detect -= nb_detected_by_pattern[best_pattern];
+            progress.set_postfix(format!("patterns={}", selected_patterns.len()));
+            progress
+                .update(nb_detected_by_pattern[best_pattern])
+                .unwrap();
 
             // Remove the faults detected by the pattern from consideration
             assert!(nb_detected_by_pattern[best_pattern] > 0);
@@ -306,6 +326,68 @@ impl<'a> TestPatternGenerator<'a> {
         }
         self.patterns = new_patterns;
         self.pattern_detections = new_detections;
+        println!();
+    }
+
+    pub fn detect_faults(&mut self) {
+        let mut progress = tqdm!(total = self.nb_faults());
+        progress.set_description("Detection progress");
+        progress
+            .set_bar_format("{desc}{percentage:3.0}%|{animation}| [{elapsed}<{remaining}{postfix}]")
+            .unwrap();
+        loop {
+            let nb_detected_before = self.nb_detected();
+            self.add_random_patterns(true);
+            let nb_detected_after = self.nb_detected();
+            progress.set_postfix(format!("patterns={}, unobservable=-", self.nb_patterns()));
+            progress.update_to(self.nb_detected()).unwrap();
+            if nb_detected_after == self.nb_faults() {
+                break;
+            }
+            if ((nb_detected_after - nb_detected_before) as f64) < (0.01 * self.nb_faults() as f64)
+            {
+                break;
+            }
+        }
+        progress
+            .write(format!(
+                "Generated {} random patterns, detecting {}/{} faults ({:.2}% coverage)",
+                self.nb_patterns(),
+                self.nb_detected(),
+                self.nb_faults(),
+                100.0 * (self.nb_detected() as f64) / (self.nb_faults() as f64)
+            ))
+            .unwrap();
+        let mut unobservable = 0;
+        for i in 0..self.nb_faults() {
+            if self.detection[i] {
+                continue;
+            }
+            let p = find_pattern_detecting_fault(self.aig, self.faults[i]);
+            if let Some(pattern) = p {
+                self.add_random_patterns_from(pattern, false);
+            } else {
+                unobservable += 1;
+            }
+            progress.set_postfix(format!(
+                "patterns={} unobservable={}",
+                self.nb_patterns(),
+                unobservable
+            ));
+            progress
+                .update_to(self.nb_detected() + unobservable)
+                .unwrap();
+        }
+        progress
+            .write(format!(
+                "Generated {} patterns total, detecting {}/{} faults ({:.2}% coverage)",
+                self.nb_patterns(),
+                self.nb_detected(),
+                self.nb_faults(),
+                100.0 * (self.nb_detected() as f64) / (self.nb_faults() as f64)
+            ))
+            .unwrap();
+        println!();
     }
 }
 
@@ -322,6 +404,14 @@ pub fn generate_comb_test_patterns(
     let faults = Fault::all(aig);
     let unique_faults = Fault::all_unique(aig);
 
+    println!(
+        "Analyzing network with {} inputs, {} outputs, {} faults, {} unique faults",
+        aig.nb_inputs(),
+        aig.nb_outputs(),
+        faults.len(),
+        unique_faults.len(),
+    );
+
     let mut gen = TestPatternGenerator::from(
         aig,
         if with_redundant_faults {
@@ -331,80 +421,16 @@ pub fn generate_comb_test_patterns(
         },
         seed,
     );
-
-    let mut progress = tqdm!(total = gen.nb_faults());
-    progress.set_description("Faults processed");
-    progress
-        .write(format!(
-            "Analyzing network with {} inputs, {} outputs, {} faults, {} unique faults",
-            aig.nb_inputs(),
-            aig.nb_outputs(),
-            faults.len(),
-            unique_faults.len(),
-        ))
-        .unwrap();
-    loop {
-        let nb_detected_before = gen.nb_detected();
-        gen.add_random_patterns(true);
-        let nb_detected_after = gen.nb_detected();
-        progress.set_postfix(format!("patterns={}", gen.nb_patterns()));
-        progress.update_to(gen.nb_detected()).unwrap();
-        if nb_detected_after == gen.nb_faults() {
-            break;
-        }
-        if ((nb_detected_after - nb_detected_before) as f64) < (0.01 * gen.nb_faults() as f64) {
-            break;
-        }
-    }
-    progress
-        .write(format!(
-            "Generated {} random patterns, detecting {}/{} faults ({:.2}% coverage)",
-            gen.nb_patterns(),
-            gen.nb_detected(),
-            gen.nb_faults(),
-            100.0 * (gen.nb_detected() as f64) / (gen.nb_faults() as f64)
-        ))
-        .unwrap();
-    let mut unobservable = 0;
-    for i in 0..gen.nb_faults() {
-        if gen.detection[i] {
-            continue;
-        }
-        let p = find_pattern_detecting_fault(aig, gen.faults[i]);
-        if let Some(pattern) = p {
-            gen.add_random_patterns_from(pattern, false);
-        } else {
-            unobservable += 1;
-        }
-        progress.set_postfix(format!(
-            "patterns={} unobservable={}",
-            gen.nb_patterns(),
-            unobservable
-        ));
-        progress
-            .update_to(gen.nb_detected() + unobservable)
-            .unwrap();
-    }
-    progress
-        .write(format!(
-            "Generated {} patterns total, detecting {}/{} faults ({:.2}% coverage)",
-            gen.nb_patterns(),
-            gen.nb_detected(),
-            gen.nb_faults(),
-            100.0 * (gen.nb_detected() as f64) / (gen.nb_faults() as f64)
-        ))
-        .unwrap();
+    gen.detect_faults();
     gen.check();
     gen.compress_patterns();
     gen.check();
-    progress
-        .write(format!(
-            "Kept {} patterns, detecting {}/{} faults ({:.2}% coverage)",
-            gen.nb_patterns(),
-            gen.nb_detected(),
-            gen.nb_faults(),
-            100.0 * (gen.nb_detected() as f64) / (gen.nb_faults() as f64)
-        ))
-        .unwrap();
+    println!(
+        "Kept {} patterns, detecting {}/{} faults ({:.2}% coverage)",
+        gen.nb_patterns(),
+        gen.nb_detected(),
+        gen.nb_faults(),
+        100.0 * (gen.nb_detected() as f64) / (gen.nb_faults() as f64)
+    );
     gen.patterns
 }

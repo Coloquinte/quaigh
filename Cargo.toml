@@ -20,5 +20,5 @@ clap = { version = "4.4", features = ["derive"] }
 rand = { version = "0.8.5", features = ["small_rng"] }
 itertools = "0.12.0"
 fxhash = "0.2.1"
-kdam = "0.5"
+kdam = { version = "0.5", features = ["template"] }
 
