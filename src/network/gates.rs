@@ -110,6 +110,24 @@ impl Gate {
         Gate::Ternary([a, b, c], TernaryType::Xor)
     }
 
+    /// Create a n-input And
+    pub fn andn(v: &[Signal]) -> Gate {
+        Gate::Nary(v.into(), NaryType::And)
+    }
+
+    /// Create a n-input Xor
+    pub fn xorn(v: &[Signal]) -> Gate {
+        Gate::Nary(v.into(), NaryType::Xor)
+    }
+
+    /// Create a n-input Lut
+    pub fn lut(v: &[Signal], lut: Lut) -> Gate {
+        Gate::Lut(Box::new(LutGate {
+            inputs: v.into(),
+            lut,
+        }))
+    }
+
     /// Create a Mux
     pub fn mux(s: Signal, a: Signal, b: Signal) -> Gate {
         Gate::Ternary([s, a, b], TernaryType::Mux)

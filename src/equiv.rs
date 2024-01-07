@@ -364,6 +364,8 @@ pub fn check_equivalence_bounded(
 
 #[cfg(test)]
 mod tests {
+    use volute::Lut;
+
     use crate::equiv::unroll;
     use crate::network::stats::stats;
     use crate::{Gate, NaryType, Network, Signal};
@@ -667,5 +669,83 @@ mod tests {
         assert_eq!(p.len(), 3);
         assert!(p[0]);
         assert!(p[1]);
+    }
+
+    #[test]
+    fn test_equiv_lut_xor3() {
+        let mut a = Network::new();
+        let l1 = a.add_input();
+        let l2 = a.add_input();
+        let l3 = a.add_input();
+        let a1 = a.xor(l1, l2);
+        let a2 = a.xor(a1, l3);
+        a.add_output(a2);
+        let mut b = Network::new();
+        b.add_input();
+        b.add_input();
+        b.add_input();
+        let lut = Lut::nth_var(3, 0) ^ Lut::nth_var(3, 1) ^ Lut::nth_var(3, 2);
+        let b2 = b.add(Gate::lut(&[l1, l2, l3], lut));
+        b.add_output(b2);
+        check_equivalence_comb(&a, &b, false).unwrap();
+        check_equivalence_comb(&a, &b, true).unwrap();
+    }
+
+    #[test]
+    fn test_equiv_lut_and3() {
+        let mut a = Network::new();
+        let l1 = a.add_input();
+        let l2 = a.add_input();
+        let l3 = a.add_input();
+        let a1 = a.and(l1, l2);
+        let a2 = a.and(a1, l3);
+        a.add_output(a2);
+        let mut b = Network::new();
+        b.add_input();
+        b.add_input();
+        b.add_input();
+        let lut = Lut::nth_var(3, 0) & Lut::nth_var(3, 1) & Lut::nth_var(3, 2);
+        let b2 = b.add(Gate::lut(&[l1, l2, l3], lut));
+        b.add_output(b2);
+        check_equivalence_comb(&a, &b, false).unwrap();
+        check_equivalence_comb(&a, &b, true).unwrap();
+    }
+
+    #[test]
+    fn test_equiv_lut_andinv3() {
+        let mut a = Network::new();
+        let l1 = a.add_input();
+        let l2 = a.add_input();
+        let l3 = a.add_input();
+        let a2 = a.add(Gate::and3(!l1, !l2, l3));
+        a.add_output(a2);
+        let mut b = Network::new();
+        b.add_input();
+        b.add_input();
+        b.add_input();
+        let lut = !Lut::nth_var(3, 0) & !Lut::nth_var(3, 1) & Lut::nth_var(3, 2);
+        let b2 = b.add(Gate::lut(&[l1, l2, l3], lut));
+        b.add_output(b2);
+        check_equivalence_comb(&a, &b, false).unwrap();
+        check_equivalence_comb(&a, &b, true).unwrap();
+    }
+
+    #[test]
+    fn test_equiv_lut_inv_inputs() {
+        let mut a = Network::new();
+        let l1 = a.add_input();
+        let l2 = a.add_input();
+        let l3 = a.add_input();
+        let a2 = a.add(Gate::and3(!l1, !l2, !l3));
+        a.add_output(a2);
+        let mut b = Network::new();
+        b.add_input();
+        b.add_input();
+        b.add_input();
+        let lut = Lut::nth_var(3, 0) & Lut::nth_var(3, 1) & Lut::nth_var(3, 2);
+        let b2 = b.add(Gate::lut(&[!l1, !l2, !l3], lut));
+        b.add_output(b2);
+        check_equivalence_comb(&a, &b, false).unwrap();
+        check_equivalence_comb(&a, &b, true).unwrap();
     }
 }
