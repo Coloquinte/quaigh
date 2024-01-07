@@ -1,6 +1,8 @@
 use core::slice;
 use std::{cmp, fmt};
 
+use volute::Lut;
+
 use crate::network::signal::Signal;
 
 /// Basic types of 2-input gates
@@ -42,6 +44,13 @@ pub enum NaryType {
     Xnor,
 }
 
+/// Lut gate
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct LutGate {
+    pub inputs: Box<[Signal]>,
+    pub lut: Lut,
+}
+
 /// Logic gate representation
 ///
 /// Logic gates have a canonical form.
@@ -67,6 +76,8 @@ pub enum Gate {
     Buf(Signal),
     /// D flip-flop with enable and reset
     Dff([Signal; 3]),
+    /// LUT
+    Lut(Box<LutGate>),
 }
 
 /// Result of normalizing a logic gate
@@ -152,6 +163,7 @@ impl Gate {
                 //   * remove data (d == res)
             }
             Buf(_) => false,
+            Lut(_) => true,
         }
     }
 
@@ -170,6 +182,7 @@ impl Gate {
             Nary(v, _) => v,
             Dff(s) => s,
             Buf(s) => slice::from_ref(s),
+            Lut(lut) => lut.inputs.as_ref(),
         }
     }
 
@@ -245,6 +258,10 @@ impl Gate {
             Dff([a, b, c]) => Dff([t(a), t(b), t(c)]),
             Nary(v, tp) => Nary(v.iter().map(|s| t(s)).collect(), *tp),
             Buf(s) => Buf(t(s)),
+            Lut(lut) => Lut(Box::new(LutGate {
+                inputs: lut.inputs.iter().map(|s| t(s)).collect(),
+                lut: lut.lut.clone(),
+            })),
         }
     }
 
@@ -257,6 +274,15 @@ impl Gate {
             Dff([a, b, c]) => Dff([t(a, 0), t(b, 1), t(c, 2)]),
             Nary(v, tp) => Nary(v.iter().enumerate().map(|(i, s)| t(s, i)).collect(), *tp),
             Buf(s) => Buf(t(s, 0)),
+            Lut(lut) => Lut(Box::new(LutGate {
+                inputs: lut
+                    .inputs
+                    .iter()
+                    .enumerate()
+                    .map(|(i, s)| t(s, i))
+                    .collect(),
+                lut: lut.lut.clone(),
+            })),
         }
     }
 
@@ -501,6 +527,7 @@ impl Normalization {
                     }
                 }
                 Buf(s) => Copy(*s ^ *inv),
+                Lut(_) => self.clone(),
             },
         }
     }
@@ -561,6 +588,15 @@ impl fmt::Display for Gate {
             }
             Buf(s) => {
                 write!(f, "{}", s)
+            }
+            Lut(lut) => {
+                let st = lut
+                    .inputs
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                write!(f, "{}({})", lut.lut, st)
             }
         }
     }

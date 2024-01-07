@@ -305,6 +305,10 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Network) {
                     writeln!(w, "BUF({})", rep).unwrap();
                 }
             }
+            Lut(lut) => {
+                // TODO: make this compatible with ABC's bench
+                writeln!(w, "{}({})", lut.lut, rep).unwrap();
+            }
         }
     }
 

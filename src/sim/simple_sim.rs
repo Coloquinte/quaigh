@@ -160,6 +160,7 @@ impl<'a> SimpleSimulator<'a> {
                 NaryType::Xnor => self.compute_xorn(v, true),
             },
             Buf(s) => self.get_value(*s),
+            Lut(_) => todo!("Simulation of Lut not implemented"),
         }
     }
 
@@ -200,6 +201,7 @@ impl<'a> SimpleSimulator<'a> {
                 NaryType::Xnor => self.compute_xorn_with_input_stuck(v, true, input, value),
             },
             Buf(_) => v,
+            Lut(_) => todo!("Simulation of Lut not implemented"),
         }
     }
 

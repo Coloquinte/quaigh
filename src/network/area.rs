@@ -123,6 +123,7 @@ impl AreaParameters {
             Ternary(_, TernaryType::Mux) => self.mux,
             Ternary(_, TernaryType::Maj) => self.maj,
             Buf(_) => 0,
+            Lut(_) => todo!("LUT area not modeled"),
         }
     }
 

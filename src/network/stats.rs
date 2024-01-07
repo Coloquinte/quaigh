@@ -33,6 +33,10 @@ pub struct NetworkStats {
     pub nb_xor: usize,
     /// Arity of Xor gates
     pub xor_arity: Vec<usize>,
+    /// Number of Lut and similar gates
+    pub nb_lut: usize,
+    /// Arity of Lut gates
+    pub lut_arity: Vec<usize>,
     /// Number of Mux
     pub nb_mux: usize,
     /// Number of Maj
@@ -72,6 +76,15 @@ impl NetworkStats {
         }
         self.xor_arity[sz] += 1;
     }
+
+    /// Record a new lut
+    fn add_lut(&mut self, sz: usize) {
+        self.nb_lut += 1;
+        while self.lut_arity.len() <= sz {
+            self.lut_arity.push(0);
+        }
+        self.lut_arity[sz] += 1;
+    }
 }
 
 impl fmt::Display for NetworkStats {
@@ -105,6 +118,14 @@ impl fmt::Display for NetworkStats {
                 }
             }
         }
+        if self.nb_lut != 0 {
+            writeln!(f, "  Lut: {}", self.nb_lut)?;
+            for (i, nb) in self.lut_arity.iter().enumerate() {
+                if *nb != 0 {
+                    writeln!(f, "      {}: {}", i, nb)?;
+                }
+            }
+        }
         if self.nb_mux != 0 {
             writeln!(f, "  Mux: {}", self.nb_mux)?;
         }
@@ -131,6 +152,8 @@ pub fn stats(a: &Network) -> NetworkStats {
         and_arity: Vec::new(),
         nb_xor: 0,
         xor_arity: Vec::new(),
+        nb_lut: 0,
+        lut_arity: Vec::new(),
         nb_maj: 0,
         nb_mux: 0,
         nb_buf: 0,
@@ -171,6 +194,9 @@ pub fn stats(a: &Network) -> NetworkStats {
                     ret.add_xor(v.len());
                 }
             },
+            Lut(lut) => {
+                ret.add_lut(lut.inputs.len());
+            }
         }
     }
 

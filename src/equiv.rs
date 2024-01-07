@@ -3,13 +3,14 @@
 use std::collections::HashMap;
 
 use cat_solver::Solver;
+use volute::Lut;
 
 use crate::network::{BinaryType, TernaryType};
 use crate::{Gate, NaryType, Network, Signal};
 
 // TODO: have clean clause builder object to encapsulate this part
 
-/// Generic function to add clauses for And-type n-ary function
+/// Add clauses for And-type n-ary function
 fn add_and_clauses(
     clauses: &mut Vec<Vec<Signal>>,
     v: &[Signal],
@@ -27,7 +28,7 @@ fn add_and_clauses(
     clauses.push(c);
 }
 
-/// Generic function to add clauses for Xor-type n-ary function
+/// Add clauses for Xor-type n-ary function
 fn add_xor_clauses(
     clauses: &mut Vec<Vec<Signal>>,
     var: &mut u32,
@@ -53,6 +54,19 @@ fn add_xor_clauses(
         // Final clauses to force n to the last result
         clauses.push(vec![a, !n ^ inv_out]);
         clauses.push(vec![!a, n ^ inv_out]);
+    }
+}
+
+/// Add clauses for Luts
+fn add_lut_clauses(clauses: &mut Vec<Vec<Signal>>, v: &[Signal], n: Signal, lut: &Lut) {
+    for mask in 0..lut.num_bits() {
+        let val_out = lut.value(mask);
+        let mut clause = vec![!n ^ val_out];
+        for i in 0..lut.num_vars() {
+            let val_i = (mask >> i) & 1 != 0;
+            clause.push(v[i] ^ val_i);
+        }
+        clauses.push(clause);
     }
 }
 
@@ -131,6 +145,9 @@ fn to_cnf(aig: &Network) -> Vec<Vec<Signal>> {
             Buf(s) => {
                 ret.push(vec![*s, !n]);
                 ret.push(vec![!s, n]);
+            }
+            Lut(lut) => {
+                add_lut_clauses(&mut ret, &lut.inputs, n, &lut.lut);
             }
         }
     }
