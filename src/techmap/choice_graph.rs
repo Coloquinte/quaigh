@@ -21,3 +21,17 @@ pub struct ChoiceGraph {
     required: Vec<u32>,
     choices: Vec<Vec<MappingChoice>>,
 }
+
+impl ChoiceGraph {
+    pub fn check_solution() {
+
+    }
+
+    pub fn solution_area() {
+        
+    }
+
+    pub fn solution_delay() {
+
+    }
+}
