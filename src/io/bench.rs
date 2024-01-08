@@ -3,72 +3,76 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, Read, Write};
 
+use volute::Lut;
+
 use crate::network::{BinaryType, TernaryType};
 use crate::{Gate, NaryType, Network, Signal};
 
-#[derive(Clone, Debug)]
-enum GateType {
-    Input,
-    Dff,
-    DffRSE,
-    Buf,
-    Not,
-    And,
-    Or,
-    Nand,
-    Nor,
-    Xor,
-    Xnor,
-    Mux,
-    Vdd,
-    Vss,
-}
-
-fn network_from_statements(
-    statements: &Vec<(String, GateType, Vec<String>)>,
-    outputs: &Vec<String>,
-) -> Network {
-    use GateType::*;
-
-    // Compute a mapping between the two
-    let mut ret = Network::new();
-    let mut name_to_sig = HashMap::new();
-    let mut node_ind = 0u32;
-    for (name, gate_type, _) in statements {
-        match gate_type {
-            Input => {
-                // No node inserted
-                name_to_sig.insert(name.clone(), ret.add_input());
-            }
-            _ => {
-                name_to_sig.insert(name.clone(), Signal::from_var(node_ind));
-                node_ind += 1;
-            }
-        }
+fn build_name_to_sig(
+    statements: &Vec<Vec<String>>,
+    inputs: &Vec<String>,
+) -> HashMap<String, Signal> {
+    let mut ret = HashMap::new();
+    for (i, name) in inputs.iter().enumerate() {
+        let present = ret
+            .insert(name.clone(), Signal::from_input(i as u32))
+            .is_some();
+        assert!(!present, "{} is defined twice", name)
+    }
+    for (i, s) in statements.iter().enumerate() {
+        let present = ret
+            .insert(s[0].to_string(), Signal::from_var(i as u32))
+            .is_some();
+        assert!(!present, "{} is defined twice", s[0].to_string())
     }
 
     // ABC-style naming for constant signals
-    if !name_to_sig.contains_key("vdd") {
-        name_to_sig.insert("vdd".to_string(), Signal::one());
+    if !ret.contains_key("vdd") {
+        ret.insert("vdd".to_string(), Signal::one());
     }
-    if !name_to_sig.contains_key("gnd") {
-        name_to_sig.insert("gnd".to_string(), Signal::zero());
+    if !ret.contains_key("gnd") {
+        ret.insert("gnd".to_string(), Signal::zero());
     }
+    ret
+}
+
+fn check_statement(statement: &Vec<String>, name_to_sig: &HashMap<String, Signal>) {
+    let deps = &statement[2..];
+    for dep in deps {
+        assert!(
+            name_to_sig.contains_key(dep),
+            "Gate input {dep} is not generated anywhere"
+        );
+    }
+    match statement[1].to_uppercase().as_str() {
+        "DFF" | "BUF" | "BUFF" | "NOT" => assert_eq!(deps.len(), 1),
+        "VDD" | "VSS" => assert_eq!(deps.len(), 0),
+        "MUX" | "MAJ" => assert_eq!(deps.len(), 3),
+        _ => (),
+    };
+}
+
+fn gate_dependencies(
+    statement: &Vec<String>,
+    name_to_sig: &HashMap<String, Signal>,
+) -> Box<[Signal]> {
+    statement[2..].iter().map(|n| name_to_sig[n]).collect()
+}
+
+fn network_from_statements(
+    statements: &Vec<Vec<String>>,
+    inputs: &Vec<String>,
+    outputs: &Vec<String>,
+) -> Network {
+    let mut ret = Network::new();
+    ret.add_inputs(inputs.len());
+
+    // Compute a mapping between the two
+    let name_to_sig = build_name_to_sig(statements, inputs);
 
     // Check everything
-    for (_, gate_type, deps) in statements {
-        for dep in deps {
-            assert!(
-                name_to_sig.contains_key(dep),
-                "Gate input {dep} is not generated anywhere"
-            );
-        }
-        match gate_type {
-            Input => assert_eq!(deps.len(), 0),
-            Dff | Buf | Not => assert_eq!(deps.len(), 1),
-            Vdd | Vss => assert_eq!(deps.len(), 0),
-            _ => (),
-        }
+    for statement in statements {
+        check_statement(statement, &name_to_sig);
     }
     for output in outputs {
         assert!(
@@ -78,49 +82,61 @@ fn network_from_statements(
     }
 
     // Setup the variables based on the mapping
-    for (_, gate_type, deps) in statements {
-        let sigs: Box<[Signal]> = deps.iter().map(|n| name_to_sig[n]).collect();
-        match gate_type {
-            Input => (),
-            Dff => {
+    for s in statements {
+        let sigs: Box<[Signal]> = gate_dependencies(s, &name_to_sig);
+        match s[1].to_uppercase().as_str() {
+            "DFF" => {
                 ret.add(Gate::Dff([sigs[0], Signal::one(), Signal::zero()]));
             }
-            DffRSE => {
+            "DFFRSE" => {
                 assert_eq!(sigs[1], Signal::zero());
                 ret.add(Gate::Dff([sigs[0], sigs[3], sigs[1]]));
             }
-            Buf => {
+            "BUF" | "BUFF" => {
                 ret.add(Gate::Buf(sigs[0]));
             }
-            Not => {
+            "NOT" => {
                 ret.add(Gate::Buf(!sigs[0]));
             }
-            Vdd => {
+            "VDD" => {
                 ret.add(Gate::Buf(Signal::one()));
             }
-            Vss => {
+            "VSS" | "GND" => {
                 ret.add(Gate::Buf(Signal::zero()));
             }
-            And => {
+            "AND" => {
                 ret.add(Gate::Nary(sigs, NaryType::And));
             }
-            Nand => {
+            "NAND" => {
                 ret.add(Gate::Nary(sigs, NaryType::Nand));
             }
-            Or => {
+            "OR" => {
                 ret.add(Gate::Nary(sigs, NaryType::Or));
             }
-            Nor => {
+            "NOR" => {
                 ret.add(Gate::Nary(sigs, NaryType::Nor));
             }
-            Xor => {
+            "XOR" => {
                 ret.add(Gate::Nary(sigs, NaryType::Xor));
             }
-            Xnor => {
+            "XNOR" => {
                 ret.add(Gate::Nary(sigs, NaryType::Xnor));
             }
-            Mux => {
+            "MUX" => {
                 ret.add(Gate::mux(sigs[0], sigs[1], sigs[2]));
+            }
+            "MAJ" => {
+                ret.add(Gate::maj(sigs[0], sigs[1], sigs[2]));
+            }
+            _ => {
+                if s[1].starts_with("LUT 0x") {
+                    ret.add(Gate::lut(
+                        sigs.as_ref(),
+                        Lut::from_hex_string(sigs.len(), &s[1][6..]).unwrap(),
+                    ));
+                } else {
+                    panic!("Unknown gate type {}", s[1]);
+                }
             }
         }
     }
@@ -151,13 +167,12 @@ fn network_from_statements(
 ///     OUTPUT(x0)
 /// ```
 pub fn read_bench<R: Read>(r: R) -> Result<Network, String> {
-    use GateType::*;
-
     let mut statements = Vec::new();
+    let mut inputs = Vec::new();
     let mut outputs = Vec::new();
     for l in BufReader::new(r).lines() {
         if let Ok(s) = l {
-            let t = s.trim();
+            let t = s.trim().to_owned();
             if t.is_empty() || t.starts_with('#') {
                 continue;
             }
@@ -169,7 +184,7 @@ pub fn read_bench<R: Read>(r: R) -> Result<Network, String> {
                     .collect();
                 assert_eq!(parts.len(), 2);
                 if ["INPUT", "PINPUT"].contains(&parts[0]) {
-                    statements.push((parts[1].to_string(), Input, Vec::new()));
+                    inputs.push(parts[1].to_string());
                 } else if ["OUTPUT", "POUTPUT"].contains(&parts[0]) {
                     outputs.push(parts[1].to_string());
                 } else {
@@ -178,37 +193,17 @@ pub fn read_bench<R: Read>(r: R) -> Result<Network, String> {
             } else {
                 let parts: Vec<_> = t
                     .split(&['=', '(', ',', ')'])
-                    .map(|s| s.trim())
+                    .map(|s| s.trim().to_owned())
                     .filter(|s| !s.is_empty())
                     .collect();
                 assert!(parts.len() >= 2);
-
-                // TODO: avoid allocations here and continue working with &str
-                let inputs: Vec<String> = parts[2..].iter().map(|s| s.to_string()).collect();
-                let gate = parts[0].to_string();
-                let g = match parts[1].to_uppercase().as_str() {
-                    "AND" => And,
-                    "OR" => Or,
-                    "NAND" => Nand,
-                    "NOR" => Nor,
-                    "XOR" => Xor,
-                    "XNOR" => Xnor,
-                    "MUX" => Mux,
-                    "BUF" | "BUFF" => Buf,
-                    "NOT" => Not,
-                    "DFF" => Dff,
-                    "DFFRSE" => DffRSE,
-                    "VDD" => Vdd,
-                    "GND" => Vss,
-                    _ => panic!("Unwnown gate type {}", parts[1]),
-                };
-                statements.push((gate, g, inputs));
+                statements.push(parts);
             }
         } else {
             return Err("Error during file IO".to_string());
         }
     }
-    Ok(network_from_statements(&statements, &outputs))
+    Ok(network_from_statements(&statements, &inputs, &outputs))
 }
 
 /// Ad-hoc to_string function to represent signals in bench files
@@ -367,11 +362,12 @@ x8 = gnd
 x9 = vdd
 x10 = XOR(  i0, i1 )
 x11   =  gnd 
+x12 = LUT 0x45fc (x0, x1, x2, x3)
 ";
         let aig = super::read_bench(example.as_bytes()).unwrap();
         assert_eq!(aig.nb_inputs(), 2);
         assert_eq!(aig.nb_outputs(), 7);
-        assert_eq!(aig.nb_nodes(), 12);
+        assert_eq!(aig.nb_nodes(), 13);
         let mut buf = BufWriter::new(Vec::new());
         super::write_bench(&mut buf, &aig);
         String::from_utf8(buf.into_inner().unwrap()).unwrap();
