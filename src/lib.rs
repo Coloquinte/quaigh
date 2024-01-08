@@ -79,5 +79,6 @@ pub mod io;
 pub mod network;
 pub mod optim;
 pub mod sim;
+pub mod techmap;
 
 pub use network::{Gate, NaryType, Network, Signal};
