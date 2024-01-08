@@ -306,8 +306,7 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Network) {
                 }
             }
             Lut(lut) => {
-                // TODO: make this compatible with ABC's bench
-                writeln!(w, "{}({})", lut.lut, rep).unwrap();
+                writeln!(w, "LUT 0x{}({})", lut.lut.to_hex_string(), rep).unwrap();
             }
         }
     }
@@ -366,11 +365,13 @@ x6 = NOT(i1)
 x7 = NOT(x2)
 x8 = gnd
 x9 = vdd
+x10 = XOR(  i0, i1 )
+x11   =  gnd 
 ";
         let aig = super::read_bench(example.as_bytes()).unwrap();
         assert_eq!(aig.nb_inputs(), 2);
         assert_eq!(aig.nb_outputs(), 7);
-        assert_eq!(aig.nb_nodes(), 10);
+        assert_eq!(aig.nb_nodes(), 12);
         let mut buf = BufWriter::new(Vec::new());
         super::write_bench(&mut buf, &aig);
         String::from_utf8(buf.into_inner().unwrap()).unwrap();

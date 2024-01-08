@@ -58,6 +58,8 @@ fn add_xor_clauses(
 }
 
 /// Add clauses for Luts
+///
+/// This simply adds one clause for each entry of the LUT, so 64 clauses for a 6-input LUT
 fn add_lut_clauses(clauses: &mut Vec<Vec<Signal>>, v: &[Signal], n: Signal, lut: &Lut) {
     for mask in 0..lut.num_bits() {
         let val_out = lut.value(mask);
