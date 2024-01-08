@@ -1,12 +1,14 @@
 //! IO for .bench (ISCAS) files
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 
 use volute::Lut;
 
 use crate::network::{BinaryType, TernaryType};
 use crate::{Gate, NaryType, Network, Signal};
+
+use super::utils::{get_inverted_signals, sig_to_string};
 
 fn build_name_to_sig(
     statements: &Vec<Vec<String>>,
@@ -206,17 +208,6 @@ pub fn read_bench<R: Read>(r: R) -> Result<Network, String> {
     Ok(network_from_statements(&statements, &inputs, &outputs))
 }
 
-/// Ad-hoc to_string function to represent signals in bench files
-fn sig_to_string(s: &Signal) -> String {
-    if *s == Signal::one() {
-        return "vdd".to_string();
-    }
-    if *s == Signal::zero() {
-        return "gnd".to_string();
-    }
-    s.without_inversion().to_string() + (if s.is_inverted() { "_n" } else { "" })
-}
-
 /// Write a network in .bench format, as used by the ISCAS benchmarks
 ///
 /// These files describe the design with simple statements like:
@@ -306,27 +297,7 @@ pub fn write_bench<W: Write>(w: &mut W, aig: &Network) {
         }
     }
 
-    // Generate signals where the inversion is required
-    let mut signals_with_inv = HashSet::new();
-    for o in 0..aig.nb_outputs() {
-        let s = aig.output(o);
-        if s.is_inverted() && !s.is_constant() {
-            signals_with_inv.insert(!s);
-        }
-    }
-    for i in 0..aig.nb_nodes() {
-        if matches!(aig.gate(i), Gate::Buf(_)) {
-            // Buf(!x) is exported directly as a Not
-            continue;
-        }
-        for s in aig.gate(i).dependencies() {
-            if s.is_inverted() && !s.is_constant() {
-                signals_with_inv.insert(!s);
-            }
-        }
-    }
-    let mut signals_with_inv = signals_with_inv.iter().collect::<Vec<_>>();
-    signals_with_inv.sort();
+    let signals_with_inv = get_inverted_signals(aig);
     for s in signals_with_inv {
         writeln!(w, "{}_n = NOT({})", s, s).unwrap();
     }

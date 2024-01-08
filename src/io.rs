@@ -1,12 +1,15 @@
 //! Read and write logic networks to files
 
 mod bench;
+mod blif;
 mod patterns;
+mod utils;
 
 use std::fs::File;
 use std::path::PathBuf;
 
 pub use bench::{read_bench, write_bench};
+pub use blif::write_blif;
 pub use patterns::{read_patterns, write_patterns};
 
 use crate::Network;
@@ -37,9 +40,11 @@ pub fn write_network_file(path: &PathBuf, aig: &Network) {
     match ext {
         None => panic!("No extension given"),
         Some(s) => {
+            let mut f = File::create(path).unwrap();
             if s == "bench" {
-                let mut f = File::create(path).unwrap();
                 write_bench(&mut f, aig);
+            } else if s == "blif" {
+                write_blif(&mut f, aig);
             } else {
                 panic!("Unknown extension {}", s.to_string_lossy());
             }
