@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use cat_solver::Solver;
 use volute::Lut;
 
-use crate::network::{BinaryType, TernaryType};
-use crate::{Gate, NaryType, Network, Signal};
+use crate::network::{BinaryType, NaryType, TernaryType};
+use crate::{Gate, Network, Signal};
 
 // TODO: have clean clause builder object to encapsulate this part
 
@@ -370,7 +370,8 @@ mod tests {
 
     use crate::equiv::unroll;
     use crate::network::stats::stats;
-    use crate::{Gate, NaryType, Network, Signal};
+    use crate::network::NaryType;
+    use crate::{Gate, Network, Signal};
 
     use super::{check_equivalence_comb, prove};
 

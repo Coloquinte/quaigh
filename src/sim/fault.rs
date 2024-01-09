@@ -1,6 +1,7 @@
 use std::fmt;
 
-use crate::{network::stats, Gate, NaryType, Network, Signal};
+use crate::network::{stats, NaryType};
+use crate::{Gate, Network, Signal};
 
 /// Representation of a fault, with its type and location
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]

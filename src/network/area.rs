@@ -17,8 +17,8 @@
 
 use std::fmt;
 
-use crate::network::gates::{BinaryType, TernaryType};
-use crate::{Gate, NaryType, Network};
+use crate::network::gates::{BinaryType, NaryType, TernaryType};
+use crate::{Gate, Network};
 
 /// Area estimation parameters for optimization
 ///

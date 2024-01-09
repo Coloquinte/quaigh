@@ -1,9 +1,7 @@
 use std::io::Write;
 
-use crate::{
-    network::{BinaryType, TernaryType},
-    Gate, NaryType, Network, Signal,
-};
+use crate::network::{BinaryType, NaryType, TernaryType};
+use crate::{Gate, Network, Signal};
 
 use super::utils::{get_inverted_signals, sig_to_string};
 

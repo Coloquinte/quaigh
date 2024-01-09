@@ -15,8 +15,8 @@
 
 use std::fmt;
 
-use crate::network::gates::{BinaryType, TernaryType};
-use crate::{Gate, NaryType, Network};
+use crate::network::gates::{BinaryType, NaryType, TernaryType};
+use crate::{Gate, Network};
 
 /// Number of inputs, outputs and gates in a network
 #[derive(Clone, Debug)]

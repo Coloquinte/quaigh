@@ -1,5 +1,5 @@
-use crate::network::BinaryType;
-use crate::{NaryType, Network, Signal};
+use crate::network::{BinaryType, NaryType, TernaryType};
+use crate::{Network, Signal};
 
 use super::Fault;
 
@@ -144,10 +144,10 @@ impl<'a> SimpleSimulator<'a> {
                 let vb = self.get_value(*b);
                 let vc = self.get_value(*c);
                 match tp {
-                    crate::network::TernaryType::And => va & vb & vc,
-                    crate::network::TernaryType::Xor => va ^ vb ^ vc,
-                    crate::network::TernaryType::Maj => maj(va, vb, vc),
-                    crate::network::TernaryType::Mux => mux(va, vb, vc),
+                    TernaryType::And => va & vb & vc,
+                    TernaryType::Xor => va ^ vb ^ vc,
+                    TernaryType::Maj => maj(va, vb, vc),
+                    TernaryType::Mux => mux(va, vb, vc),
                 }
             }
             Dff(_) => self.node_values[i],
@@ -185,10 +185,10 @@ impl<'a> SimpleSimulator<'a> {
                 let vb = if input == 1 { v } else { self.get_value(*b) };
                 let vc = if input == 2 { v } else { self.get_value(*c) };
                 match tp {
-                    crate::network::TernaryType::And => va & vb & vc,
-                    crate::network::TernaryType::Xor => va ^ vb ^ vc,
-                    crate::network::TernaryType::Maj => maj(va, vb, vc),
-                    crate::network::TernaryType::Mux => mux(va, vb, vc),
+                    TernaryType::And => va & vb & vc,
+                    TernaryType::Xor => va ^ vb ^ vc,
+                    TernaryType::Maj => maj(va, vb, vc),
+                    TernaryType::Mux => mux(va, vb, vc),
                 }
             }
             Dff(_) => self.node_values[i],

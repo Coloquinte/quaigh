@@ -1,8 +1,11 @@
-use std::{cmp::Reverse, collections::BinaryHeap};
+use std::cmp::Reverse;
+use std::collections::BinaryHeap;
 
-use crate::{network::stats, Network};
+use crate::network::stats;
+use crate::Network;
 
-use super::{simple_sim::SimpleSimulator, Fault};
+use super::simple_sim::SimpleSimulator;
+use super::Fault;
 
 /// Structure for simulation that only touches the values that were modified
 pub struct IncrementalSimulator<'a> {
