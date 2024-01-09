@@ -5,8 +5,8 @@ use std::io::{BufRead, BufReader, Read, Write};
 
 use volute::Lut;
 
-use crate::network::{BinaryType, TernaryType};
-use crate::{Gate, NaryType, Network, Signal};
+use crate::network::{BinaryType, NaryType, TernaryType};
+use crate::{Gate, Network, Signal};
 
 use super::utils::{get_inverted_signals, sig_to_string};
 

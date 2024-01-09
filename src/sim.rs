@@ -4,7 +4,8 @@ mod fault;
 mod incremental_sim;
 mod simple_sim;
 
-use crate::{sim::incremental_sim::IncrementalSimulator, Network};
+use crate::sim::incremental_sim::IncrementalSimulator;
+use crate::Network;
 
 pub use fault::Fault;
 
@@ -117,7 +118,8 @@ pub(crate) fn detects_faults(aig: &Network, pattern: &Vec<bool>, faults: &Vec<Fa
 
 #[cfg(test)]
 mod tests {
-    use crate::{Gate, NaryType, Network};
+    use crate::network::NaryType;
+    use crate::{Gate, Network};
 
     use super::simulate;
 

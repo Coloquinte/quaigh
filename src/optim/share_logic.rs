@@ -9,7 +9,8 @@ use std::iter::zip;
 use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 
-use crate::{Gate, NaryType, Network, Signal};
+use crate::network::NaryType;
+use crate::{Gate, Network, Signal};
 
 /// Helper functions to merge N-input gates, to specialize by And/Xor
 fn merge_dependencies<F: Fn(&Gate) -> bool>(
@@ -346,7 +347,8 @@ pub fn share_logic(aig: &mut Network, flattening_limit: usize) {
 #[cfg(test)]
 mod tests {
     use super::{factor_nary, flatten_nary};
-    use crate::{Gate, NaryType, Network, Signal};
+    use crate::network::NaryType;
+    use crate::{Gate, Network, Signal};
 
     #[test]
     fn test_flatten_and() {
