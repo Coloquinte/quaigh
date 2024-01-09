@@ -11,29 +11,40 @@ Logic simplification and analysis tools
 This crate provides tools for logic optimization, synthesis, technology mapping and analysis.
 Our goal is to provide an easy-to-use library, and improve its quality over time to match industrial tools.
 
-## Usage
+## Usage and features
 
-Quaigh features bounded [equivalence checking](https://en.wikipedia.org/wiki/Formal_equivalence_checking),
-[logic simplification](https://en.wikipedia.org/wiki/Logic_optimization) and
-[test pattern generation](https://en.wikipedia.org/wiki/Automatic_test_pattern_generation).
-More features will be added over time, such as technology mapping.
-At the moment, logic simplification is far from state of the art: for production designs, you should
-generally stick to the tools included in [Yosys](https://github.com/YosysHQ/yosys).
+Quaigh provides a command line tool, that can be installed using
+[Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html):
+`cargo install quaigh`.
 
+To show available commands:
 ```bash
-# Show available commands
-# At the moment, only .bench files are supported
 quaigh help
+```
 
-# Generate test patterns for a design
+The `atpg` command performs [automatic test pattern generation](https://en.wikipedia.org/wiki/Automatic_test_pattern_generation),
+to create test vectors for a design.
+```bash
 quaigh atpg mydesign.bench -o atpg.test
+```
 
-# Optimize the logic
-quaigh opt mydesign.bench -o optimized.bench
-
-# Check equivalence between the two
+The `check-equivalence` command performs bounded [equivalence checking](https://en.wikipedia.org/wiki/Formal_equivalence_checking)
+to confirm that a design's functionality is preserved after transformations.
+```bash
 quaigh equiv mydesign.bench optimized.bench
 ```
+
+The `optimize` command performs [logic optimization](https://en.wikipedia.org/wiki/Logic_optimization).
+At the moment, logic optimization is far from state of the art: for production designs, you should
+generally stick to the tools included in [Yosys](https://github.com/YosysHQ/yosys).
+```bash
+quaigh opt mydesign.bench -o optimized.bench
+```
+
+At the moment, the only supported input format is `.bench`. Benchmarks in .bench and .blif format can be downloaded
+[here](https://github.com/Coloquinte/moosic-yosys-plugin/releases/download/iscas_benchmarks/benchmarks.tar.xz).
+More features will be added over time, such as technology mapping, operator optimization, ...
+The complete documentation is available on [docs.rs](https://docs.rs/crate/quaigh/latest).
 
 ## Development
 
@@ -79,15 +90,3 @@ net.add_output(out);
 ```
 
 <!-- cargo-rdme end -->
-
-## Installation
-
-Quaigh is written in Rust. It is published on crates.io, and can be installed using
-[Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html), Rust's package manager:
-```bash
-cargo install quaigh
-```
-
-The library's documentation is available on [docs.rs](https://docs.rs/crate/quaigh/latest).
-
-
