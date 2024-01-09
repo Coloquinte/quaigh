@@ -7,6 +7,14 @@ use crate::{
 
 use super::utils::{get_inverted_signals, sig_to_string};
 
+pub fn write_blif_cube<W: Write>(w: &mut W, mask: usize, num_vars: usize, val: bool) {
+    for i in 0..num_vars {
+        let val_i = (mask >> i) & 1 != 0;
+        write!(w, "{}", if val_i { "1" } else { "0" }).unwrap();
+    }
+    write!(w, "{}", if val { " 1" } else { " 0" }).unwrap();
+}
+
 /// Write a network in .blif format
 ///
 /// The format specification is available [here](https://course.ece.cmu.edu/~ee760/760docs/blif.pdf),
@@ -113,14 +121,30 @@ pub fn write_blif<W: Write>(w: &mut W, aig: &Network) {
                         writeln!(w, " 1").unwrap();
                     }
                 } else {
-                    // TODO: implement N-ary Xor
-                    todo!("N-input xor not yet implemented for Blif")
+                    for mask in 0usize..(1 << v.len()) {
+                        let xor_val = mask.count_ones() % 2 != 0;
+                        let val = match tp {
+                            NaryType::Xor => xor_val,
+                            NaryType::Xnor => !xor_val,
+                            _ => unreachable!(),
+                        };
+                        if val {
+                            write_blif_cube(w, mask, v.len(), val);
+                        }
+                    }
                 }
             }
             Gate::Buf(_) => {
                 write!(w, "0 1").unwrap();
             }
-            Gate::Lut(_) => todo!(),
+            Gate::Lut(lut) => {
+                for mask in 0..lut.lut.num_bits() {
+                    let val = lut.lut.value(mask);
+                    if val {
+                        write_blif_cube(w, mask, lut.lut.num_vars(), val);
+                    }
+                }
+            }
             _ => panic!("Gate type not supported"),
         }
     }
