@@ -41,7 +41,8 @@ generally stick to the tools included in [Yosys](https://github.com/YosysHQ/yosy
 quaigh opt mydesign.bench -o optimized.bench
 ```
 
-At the moment, the only supported input format is `.bench`. Benchmarks in .bench and .blif format can be downloaded
+Quaigh supports a subset of the [Blif](https://course.ece.cmu.edu/~ee760/760docs/blif.pdf) file format, as well
+as the simple Bench file format used by ISCAS benchmarks. Benchmarks can be downloaded
 [here](https://github.com/Coloquinte/moosic-yosys-plugin/releases/download/iscas_benchmarks/benchmarks.tar.xz).
 More features will be added over time, such as technology mapping, operator optimization, ...
 The complete documentation is available on [docs.rs](https://docs.rs/crate/quaigh/latest).

@@ -19,6 +19,7 @@ enum Statement {
 impl Statement {
     /// Extend a statement over multiple lines
     pub fn extend(&mut self, tokens: &Vec<&str>) -> Result<(), String> {
+        // TODO: instead of running this weird extension, we should just consider it a bigger line and do the parsing later
         match self {
             Statement::Inputs(inputs) => {
                 inputs.extend(tokens.iter().map(|s| (*s).to_owned()));
@@ -212,6 +213,7 @@ fn read_statements<R: std::io::Read>(r: R) -> Result<Vec<Statement>, String> {
     let mut is_continuation = false;
     for l in BufReader::new(r).lines() {
         if let Ok(s) = l {
+            // TODO: parse comments properly, not just at the beginning of the line
             if s.starts_with('#') {
                 is_continuation = false;
                 continue;
