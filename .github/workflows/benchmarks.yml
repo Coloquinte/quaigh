@@ -38,5 +38,8 @@ jobs:
       - name: Optimization
         run: bash scripts/opt_benchmarks.sh
 
+      - name: Conversion
+        run: bash scripts/conversion_benchmarks.sh
+
       - name: Test pattern generation
         run: bash scripts/atpg_benchmarks.sh
