@@ -60,15 +60,15 @@ More generic netlists, like [Yosys RTLIL](https://yosyshq.readthedocs.io/project
 will allow all kind of logic gates in a single datastructure.
 Since they do not restrict the functions represented, they are difficult to work directly for logic optimization.
 
-Quaigh aims in-between. All algorithms operate on a single datastructure, `Network`.
+Quaigh aims in-between. All algorithms operate on a single datastructure, [`Network`](https://docs.rs/quaigh/latest/quaigh/network/struct.Network.html).
 This makes it possible to compare representations using completely different gates.
 An algorithm targeting And gates (for example) can ignore everything else.
 Compared to a netlist datastructure, it is flat and focuses completely on logic optimization.
 
 ### Datastructures
 
-`Network` is a typical Gate-Inverter-Graph representation of a logic circuit.
-Inverters are implicit, occupying just one bit in `Signal`.
+[`Network`](https://docs.rs/quaigh/latest/quaigh/network/struct.Network.html) is a typical Gate-Inverter-Graph representation of a logic circuit.
+Inverters are implicit, occupying just one bit in [`Signal`](https://docs.rs/quaigh/latest/quaigh/network/struct.Signal.html).
 It supports many kinds of logic, and all can coexist in the same circuit:
 *   Complex gates such as Xor, Mux and Maj3 are all first class citizens;
 *   Flip-flops with enable and reset are represented directly.
