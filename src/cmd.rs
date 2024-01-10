@@ -59,6 +59,10 @@ pub enum Commands {
     /// failing test pattern.
     #[clap(alias = "equiv")]
     CheckEquivalence(EquivArgs),
+
+    /// Read a logic network and write it in another format
+    #[clap()]
+    Convert(ConvertArgs),
 }
 
 /// Command arguments for equivalence checking
@@ -174,6 +178,23 @@ impl ShowArgs {
         use crate::network::stats::stats;
         let aig = read_network_file(&self.file);
         println!("Network stats:\n{}\n\n", stats(&aig));
+    }
+}
+
+/// Command arguments for file conversion
+#[derive(Args)]
+pub struct ConvertArgs {
+    /// Network to convert
+    file: PathBuf,
+
+    /// Destination file
+    destination: PathBuf,
+}
+
+impl ConvertArgs {
+    pub fn run(&self) {
+        let aig = read_network_file(&self.file);
+        write_network_file(&self.destination, &aig);
     }
 }
 
