@@ -9,22 +9,24 @@ use std::fs::File;
 use std::path::PathBuf;
 
 pub use bench::{read_bench, write_bench};
-pub use blif::write_blif;
+pub use blif::{read_blif, write_blif};
 pub use patterns::{read_patterns, write_patterns};
 
 use crate::Network;
 
 /// Read a logic network from a file
 ///
-/// Following extensions are supported: .bench
+/// .bench and .blif formats are supported, with limitations to the .blif format support
 pub fn read_network_file(path: &PathBuf) -> Network {
     let ext = path.extension();
+    let f = File::open(path).unwrap();
     match ext {
         None => panic!("No extension given"),
         Some(s) => {
             if s == "bench" {
-                let f = File::open(path).unwrap();
                 read_bench(f).unwrap()
+            } else if s == "blif" {
+                read_blif(f).unwrap()
             } else {
                 panic!("Unknown extension {}", s.to_string_lossy());
             }
@@ -34,7 +36,7 @@ pub fn read_network_file(path: &PathBuf) -> Network {
 
 /// Write a logic network to a file
 ///
-/// Following extensions are supported: .bench
+/// .bench and .blif formats are supported
 pub fn write_network_file(path: &PathBuf, aig: &Network) {
     let ext = path.extension();
     match ext {
