@@ -109,11 +109,12 @@ impl EquivArgs {
                 println!("Networks are not equivalent");
                 println!("Test pattern:");
                 // TODO: extract the names here
-                for (i, v) in err.iter().enumerate() {
-                    print!("{}: ", i + 1);
+                for v in err {
+                    print!("\t");
                     for b in v {
-                        print!("{}", if *b { "0" } else { "1" });
+                        print!("{}", if b { "0" } else { "1" });
                     }
+                    println!();
                 }
                 std::process::exit(1);
             }
