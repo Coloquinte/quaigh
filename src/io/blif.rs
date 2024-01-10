@@ -16,6 +16,33 @@ enum Statement {
     Cube(String),
 }
 
+impl Statement {
+    /// Extend a statement over multiple lines
+    pub fn extend(&mut self, tokens: &Vec<&str>) -> Result<(), String> {
+        match self {
+            Statement::Inputs(inputs) => {
+                inputs.extend(tokens.iter().map(|s| (*s).to_owned()));
+            }
+            Statement::Outputs(outputs) => {
+                outputs.extend(tokens.iter().map(|s| (*s).to_owned()));
+            }
+            Statement::Latch {
+                input: _,
+                output: _,
+            } => {
+                return Err(".latch statement cannot be multiline".to_owned());
+            }
+            Statement::Name(names) => {
+                names.extend(tokens.iter().map(|s| (*s).to_owned()));
+            }
+            Statement::Cube(_) => {
+                return Err("Cube definition cannot be multiline".to_owned());
+            }
+        }
+        Ok(())
+    }
+}
+
 fn build_name_to_sig(statements: &Vec<Statement>) -> Result<HashMap<String, Signal>, String> {
     let mut ret = HashMap::new();
     let mut var = 0;
@@ -176,62 +203,86 @@ fn build_network(
 }
 
 fn read_statements<R: std::io::Read>(r: R) -> Result<Vec<Statement>, String> {
-    let mut ret = Vec::new();
+    let mut ret: Vec<Statement> = Vec::new();
     let mut found_model = false;
     let mut found_inputs = false;
     let mut found_outputs = false;
+
+    // Whether we are parsing a multi-line string
+    let mut is_continuation = false;
     for l in BufReader::new(r).lines() {
         if let Ok(s) = l {
-            let t = s.trim().to_owned();
-            if t.is_empty() || t.starts_with('#') {
+            if s.starts_with('#') {
+                is_continuation = false;
                 continue;
             }
+
+            let next_continuation = s.ends_with("\\");
+            let t = if next_continuation {
+                s[0..s.len() - 1].trim()
+            } else {
+                s.trim()
+            };
+
             let tokens: Vec<_> = t.split_whitespace().collect();
 
-            match tokens[0] {
-                ".model" => {
-                    if found_model {
-                        return Err("Multiple models in the same file are not supported".to_owned());
+            if is_continuation {
+                if ret.is_empty() {
+                    return Err("Multiline expression with no previous statement".to_owned());
+                }
+                ret.last_mut().unwrap().extend(&tokens)?;
+            } else {
+                if tokens.is_empty() {
+                    continue;
+                }
+                match tokens[0] {
+                    ".model" => {
+                        if found_model {
+                            return Err(
+                                "Multiple models in the same file are not supported".to_owned()
+                            );
+                        }
+                        found_model = true;
                     }
-                    found_model = true;
-                }
-                ".inputs" => {
-                    if found_inputs {
-                        return Err("Multiple .inputs statements".to_owned());
+                    ".inputs" => {
+                        if found_inputs {
+                            return Err("Multiple .inputs statements".to_owned());
+                        }
+                        found_inputs = true;
+                        ret.push(Statement::Inputs(
+                            tokens[1..].iter().map(|s| (*s).to_owned()).collect(),
+                        ));
                     }
-                    found_inputs = true;
-                    ret.push(Statement::Inputs(
-                        tokens[1..].iter().map(|s| (*s).to_owned()).collect(),
-                    ));
-                }
-                ".outputs" => {
-                    if found_outputs {
-                        return Err("Multiple .outputs statements".to_owned());
+                    ".outputs" => {
+                        if found_outputs {
+                            return Err("Multiple .outputs statements".to_owned());
+                        }
+                        found_outputs = true;
+                        ret.push(Statement::Outputs(
+                            tokens[1..].iter().map(|s| (*s).to_owned()).collect(),
+                        ));
                     }
-                    found_outputs = true;
-                    ret.push(Statement::Outputs(
-                        tokens[1..].iter().map(|s| (*s).to_owned()).collect(),
-                    ));
-                }
-                ".latch" => {
-                    ret.push(Statement::Latch {
-                        input: tokens[1].to_owned(),
-                        output: tokens[2].to_owned(),
-                    });
-                }
-                ".names" => {
-                    ret.push(Statement::Name(
-                        tokens[1..].iter().map(|s| (*s).to_owned()).collect(),
-                    ));
-                }
-                ".flop" | ".cname" | ".gate" | ".subckt" => {
-                    return Err(format!("{} construct is not supported", tokens[0]));
-                }
-                ".end" => continue,
-                _ => {
-                    ret.push(Statement::Cube(t));
+                    ".latch" => {
+                        ret.push(Statement::Latch {
+                            input: tokens[1].to_owned(),
+                            output: tokens[2].to_owned(),
+                        });
+                    }
+                    ".names" => {
+                        ret.push(Statement::Name(
+                            tokens[1..].iter().map(|s| (*s).to_owned()).collect(),
+                        ));
+                    }
+                    ".flop" | ".cname" | ".gate" | ".subckt" => {
+                        return Err(format!("{} construct is not supported", tokens[0]));
+                    }
+                    ".end" => continue,
+                    _ => {
+                        ret.push(Statement::Cube(t.to_owned()));
+                    }
                 }
             }
+            is_continuation = next_continuation;
         }
     }
     Ok(ret)
