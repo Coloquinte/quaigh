@@ -65,7 +65,7 @@ fn network_from_statements(
     statements: &Vec<Vec<String>>,
     inputs: &Vec<String>,
     outputs: &Vec<String>,
-) -> Network {
+) -> Result<Network, String> {
     let mut ret = Network::new();
     ret.add_inputs(inputs.len());
 
@@ -137,7 +137,7 @@ fn network_from_statements(
                         Lut::from_hex_string(sigs.len(), &s[1][6..]).unwrap(),
                     ));
                 } else {
-                    panic!("Unknown gate type {}", s[1]);
+                    return Err(format!("Unknown gate type {}", s[1]));
                 }
             }
         }
@@ -147,7 +147,7 @@ fn network_from_statements(
     }
     ret.topo_sort();
     ret.check();
-    ret
+    Ok(ret)
 }
 
 /// Read a network in .bench format, as used by the ISCAS benchmarks
@@ -190,7 +190,7 @@ pub fn read_bench<R: Read>(r: R) -> Result<Network, String> {
                 } else if ["OUTPUT", "POUTPUT"].contains(&parts[0]) {
                     outputs.push(parts[1].to_string());
                 } else {
-                    panic!("Unknown keyword {}", parts[0]);
+                    return Err(format!("Unknown keyword {}", parts[0]));
                 }
             } else {
                 let parts: Vec<_> = t
@@ -205,7 +205,7 @@ pub fn read_bench<R: Read>(r: R) -> Result<Network, String> {
             return Err("Error during file IO".to_string());
         }
     }
-    Ok(network_from_statements(&statements, &inputs, &outputs))
+    network_from_statements(&statements, &inputs, &outputs)
 }
 
 /// Write a network in .bench format, as used by the ISCAS benchmarks
