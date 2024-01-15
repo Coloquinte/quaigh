@@ -9,6 +9,8 @@ use crate::{Gate, Network, Signal};
 use super::utils::{get_inverted_signals, sig_to_string};
 
 enum Statement {
+    Model(String),
+    End(),
     Inputs(Vec<String>),
     Outputs(Vec<String>),
     Latch { input: String, output: String },
@@ -21,6 +23,9 @@ impl Statement {
     pub fn extend(&mut self, tokens: &Vec<&str>) -> Result<(), String> {
         // TODO: instead of running this weird extension, we should just consider it a bigger line and do the parsing later
         match self {
+            Statement::Model(_) => {
+                return Err("Model definition cannot be multiline".to_owned());
+            }
             Statement::Inputs(inputs) => {
                 inputs.extend(tokens.iter().map(|s| (*s).to_owned()));
             }
@@ -39,17 +44,39 @@ impl Statement {
             Statement::Cube(_) => {
                 return Err("Cube definition cannot be multiline".to_owned());
             }
+            Statement::End() => {
+                return Err("End statement cannot be multiline".to_owned());
+            }
         }
         Ok(())
     }
 }
 
 fn build_name_to_sig(statements: &Vec<Statement>) -> Result<HashMap<String, Signal>, String> {
+    let mut found_model = false;
+    let mut found_inputs = false;
+    let mut found_outputs = false;
+
     let mut ret = HashMap::new();
     let mut var = 0;
     for statement in statements {
         match statement {
+            Statement::Model(_) => {
+                if found_model {
+                    return Err("Multiple models in the same file are not supported".to_owned());
+                }
+                found_model = true;
+            }
+            Statement::End() => {
+                if !found_model {
+                    return Err("End statement before the end of the model".to_owned());
+                }
+            }
             Statement::Inputs(inputs) => {
+                if found_inputs {
+                    return Err("Multiple .inputs statements".to_owned());
+                }
+                found_inputs = true;
                 for (i, name) in inputs.iter().enumerate() {
                     let s = Signal::from_input(i as u32);
                     let present = ret.insert(name.clone(), s).is_some();
@@ -58,7 +85,12 @@ fn build_name_to_sig(statements: &Vec<Statement>) -> Result<HashMap<String, Sign
                     }
                 }
             }
-            Statement::Outputs(_) => (),
+            Statement::Outputs(_) => {
+                if found_outputs {
+                    return Err("Multiple .outputs statements".to_owned());
+                }
+                found_outputs = true;
+            }
             Statement::Latch {
                 input: _,
                 output: name,
@@ -122,6 +154,8 @@ fn build_network(
                 ret.add(Gate::andn(&deps));
             }
             Statement::Cube(_) => (),
+            Statement::Model(_) => (),
+            Statement::End() => (),
         }
     }
 
@@ -203,11 +237,32 @@ fn build_network(
     Ok(ret)
 }
 
+fn read_single_statement(tokens: Vec<&str>) -> Result<Statement, String> {
+    match tokens[0] {
+        ".model" => Ok(Statement::Model(tokens[1].to_owned())),
+        ".inputs" => Ok(Statement::Inputs(
+            tokens[1..].iter().map(|s| (*s).to_owned()).collect(),
+        )),
+        ".outputs" => Ok(Statement::Outputs(
+            tokens[1..].iter().map(|s| (*s).to_owned()).collect(),
+        )),
+        ".latch" => Ok(Statement::Latch {
+            input: tokens[1].to_owned(),
+            output: tokens[2].to_owned(),
+        }),
+        ".names" => Ok(Statement::Name(
+            tokens[1..].iter().map(|s| (*s).to_owned()).collect(),
+        )),
+        ".flop" | ".cname" | ".gate" | ".subckt" => {
+            Err(format!("{} construct is not supported", tokens[0]))
+        }
+        ".end" => Ok(Statement::End()),
+        _ => Ok(Statement::Cube(tokens.join(" "))),
+    }
+}
+
 fn read_statements<R: std::io::Read>(r: R) -> Result<Vec<Statement>, String> {
     let mut ret: Vec<Statement> = Vec::new();
-    let mut found_model = false;
-    let mut found_inputs = false;
-    let mut found_outputs = false;
 
     // Whether we are parsing a multi-line string
     let mut is_continuation = false;
@@ -237,52 +292,8 @@ fn read_statements<R: std::io::Read>(r: R) -> Result<Vec<Statement>, String> {
                 if tokens.is_empty() {
                     continue;
                 }
-                match tokens[0] {
-                    ".model" => {
-                        if found_model {
-                            return Err(
-                                "Multiple models in the same file are not supported".to_owned()
-                            );
-                        }
-                        found_model = true;
-                    }
-                    ".inputs" => {
-                        if found_inputs {
-                            return Err("Multiple .inputs statements".to_owned());
-                        }
-                        found_inputs = true;
-                        ret.push(Statement::Inputs(
-                            tokens[1..].iter().map(|s| (*s).to_owned()).collect(),
-                        ));
-                    }
-                    ".outputs" => {
-                        if found_outputs {
-                            return Err("Multiple .outputs statements".to_owned());
-                        }
-                        found_outputs = true;
-                        ret.push(Statement::Outputs(
-                            tokens[1..].iter().map(|s| (*s).to_owned()).collect(),
-                        ));
-                    }
-                    ".latch" => {
-                        ret.push(Statement::Latch {
-                            input: tokens[1].to_owned(),
-                            output: tokens[2].to_owned(),
-                        });
-                    }
-                    ".names" => {
-                        ret.push(Statement::Name(
-                            tokens[1..].iter().map(|s| (*s).to_owned()).collect(),
-                        ));
-                    }
-                    ".flop" | ".cname" | ".gate" | ".subckt" => {
-                        return Err(format!("{} construct is not supported", tokens[0]));
-                    }
-                    ".end" => continue,
-                    _ => {
-                        ret.push(Statement::Cube(t.to_owned()));
-                    }
-                }
+                let statement = read_single_statement(tokens)?;
+                ret.push(statement);
             }
             is_continuation = next_continuation;
         }
