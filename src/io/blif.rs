@@ -18,40 +18,6 @@ enum Statement {
     Cube(String),
 }
 
-impl Statement {
-    /// Extend a statement over multiple lines
-    pub fn extend(&mut self, tokens: &Vec<&str>) -> Result<(), String> {
-        // TODO: instead of running this weird extension, we should just consider it a bigger line and do the parsing later
-        match self {
-            Statement::Model(_) => {
-                return Err("Model definition cannot be multiline".to_owned());
-            }
-            Statement::Inputs(inputs) => {
-                inputs.extend(tokens.iter().map(|s| (*s).to_owned()));
-            }
-            Statement::Outputs(outputs) => {
-                outputs.extend(tokens.iter().map(|s| (*s).to_owned()));
-            }
-            Statement::Latch {
-                input: _,
-                output: _,
-            } => {
-                return Err(".latch statement cannot be multiline".to_owned());
-            }
-            Statement::Name(names) => {
-                names.extend(tokens.iter().map(|s| (*s).to_owned()));
-            }
-            Statement::Cube(_) => {
-                return Err("Cube definition cannot be multiline".to_owned());
-            }
-            Statement::End() => {
-                return Err("End statement cannot be multiline".to_owned());
-            }
-        }
-        Ok(())
-    }
-}
-
 fn build_name_to_sig(statements: &Vec<Statement>) -> Result<HashMap<String, Signal>, String> {
     let mut found_model = false;
     let mut found_inputs = false;
@@ -264,38 +230,43 @@ fn read_single_statement(tokens: Vec<&str>) -> Result<Statement, String> {
 fn read_statements<R: std::io::Read>(r: R) -> Result<Vec<Statement>, String> {
     let mut ret: Vec<Statement> = Vec::new();
 
-    // Whether we are parsing a multi-line string
-    let mut is_continuation = false;
+    // Buffer for multi-line strings
+    let mut ss = String::new();
+
     for l in BufReader::new(r).lines() {
         if let Ok(s) = l {
             // TODO: parse comments properly, not just at the beginning of the line
-            if s.starts_with('#') {
-                is_continuation = false;
+            let comment_pos = s.find('#');
+
+            // Extend multi-line buffers
+            ss += " ";
+            ss += &s[0..comment_pos.unwrap_or(s.len())];
+
+            let is_continuation = comment_pos.is_none() && ss.ends_with("\\");
+            if is_continuation {
+                ss.pop().unwrap();
+            }
+            if is_continuation || ss.is_empty() {
                 continue;
             }
 
-            let next_continuation = s.ends_with("\\");
-            let t = if next_continuation {
-                s[0..s.len() - 1].trim()
-            } else {
-                s.trim()
-            };
-
+            let t = ss.trim();
             let tokens: Vec<_> = t.split_whitespace().collect();
-
-            if is_continuation {
-                if ret.is_empty() {
-                    return Err("Multiline expression with no previous statement".to_owned());
-                }
-                ret.last_mut().unwrap().extend(&tokens)?;
-            } else {
-                if tokens.is_empty() {
-                    continue;
-                }
+            if !tokens.is_empty() {
                 let statement = read_single_statement(tokens)?;
                 ret.push(statement);
             }
-            is_continuation = next_continuation;
+            ss.clear();
+        }
+    }
+
+    // Handle a line continuation at the end of the file
+    if !ss.is_empty() {
+        let t = ss.trim();
+        let tokens: Vec<_> = t.split_whitespace().collect();
+        if !tokens.is_empty() {
+            let statement = read_single_statement(tokens)?;
+            ret.push(statement);
         }
     }
     Ok(ret)
@@ -481,4 +452,34 @@ pub fn write_blif<W: Write>(w: &mut W, aig: &Network) {
     writeln!(w, ".names vdd").unwrap();
     writeln!(w, "1").unwrap();
     writeln!(w, ".names gnd").unwrap();
+}
+
+mod test {
+    #[test]
+    fn test_basic_readwrite() {
+        use std::io::BufWriter;
+
+        let example = "# .blif file
+  .model test_file # Comment
+ .inputs a b c
+ .outputs e \
+ f g # Comment # and more
+
+ .names a b e
+ 00 1  # Comment
+
+ .names c b \
+   f
+ 01 1
+
+ .names g \
+";
+        let aig = super::read_blif(example.as_bytes()).unwrap();
+        assert_eq!(aig.nb_inputs(), 3);
+        assert_eq!(aig.nb_outputs(), 3);
+        assert_eq!(aig.nb_nodes(), 3);
+        let mut buf = BufWriter::new(Vec::new());
+        super::write_blif(&mut buf, &aig);
+        String::from_utf8(buf.into_inner().unwrap()).unwrap();
+    }
 }
