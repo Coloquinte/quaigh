@@ -2,7 +2,12 @@
 
 use std::collections::HashMap;
 
-use cat_solver::Solver;
+use rustsat::solvers::Solve;
+use rustsat::solvers::SolverResult;
+use rustsat::types::Clause;
+use rustsat::types::Lit;
+use rustsat::types::TernaryVal;
+use rustsat_kissat::Kissat;
 use volute::Lut;
 
 use crate::network::{BinaryType, NaryType, TernaryType};
@@ -282,19 +287,18 @@ pub fn prove(a: &Network) -> Option<Vec<bool>> {
     }
     all_lits.sort();
     all_lits.dedup();
-
     let mut t = HashMap::new();
-    let mut i: i32 = 1;
+    let mut i: u32 = 0;
     for s in all_lits {
-        t.insert(s, i);
-        t.insert(!s, -i);
+        t.insert(s, Lit::new(i, false));
+        t.insert(!s, Lit::new(i, true));
         i += 1;
     }
 
-    let mut solver = Solver::new();
+    let mut solver = Kissat::default();
     for c in clauses {
-        let clause: Vec<i32> = c.iter().map(|s| t[s]).collect();
-        solver.add_clause(clause);
+        let cl = Clause::from_iter(c.iter().map(|s| t[s]));
+        solver.add_clause(cl).unwrap();
     }
     let out = a.output(0);
     if out == Signal::one() {
@@ -302,21 +306,24 @@ pub fn prove(a: &Network) -> Option<Vec<bool>> {
     } else if out == Signal::zero() {
         return None;
     }
-    solver.add_clause([t[&out]]);
+    solver.add_unit(t[&out]).unwrap();
 
-    match solver.solve() {
-        None => panic!("Couldn't solve SAT problem"),
-        Some(false) => None,
-        Some(true) => {
+    let res = solver.solve().unwrap();
+    match res {
+        SolverResult::Sat => {
+            let sol = solver.full_solution().unwrap();
             let mut v = Vec::new();
             for inp in 0..a.nb_inputs() {
-                let b = solver
-                    .value(t[&Signal::from_input(inp as u32)])
-                    .unwrap_or(false);
+                let b = match sol.lit_value(t[&Signal::from_input(inp as u32)]) {
+                    TernaryVal::True => true,
+                    _ => false,
+                };
                 v.push(b);
             }
             Some(v)
         }
+        SolverResult::Unsat => None,
+        SolverResult::Interrupted => panic!("Sat solver couldn't run to completion"),
     }
 }
 
