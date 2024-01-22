@@ -18,7 +18,7 @@ use std::io::{BufRead, BufReader, Read, Write};
 ///     * A pattern that contains three timesteps
 ///     3: 01110 00111 01000
 ///
-///     * The index is optional
+///     * The index is optional when reading patterns
 ///     01110 00111 01000
 /// ```
 pub fn read_patterns<R: Read>(r: R) -> Result<Vec<Vec<Vec<bool>>>, String> {
@@ -81,9 +81,6 @@ pub fn read_patterns<R: Read>(r: R) -> Result<Vec<Vec<Vec<bool>>>, String> {
 ///
 ///     * A pattern that contains three timesteps
 ///     3: 01110 00111 01000
-///
-///     * The index is optional
-///     01110 00111 01000
 /// ```
 pub fn write_patterns<W: Write>(w: &mut W, patterns: &Vec<Vec<Vec<bool>>>) {
     writeln!(w, "* Test pattern file").unwrap();

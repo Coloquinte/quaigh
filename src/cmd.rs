@@ -1,6 +1,9 @@
 //! Command line interface
 
-use crate::atpg::{expose_dff, generate_comb_test_patterns, generate_random_seq_patterns};
+use crate::atpg::{
+    expose_dff, generate_comb_test_patterns, generate_random_seq_patterns,
+    report_comb_test_patterns,
+};
 use crate::equiv::check_equivalence_bounded;
 use crate::io::{read_network_file, read_pattern_file, write_network_file, write_pattern_file};
 use crate::optim;
@@ -52,6 +55,10 @@ pub enum Commands {
     ///   * Input stuck-at fault, where the input of the gate is stuck at a constant value
     #[clap()]
     Atpg(AtpgArgs),
+
+    /// Analyze the results of test pattern generation
+    #[clap(hide = true)]
+    AtpgReport(AtpgReportArgs),
 
     /// Check equivalence between two logic networks
     ///
@@ -280,5 +287,33 @@ impl AtpgArgs {
                 generate_random_seq_patterns(aig.nb_inputs(), nb_timesteps, nb_patterns, self.seed);
             write_pattern_file(&self.output, &seq_patterns);
         }
+    }
+}
+
+/// Command arguments for test pattern generation report
+#[derive(Args)]
+pub struct AtpgReportArgs {
+    /// Network to analyze
+    network: PathBuf,
+
+    /// Test pattern file
+    patterns: PathBuf,
+
+    /// Do not remove redundant faults beforehand
+    #[arg(long, default_value_t = false)]
+    with_redundant_faults: bool,
+}
+
+impl AtpgReportArgs {
+    pub fn run(&self) {
+        let mut aig = read_network_file(&self.network);
+
+        if !aig.is_comb() {
+            println!("Exposing flip-flops for a sequential network");
+            aig = expose_dff(&aig);
+        }
+        let seq_patterns = read_pattern_file(&self.patterns);
+        let patterns = seq_patterns.iter().map(|p| p[0].clone()).collect();
+        report_comb_test_patterns(&aig, patterns, self.with_redundant_faults);
     }
 }

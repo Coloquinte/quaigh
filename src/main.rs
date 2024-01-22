@@ -24,6 +24,7 @@ fn main() {
         cmd::Commands::Show(a) => a.run(),
         cmd::Commands::Simulate(a) => a.run(),
         cmd::Commands::Atpg(a) => a.run(),
+        cmd::Commands::AtpgReport(a) => a.run(),
         cmd::Commands::Convert(a) => a.run(),
     }
 }

@@ -434,3 +434,46 @@ pub fn generate_comb_test_patterns(
     );
     gen.patterns
 }
+
+/// Analyze combinatorial test patterns
+///
+/// This will show the coverage obtained by these test patterns. The network needs to be combinatorial.
+pub fn report_comb_test_patterns(
+    aig: &Network,
+    patterns: Vec<Vec<bool>>,
+    with_redundant_faults: bool,
+) {
+    assert!(aig.is_comb());
+    let faults = Fault::all(aig);
+    let unique_faults = Fault::all_unique(aig);
+
+    println!(
+        "Analyzing network with {} inputs, {} outputs, {} faults, {} unique faults",
+        aig.nb_inputs(),
+        aig.nb_outputs(),
+        faults.len(),
+        unique_faults.len(),
+    );
+
+    let mut gen = TestPatternGenerator::from(
+        aig,
+        if with_redundant_faults {
+            faults.clone()
+        } else {
+            unique_faults.clone()
+        },
+        0,
+    );
+    for pattern in tqdm!(patterns.iter()) {
+        // TODO: make it faster by using multi-pattern simulation
+        gen.add_single_pattern(pattern.clone(), false);
+    }
+
+    println!(
+        "Analyzed {} patterns, detecting {}/{} faults ({:.2}% coverage)",
+        gen.nb_patterns(),
+        gen.nb_detected(),
+        gen.nb_faults(),
+        100.0 * (gen.nb_detected() as f64) / (gen.nb_faults() as f64)
+    );
+}
