@@ -23,29 +23,37 @@ use std::io::{BufRead, BufReader, Read, Write};
 /// ```
 pub fn read_patterns<R: Read>(r: R) -> Result<Vec<Vec<Vec<bool>>>, String> {
     let mut ret = Vec::new();
-    let mut ind: usize = 1;
+    let mut pattern_ind: usize = 1;
+    let mut line_ind = 0;
     for l in BufReader::new(r).lines() {
         if let Ok(s) = l {
+            line_ind += 1;
             let t = s.trim();
             if t.is_empty() || t.starts_with('*') {
                 continue;
             }
             let sp = t.split(':').collect::<Vec<_>>();
             if sp.len() >= 3 || sp.is_empty() {
-                panic!("Expected line of the form INDEX: TIMESTEP_1 TIMESTEP_2 ... TIMESTEP_N");
+                return Err(
+                    "Expected line of the form INDEX: TIMESTEP_1 TIMESTEP_2 ... TIMESTEP_N"
+                        .to_owned(),
+                );
             }
             if sp.len() == 2 {
-                let line_ind: usize = sp[0].trim().parse().unwrap();
-                if line_ind != ind {
-                    panic!("Index {line_ind} on a line does not match expected {ind}");
+                let parse_ind = sp[0].trim().parse::<usize>();
+                if parse_ind.is_err() || parse_ind.unwrap() != pattern_ind {
+                    println!(
+                        "Index {} on a line does not match expected {}",
+                        sp[0], pattern_ind
+                    );
                 }
             }
-            ind += 1;
             let patterns = if sp.len() == 2 {
                 sp[1].split_whitespace()
             } else {
                 sp[0].split_whitespace()
             };
+            let mut invalid = false;
             let mut seq_ret = Vec::new();
             for p in patterns {
                 let mut comb_ret = Vec::new();
@@ -54,13 +62,17 @@ pub fn read_patterns<R: Read>(r: R) -> Result<Vec<Vec<Vec<bool>>>, String> {
                         comb_ret.push(false);
                     } else if c == '1' {
                         comb_ret.push(true);
-                    } else {
-                        panic!("Unexpected character {c} in a pattern");
+                    } else if !invalid {
+                        invalid = true;
+                        println!("Ignoring line {line_ind} with invalid characters");
                     }
                 }
                 seq_ret.push(comb_ret);
             }
-            ret.push(seq_ret);
+            if !invalid {
+                ret.push(seq_ret);
+                pattern_ind += 1;
+            }
         }
     }
     Ok(ret)
@@ -105,11 +117,12 @@ mod test {
 1: 00000 00000
 2: 01010  11111\t11111
 3:
-00000
+:00000
 *comment 3
-5: 00000";
+5: 00000
+00110";
         let patterns = super::read_patterns(example.as_bytes()).unwrap();
-        assert_eq!(patterns.len(), 5);
+        assert_eq!(patterns.len(), 6);
         assert_eq!(
             patterns[0],
             vec![
@@ -128,6 +141,7 @@ mod test {
         assert_eq!(patterns[2], Vec::<Vec<bool>>::new());
         assert_eq!(patterns[3], vec![vec![false, false, false, false, false],]);
         assert_eq!(patterns[4], vec![vec![false, false, false, false, false],]);
+        assert_eq!(patterns[5], vec![vec![false, false, true, true, false],]);
     }
 
     #[test]
