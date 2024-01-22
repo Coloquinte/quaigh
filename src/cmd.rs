@@ -33,7 +33,7 @@ pub enum Commands {
     ///
     /// At the moment this is simple constant propagation and deduplication,
     /// but will grow in power over time.
-    #[clap(alias = "opt")]
+    #[clap(visible_alias = "opt")]
     Optimize(OptArgs),
 
     /// Simulate a logic network
@@ -41,7 +41,7 @@ pub enum Commands {
     /// This uses the same test pattern format as Atalanta, with one bit per input:
     ///    1: 00011101
     ///    2: 01110000
-    #[clap(alias = "sim")]
+    #[clap(visible_alias = "sim")]
     Simulate(SimulateArgs),
 
     /// Test pattern generation for a logic network
@@ -64,7 +64,7 @@ pub enum Commands {
     ///
     /// The command will fail if the two networks are not equivalent, and will output the
     /// failing test pattern.
-    #[clap(alias = "equiv")]
+    #[clap(visible_alias = "equiv")]
     CheckEquivalence(EquivArgs),
 
     /// Read a logic network and write it in another format
