@@ -9,7 +9,7 @@ do
 	mkdir -p "${dir}"
 done
 
-for benchmark in bench/c*.bench bench/s*.bench bench/b*.bench
+for benchmark in bench/iscas*.bench
 do
         name=$(basename "${benchmark}" .bench)
 	echo "Checking equivalence between .bench to .blif for benchmark ${name}"

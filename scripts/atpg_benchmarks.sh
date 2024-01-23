@@ -9,7 +9,7 @@ do
 	mkdir -p "${dir}"
 done
 
-for benchmark in bench/c*.bench
+for benchmark in bench/iscas85*.bench
 do
         name=$(basename "${benchmark}" .bench)
 	echo "Running atpg on ${name}"
