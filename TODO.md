@@ -46,27 +46,15 @@ This paves the way for additional optimizations:
 
 # Test pattern generation
 
-## Input stuck-at faults
-
-Only output stuck-at faults are implemented. This would be a simple addition for better coverage.
-
 ## Path activation
 
 We want to be able to activate whole critical paths. This is a bit more complicated to grasp.
-
-## Redundant fault removal
-
-Remove faults that are redundant, such as input/output of a unary gate.
 
 ## Faster simulation
 
 The current simulation is OK but basic.
 A transformation to an And or Mux graph and a single array for indexing would go a long way to make it faster.
 On the other hand this requires an additional translation layer.
-
-## Incremental simulation
-
-Use a queue to only simulate the part that is impacted by a fault.
 
 ## Connected components
 
