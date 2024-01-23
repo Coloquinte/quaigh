@@ -41,34 +41,25 @@
 //!
 //! # Development
 //!
-//! ## Philosophy
-//!
-//! In most logic optimization libraries ([ABC](https://github.com/berkeley-abc/abc), [Mockturtle](https://github.com/lsils/mockturtle), ...),
-//! there are many different datastructures depending on the kind of logic representation that is optimized:
-//! AIG, MIG, LUT, ...
-//! Depending on the circuit, one view or the other might be preferable.
-//! Taking advantage of them all may require [splitting the circuit](https://github.com/lnis-uofu/LSOracle), making most operations much more complex.
-//! More generic netlists, like [Yosys RTLIL](https://yosyshq.readthedocs.io/projects/yosys/en/latest/CHAPTER_Overview.html#the-rtl-intermediate-language-rtlil),
-//! will allow all kind of logic gates in a single datastructure.
-//! Since they do not restrict the functions represented, they are difficult to work directly for logic optimization.
-//!
-//! Quaigh aims in-between. All algorithms operate on a single datastructure, [`Network`](https://docs.rs/quaigh/latest/quaigh/network/struct.Network.html).
-//! This makes it possible to compare representations using completely different gates.
-//! An algorithm targeting And gates (for example) can ignore everything else.
-//! Compared to a netlist datastructure, it is flat and focuses completely on logic optimization.
-//!
-//! ## Datastructures
-//!
-//! [`Network`](https://docs.rs/quaigh/latest/quaigh/network/struct.Network.html) is a typical Gate-Inverter-Graph representation of a logic circuit.
+//! The main datastructure, [`Network`](https://docs.rs/quaigh/latest/quaigh/network/struct.Network.html), is a typical Gate-Inverter-Graph representation of a logic circuit.
 //! Inverters are implicit, occupying just one bit in [`Signal`](https://docs.rs/quaigh/latest/quaigh/network/struct.Signal.html).
 //! It supports many kinds of logic, and all can coexist in the same circuit:
 //! *   Complex gates such as Xor, Mux and Maj3 are all first class citizens;
 //! *   Flip-flops with enable and reset are represented directly.
 //!
-//! Since the structure targets logic optimization, it maintains some limitations to make algorithms simpler.
-//! All gates have a single output, representing a single binary value.
-//! The network is kept in topological order, so that a given gate has an index higher than its inputs.
-//! Finally, it does not attempt to handle names or design hierarchy.
+//! In most logic optimization libraries ([ABC](https://github.com/berkeley-abc/abc), [Mockturtle](https://github.com/lsils/mockturtle), ...),
+//! there are many different ways to represent logic, with separate datastructures: AIG, MIG, LUT, ...
+//! Depending on the circuit, one view or the other might be preferable.
+//! Taking advantage of them all may require [splitting the circuit](https://github.com/lnis-uofu/LSOracle), making most operations much more complex.
+//! More generic netlists, like [Yosys RTLIL](https://yosyshq.readthedocs.io/projects/yosys/en/latest/CHAPTER_Overview.html#the-rtl-intermediate-language-rtlil),
+//! will allow all kind of logic gates in a single datastructure.
+//! Since they do not restrict the functions represented, they are difficult to work with directly for logic optimization.
+//!
+//! Quaigh aims in-between. All algorithms share the same netlist representation, [`Network`](https://docs.rs/quaigh/latest/quaigh/network/struct.Network.html),
+//! but there are some limitations to make it easy to optimize:
+//! *   all gates have a single output, representing a single binary value,
+//! *   the gates are kept in topological order (a gate has an index higher than its inputs),
+//! *   names and design hierarchy are not represented.
 //!
 //! For example, here is a full adder circuit:
 //! ```
@@ -82,6 +73,13 @@
 //! net.add_output(carry);
 //! net.add_output(out);
 //! ```
+//!
+//! Apart from the core datastructure, Quaigh has algorithms for [logic optimization](https://docs.rs/quaigh/latest/quaigh/optim/index.html),
+//! [simulation](https://docs.rs/quaigh/latest/quaigh/sim/index.html) (including fault simulation) and
+//! [test pattern generation](https://docs.rs/quaigh/latest/quaigh/atpg/index.html).
+//! For optimization and equivalence checking, Quaigh relies on other packages as much as possible:
+//! *   [Kissat](https://github.com/arminbiere/kissat) (using [rustsat](https://docs.rs/rustsat/)) as a Sat solver,
+//! *   [Highs](https://github.com/ERGO-Code/HiGHS) (using [good_lp](https://docs.rs/good_lp/)) as an optimization solver.
 
 #![warn(missing_docs)]
 
