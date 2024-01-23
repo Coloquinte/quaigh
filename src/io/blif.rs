@@ -10,7 +10,8 @@ use super::utils::{get_inverted_signals, sig_to_string};
 
 enum Statement {
     Model(String),
-    End(),
+    End,
+    Exdc,
     Inputs(Vec<String>),
     Outputs(Vec<String>),
     Latch { input: String, output: String },
@@ -32,10 +33,13 @@ fn build_name_to_sig(statements: &Vec<Statement>) -> Result<HashMap<String, Sign
                 }
                 found_model = true;
             }
-            Statement::End() => {
+            Statement::End => {
                 if !found_model {
                     return Err("End statement before the end of the model".to_owned());
                 }
+            }
+            Statement::Exdc => {
+                break;
             }
             Statement::Inputs(inputs) => {
                 for (_, name) in inputs.iter().enumerate() {
@@ -112,7 +116,8 @@ fn build_network(
             }
             Statement::Cube(_) => (),
             Statement::Model(_) => (),
-            Statement::End() => (),
+            Statement::Exdc => break,
+            Statement::End => (),
         }
     }
 
@@ -210,11 +215,15 @@ fn read_single_statement(tokens: Vec<&str>) -> Result<Statement, String> {
         ".names" => Ok(Statement::Name(
             tokens[1..].iter().map(|s| (*s).to_owned()).collect(),
         )),
-        ".flop" | ".cname" | ".gate" | ".subckt" => {
-            Err(format!("{} construct is not supported", tokens[0]))
+        ".end" => Ok(Statement::End),
+        ".exdc" => Ok(Statement::Exdc),
+        _ => {
+            if tokens[0].starts_with(".") {
+                Err(format!("{} construct is not supported", tokens[0]))
+            } else {
+                Ok(Statement::Cube(tokens.join(" ")))
+            }
         }
-        ".end" => Ok(Statement::End()),
-        _ => Ok(Statement::Cube(tokens.join(" "))),
     }
 }
 
