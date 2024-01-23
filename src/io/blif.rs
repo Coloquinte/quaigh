@@ -20,11 +20,10 @@ enum Statement {
 
 fn build_name_to_sig(statements: &Vec<Statement>) -> Result<HashMap<String, Signal>, String> {
     let mut found_model = false;
-    let mut found_inputs = false;
-    let mut found_outputs = false;
 
     let mut ret = HashMap::new();
-    let mut var = 0;
+    let mut var_index = 0;
+    let mut input_index = 0;
     for statement in statements {
         match statement {
             Statement::Model(_) => {
@@ -39,30 +38,22 @@ fn build_name_to_sig(statements: &Vec<Statement>) -> Result<HashMap<String, Sign
                 }
             }
             Statement::Inputs(inputs) => {
-                if found_inputs {
-                    return Err("Multiple .inputs statements".to_owned());
-                }
-                found_inputs = true;
-                for (i, name) in inputs.iter().enumerate() {
-                    let s = Signal::from_input(i as u32);
+                for (_, name) in inputs.iter().enumerate() {
+                    let s = Signal::from_input(input_index as u32);
+                    input_index += 1;
                     let present = ret.insert(name.clone(), s).is_some();
                     if present {
                         return Err(format!("{} is defined twice", name));
                     }
                 }
             }
-            Statement::Outputs(_) => {
-                if found_outputs {
-                    return Err("Multiple .outputs statements".to_owned());
-                }
-                found_outputs = true;
-            }
+            Statement::Outputs(_) => {}
             Statement::Latch {
                 input: _,
                 output: name,
             } => {
-                let s = Signal::from_var(var as u32);
-                var += 1;
+                let s = Signal::from_var(var_index as u32);
+                var_index += 1;
                 let present = ret.insert(name.clone(), s).is_some();
                 if present {
                     return Err(format!("{} is defined twice", name));
@@ -72,9 +63,9 @@ fn build_name_to_sig(statements: &Vec<Statement>) -> Result<HashMap<String, Sign
                 if names.is_empty() {
                     return Err(".names statement with no output".to_owned());
                 }
-                let s = Signal::from_var(var as u32);
+                let s = Signal::from_var(var_index as u32);
                 let name = names.last().unwrap();
-                var += 1;
+                var_index += 1;
                 let present = ret.insert(name.clone(), s).is_some();
                 if present {
                     return Err(format!("{} is defined twice", name));
