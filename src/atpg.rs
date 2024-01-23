@@ -405,9 +405,10 @@ pub fn generate_comb_test_patterns(
     let unique_faults = Fault::all_unique(aig);
 
     println!(
-        "Analyzing network with {} inputs, {} outputs, {} faults, {} unique faults",
+        "Analyzing network with {} inputs, {} outputs, {} gates, {} possible faults, {} unique faults",
         aig.nb_inputs(),
         aig.nb_outputs(),
+        aig.nb_nodes(),
         faults.len(),
         unique_faults.len(),
     );
@@ -448,9 +449,10 @@ pub fn report_comb_test_patterns(
     let unique_faults = Fault::all_unique(aig);
 
     println!(
-        "Analyzing network with {} inputs, {} outputs, {} faults, {} unique faults",
+        "Analyzing network with {} inputs, {} outputs, {} gates, {} possible faults, {} unique faults",
         aig.nb_inputs(),
         aig.nb_outputs(),
+        aig.nb_nodes(),
         faults.len(),
         unique_faults.len(),
     );
