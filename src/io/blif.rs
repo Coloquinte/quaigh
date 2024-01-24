@@ -168,11 +168,24 @@ fn build_network(
                 _ => return Err(format!("Invalid cube: {}", s)),
             };
             polarities.push(pol);
-            if pol {
-                cube_gates.push(Gate::andn(&deps));
+            let g = if pol {
+                if deps.len() == 0 {
+                    Gate::Buf(Signal::one())
+                } else if deps.len() == 1 {
+                    Gate::Buf(deps[0])
+                } else {
+                    Gate::andn(&deps)
+                }
             } else {
-                cube_gates.push(Gate::Nary(deps.into(), NaryType::Nand));
-            }
+                if deps.len() == 0 {
+                    Gate::Buf(Signal::zero())
+                } else if deps.len() == 1 {
+                    Gate::Buf(!deps[0])
+                } else {
+                    Gate::Nary(deps.into(), NaryType::Nand)
+                }
+            };
+            cube_gates.push(g);
         }
         if cube_gates.is_empty() {
             ret.replace(gate, Gate::Buf(Signal::zero()));

@@ -171,10 +171,13 @@ pub fn stats(a: &Network) -> NetworkStats {
             Ternary(_, TernaryType::Mux) => ret.nb_mux += 1,
             Ternary(_, TernaryType::Maj) => ret.nb_maj += 1,
             Buf(s) => {
-                if s.is_inverted() {
-                    ret.nb_not += 1;
-                } else {
-                    ret.nb_buf += 1;
+                if !s.is_constant() {
+                    // Do not count buffered constants that may be created for I/O
+                    if s.is_inverted() {
+                        ret.nb_not += 1;
+                    } else {
+                        ret.nb_buf += 1;
+                    }
                 }
             }
             Dff([_, en, res]) => {
