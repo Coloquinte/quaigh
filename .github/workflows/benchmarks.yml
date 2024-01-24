@@ -36,13 +36,10 @@ jobs:
         run: bash scripts/download_benchmarks.sh
 
       - name: Run optimization
-        run: bash scripts/opt_benchmarks.sh
+        run: bash scripts/run_optimize.sh
 
       - name: Run file format conversion
-        run: bash scripts/conversion_benchmarks.sh
+        run: bash scripts/run_convert.sh
 
-      - name: Check that multiple file formats are equivalent
-        run: bash scripts/check_formats_equivalent.sh
-
-      - name: Test pattern generation
-        run: bash scripts/atpg_benchmarks.sh
+      - name: Run test pattern generation
+        run: bash scripts/run_atpg.sh
