@@ -20,9 +20,9 @@ pub struct IncrementalSimulator<'a> {
     /// Queue of nodes to update, lowest index first
     update_queue: BinaryHeap<Reverse<usize>>,
     /// List of modified value
-    modified_values: Vec<usize>,
-    /// Whether each value is modified
-    is_modified: Vec<bool>,
+    touched_gates: Vec<usize>,
+    /// Whether each value is on the queue
+    is_touched: Vec<bool>,
 }
 
 impl<'a> IncrementalSimulator<'a> {
@@ -37,19 +37,19 @@ impl<'a> IncrementalSimulator<'a> {
             sim,
             incr_sim,
             update_queue: BinaryHeap::new(),
-            modified_values: Vec::new(),
-            is_modified: vec![false; aig.nb_nodes()],
+            touched_gates: Vec::new(),
+            is_touched: vec![false; aig.nb_nodes()],
         }
     }
 
     /// Reset the state of the simulator
     fn reset(&mut self) {
-        for v in &self.modified_values {
+        for v in &self.touched_gates {
             self.incr_sim.node_values[*v] = self.sim.node_values[*v];
-            self.is_modified[*v] = false;
+            self.is_touched[*v] = false;
         }
-        self.update_queue.clear();
-        self.modified_values.clear();
+        assert!(self.update_queue.is_empty());
+        self.touched_gates.clear();
     }
 
     /// Run the simulation from a fault
@@ -66,11 +66,18 @@ impl<'a> IncrementalSimulator<'a> {
         if old_val == value {
             return;
         }
+        if !self.is_touched[i] {
+            // Check it explicitly for the first gate
+            self.is_touched[i] = true;
+            self.touched_gates.push(i);
+        }
         self.incr_sim.node_values[i] = value;
-        self.modified_values.push(i);
-        self.is_modified[i] = true;
         for &j in &self.gate_users[i] {
-            self.update_queue.push(Reverse(j));
+            if !self.is_touched[j] {
+                self.is_touched[j] = true;
+                self.update_queue.push(Reverse(j));
+                self.touched_gates.push(j);
+            }
         }
     }
 
@@ -82,7 +89,7 @@ impl<'a> IncrementalSimulator<'a> {
             }
             Fault::InputStuckAtFault { gate, input, value } => {
                 let value = self.incr_sim.run_gate_with_input_stuck(gate, input, value);
-                self.update_gate(gate, value)
+                self.update_gate(gate, value);
             }
         }
         while let Some(Reverse(i)) = self.update_queue.pop() {
@@ -94,7 +101,7 @@ impl<'a> IncrementalSimulator<'a> {
     /// Whether an output has been modified by the incremental run
     fn output_modified(&self) -> u64 {
         let mut ret = 0;
-        for i in &self.modified_values {
+        for i in &self.touched_gates {
             if self.is_output[*i] {
                 ret |= self.incr_sim.node_values[*i] ^ self.sim.node_values[*i];
             }
