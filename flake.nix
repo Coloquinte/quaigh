@@ -21,12 +21,31 @@
       rustPkgs = pkgs.rustBuilder.makePackageSet {
         rustVersion = "1.75.0";
         # You can regenerate Cargo.nix using this command:
-        #   nix run github:cargo2nix/cargo2nix 
+        #   nix run github:cargo2nix/cargo2nix
         packageFun = import ./Cargo.nix;
+
+        packageOverrides = pkgs:
+          pkgs.rustBuilder.overrides.all
+          ++ [
+            (pkgs.rustBuilder.rustLib.makeOverride {
+              name = "rustsat-kissat";
+              overrideAttrs = {
+                buildInputs = [
+                  pkgs.kissat
+                ];
+                patches = [
+                  ./nix/patches/rustsat-kissat.patch
+                ];
+                NIX_KISSAT_DIR="${pkgs.kissat.lib}";
+              };
+            })
+          ];
       };
-    in rec {
-      quaigh = rustPkgs.workspace.quaigh {};
-      default = quaigh;
-    });
+      self = {
+        quaigh = rustPkgs.workspace.quaigh {};
+        default = self.quaigh;
+      };
+    in
+      self);
   };
 }
