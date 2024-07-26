@@ -32,6 +32,8 @@
               overrideAttrs = {
                 buildInputs = [
                   pkgs.kissat
+                ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+                  pkgs.openssl
                 ];
                 patches = [
                   ./nix/patches/rustsat-kissat.patch

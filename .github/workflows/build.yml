@@ -9,7 +9,7 @@ name: Test
 
 jobs:
   build:
-    name: Test
+    name: Test/Cargo
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -49,7 +49,23 @@ jobs:
         run: |
           cargo install cargo-rdme
           cargo rdme --check
-
+  nix:
+    name: Test/Nix (${{ matrix.system.nix }})
+    strategy:
+      matrix:
+        system:
+          [
+            { gha: ubuntu-latest, nix: "x86_64-linux" },
+            { gha: macos-13, nix: "x86_64-darwin" },
+            { gha: macos-14, nix: "aarch64-darwin" },
+          ]
+    runs-on: ${{ matrix.system.gha }}
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - run: nix build
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
