@@ -118,8 +118,10 @@ pub(crate) fn detects_faults(aig: &Network, pattern: &Vec<bool>, faults: &Vec<Fa
 
 #[cfg(test)]
 mod tests {
+    use volute::Lut5;
+
     use crate::network::NaryType;
-    use crate::{Gate, Network};
+    use crate::{Gate, Network, Signal};
 
     use super::simulate;
 
@@ -216,6 +218,136 @@ mod tests {
             vec![false, true, true, true, false, false],
             vec![true, false, true, false, false, true],
         ];
+        assert_eq!(simulate(&aig, &pattern), expected);
+    }
+
+    #[test]
+    fn test_maj() {
+        let mut aig = Network::default();
+        let i0 = aig.add_input();
+        let i1 = aig.add_input();
+        let i2 = aig.add_input();
+        let x0 = aig.add(Gate::maj(i0, i1, i2));
+        aig.add_output(x0);
+        let pattern = vec![
+            vec![false, false, false],
+            vec![true, false, false],
+            vec![false, true, false],
+            vec![false, false, true],
+            vec![true, true, true],
+        ];
+        let expected = vec![
+            vec![false],
+            vec![false],
+            vec![false],
+            vec![false],
+            vec![true],
+        ];
+        assert_eq!(simulate(&aig, &pattern), expected);
+    }
+
+    #[test]
+    fn test_lfsr() {
+        let mut aig = Network::default();
+
+        // 3bit LFSR with seed 001, coefficients 101
+        // expected steps: 001 100 110 111 011 101 010 001
+        // expected outputs: 1 0 0 1 1 1 0 1
+        // expected network:
+        //
+        // x3x2x1 transform to x3'x2'x1' with:
+        //
+        // x3' = (x3 ^ x1)
+        // x2' = x3
+        // x1' = x2 | reset
+        //
+        // and output = x1'
+
+        let reset = aig.add_input();
+        let enable = aig.add_input();
+        let x3 = aig.dff(
+            Signal::placeholder(),
+            Signal::placeholder(),
+            Signal::placeholder(),
+        );
+        let x2 = aig.dff(
+            Signal::placeholder(),
+            Signal::placeholder(),
+            Signal::placeholder(),
+        );
+        let x1 = aig.dff(
+            Signal::placeholder(),
+            Signal::placeholder(),
+            Signal::placeholder(),
+        );
+
+        let x3_next = aig.xor(x3, x1);
+        let x2_next = x3;
+        let x1_next = aig.add(Gate::maj(x2, reset, Signal::one()));
+
+        let enable_on_reset = aig.add(Gate::maj(enable, reset, Signal::one()));
+
+        aig.replace(0, Gate::dff(x3_next, enable, reset));
+        aig.replace(1, Gate::dff(x2_next, enable, reset));
+        aig.replace(2, Gate::dff(x1_next, enable_on_reset, Signal::zero()));
+
+        aig.add_output(x1);
+
+        println!("{}", aig.to_string());
+        let pattern = vec![
+            vec![true, true], // step 0 reset to initial state
+            vec![false, true],
+            vec![false, true],
+            vec![false, true],
+            vec![false, true],
+            vec![false, true],
+            vec![false, true],
+            vec![false, true],
+            vec![false, true],
+        ];
+
+        // expected outputs: 0(uinit) 1(inited) 0 0 1 1 1 0 1
+        let expected: Vec<Vec<_>> = vec![0, 1, 0, 0, 1, 1, 1, 0, 1]
+            .into_iter()
+            .map(|b| vec![b == 1])
+            .collect();
+
+        assert_eq!(simulate(&aig, &pattern), expected);
+    }
+
+    #[test]
+    fn test_lut() {
+        let mut aig = Network::default();
+
+        let i0 = aig.add_input();
+        let i1 = aig.add_input();
+        let i2 = aig.add_input();
+        let i3 = aig.add_input();
+        let i4 = aig.add_input();
+        let truth = Lut5::threshold(4);
+        let lut = Gate::lut(&[i0, i1, i2, i3, i4], truth.into());
+        let o0 = aig.add(lut);
+        aig.add_output(o0);
+
+        let pattern = vec![
+            vec![false, false, false, false, false],
+            vec![true, false, false, false, false],
+            vec![false, true, true, false, false],
+            vec![false, true, true, true, true],
+            vec![true, true, true, true, true],
+        ];
+
+        println!(
+            "LUT vars: {}\n LUT size: {}",
+            truth.num_vars(),
+            truth.num_bits()
+        );
+
+        let expected: Vec<Vec<_>> = vec![0, 0, 0, 1, 1]
+            .into_iter()
+            .map(|b| vec![b == 1])
+            .collect();
+
         assert_eq!(simulate(&aig, &pattern), expected);
     }
 }

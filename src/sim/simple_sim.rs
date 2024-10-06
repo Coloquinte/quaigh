@@ -160,7 +160,16 @@ impl<'a> SimpleSimulator<'a> {
                 NaryType::Xnor => self.compute_xorn(v, true),
             },
             Buf(s) => self.get_value(*s),
-            Lut(_) => todo!("Simulation of Lut not implemented"),
+            Lut(gt) => {
+                let inputs = &gt.inputs;
+                let mut comp = 0_u64;
+                for input in inputs {
+                    comp <<= 1;
+                    comp |= 1 & self.get_value(*input);
+                }
+
+                gt.lut.value(comp as usize) as u64
+            }
         }
     }
 
@@ -201,7 +210,18 @@ impl<'a> SimpleSimulator<'a> {
                 NaryType::Xnor => self.compute_xorn_with_input_stuck(v, true, input, value),
             },
             Buf(_) => v,
-            Lut(_) => todo!("Simulation of Lut not implemented"),
+            Lut(gt) => {
+                let inputs = &gt.inputs;
+                let mut comp = 0_u64;
+                for input in inputs {
+                    comp <<= 1;
+                    comp |= 1 & self.get_value(*input);
+                }
+
+                comp ^= (!(1 & v)) << (inputs.len() - 1 - input);
+
+                gt.lut.value(comp as usize) as u64
+            }
         }
     }
 
