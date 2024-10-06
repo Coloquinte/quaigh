@@ -293,7 +293,6 @@ mod tests {
 
         aig.add_output(x1);
 
-        println!("{}", aig.to_string());
         let pattern = vec![
             vec![true, true], // step 0 reset to initial state
             vec![false, true],
@@ -336,12 +335,6 @@ mod tests {
             vec![false, true, true, true, true],
             vec![true, true, true, true, true],
         ];
-
-        println!(
-            "LUT vars: {}\n LUT size: {}",
-            truth.num_vars(),
-            truth.num_bits()
-        );
 
         let expected: Vec<Vec<_>> = vec![0, 0, 0, 1, 1]
             .into_iter()
