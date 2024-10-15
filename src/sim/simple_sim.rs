@@ -1,3 +1,5 @@
+use volute::Lut;
+
 use crate::network::{BinaryType, NaryType, TernaryType};
 use crate::{Network, Signal};
 
@@ -160,15 +162,9 @@ impl<'a> SimpleSimulator<'a> {
                 NaryType::Xnor => self.compute_xorn(v, true),
             },
             Buf(s) => self.get_value(*s),
-            Lut(gt) => {
-                let inputs = &gt.inputs;
-                let mut comp = 0_u64;
-                for input in inputs {
-                    comp <<= 1;
-                    comp |= 1 & self.get_value(*input);
-                }
-
-                gt.lut.value(comp as usize) as u64
+            Lut(gate) => {
+                let inputs = &gate.inputs;
+                self.compute_lut(&gate.lut, inputs)
             }
         }
     }
@@ -210,17 +206,9 @@ impl<'a> SimpleSimulator<'a> {
                 NaryType::Xnor => self.compute_xorn_with_input_stuck(v, true, input, value),
             },
             Buf(_) => v,
-            Lut(gt) => {
-                let inputs = &gt.inputs;
-                let mut comp = 0_u64;
-                for input in inputs {
-                    comp <<= 1;
-                    comp |= 1 & self.get_value(*input);
-                }
-
-                comp ^= (!(1 & v)) << (inputs.len() - 1 - input);
-
-                gt.lut.value(comp as usize) as u64
+            Lut(gate) => {
+                let inputs = &gate.inputs;
+                self.compute_lut_with_input_stuck(&gate.lut, inputs, input, value)
             }
         }
     }
@@ -329,4 +317,44 @@ impl<'a> SimpleSimulator<'a> {
         }
         ret
     }
+
+    fn compute_lut_with_input_stuck(
+        &self,
+        lut: &Lut,
+        signals: &[Signal],
+        input: usize,
+        value: bool,
+    ) -> u64 {
+        let signals = signals
+            .iter()
+            .enumerate()
+            .map(|(i, s)| {
+                if i == input {
+                    value as u64
+                } else {
+                    self.get_value(*s)
+                }
+            })
+            .collect::<Vec<_>>();
+        compute_lut(lut, &signals)
+    }
+
+    fn compute_lut(&self, lut: &Lut, signals: &[Signal]) -> u64 {
+        let signals: Vec<_> = signals.iter().map(|s| self.get_value(*s)).collect();
+
+        compute_lut(lut, &signals)
+    }
+}
+
+#[inline]
+fn compute_lut(lut: &Lut, signals: &[u64]) -> u64 {
+    (0..64).fold(0, |acc, i| {
+        let msk = signals
+            .iter()
+            .enumerate()
+            .fold(0, |msk, (idx, signal)| msk | ((signal >> i) & 1) << idx);
+
+        let looked_up = lut.value(msk as usize) as u64;
+        acc | ((looked_up & 1) << i)
+    })
 }

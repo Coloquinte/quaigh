@@ -121,6 +121,7 @@ mod tests {
     use volute::Lut5;
 
     use crate::network::NaryType;
+    use crate::sim::simulate_multi;
     use crate::{Gate, Network, Signal};
 
     use super::simulate;
@@ -328,19 +329,10 @@ mod tests {
         let o0 = aig.add(lut);
         aig.add_output(o0);
 
-        let pattern = vec![
-            vec![false, false, false, false, false],
-            vec![true, false, false, false, false],
-            vec![false, true, true, false, false],
-            vec![false, true, true, true, true],
-            vec![true, true, true, true, true],
-        ];
+        let pattern = vec![vec![0, 0, 0, 0, 0], vec![0b11, 0b11, 0b11, 0b10, 0b00]];
 
-        let expected: Vec<Vec<_>> = vec![0, 0, 0, 1, 1]
-            .into_iter()
-            .map(|b| vec![b == 1])
-            .collect();
+        let expected: Vec<Vec<_>> = vec![vec![0], vec![0b10]];
 
-        assert_eq!(simulate(&aig, &pattern), expected);
+        assert_eq!(simulate_multi(&aig, &pattern), expected);
     }
 }
