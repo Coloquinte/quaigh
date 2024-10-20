@@ -329,9 +329,12 @@ mod tests {
         let o0 = aig.add(lut);
         aig.add_output(o0);
 
-        let pattern = vec![vec![0, 0, 0, 0, 0], vec![0b11, 0b11, 0b11, 0b10, 0b00]];
+        let pattern = vec![
+            vec![0, 0, 0, 0, 0],
+            vec![0b111110, 0b111100, 0b111000, 0b110000, 0b100000],
+        ];
 
-        let expected: Vec<Vec<_>> = vec![vec![0], vec![0b10]];
+        let expected: Vec<Vec<_>> = vec![vec![0], vec![0b110000]];
 
         assert_eq!(simulate_multi(&aig, &pattern), expected);
     }

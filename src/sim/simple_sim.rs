@@ -325,16 +325,11 @@ impl<'a> SimpleSimulator<'a> {
         input: usize,
         value: bool,
     ) -> u64 {
+        let val = if value { !0u64 } else { 0u64 };
         let signals = signals
             .iter()
             .enumerate()
-            .map(|(i, s)| {
-                if i == input {
-                    value as u64
-                } else {
-                    self.get_value(*s)
-                }
-            })
+            .map(|(i, s)| if i == input { val } else { self.get_value(*s) })
             .collect::<Vec<_>>();
         compute_lut(lut, &signals)
     }
