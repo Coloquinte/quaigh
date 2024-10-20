@@ -118,7 +118,7 @@ pub(crate) fn detects_faults(aig: &Network, pattern: &Vec<bool>, faults: &Vec<Fa
 
 #[cfg(test)]
 mod tests {
-    use volute::Lut5;
+    use volute::{Lut3, Lut5};
 
     use crate::network::NaryType;
     use crate::sim::simulate_multi;
@@ -335,6 +335,25 @@ mod tests {
         ];
 
         let expected: Vec<Vec<_>> = vec![vec![0], vec![0b110000]];
+
+        assert_eq!(simulate_multi(&aig, &pattern), expected);
+    }
+
+    #[test]
+    fn test_lut_input_order() {
+        let mut aig = Network::default();
+
+        let i0 = aig.add_input();
+        let i1 = aig.add_input();
+        let i2 = aig.add_input();
+        for i in 0..3 {
+            let o = aig.add(Gate::lut(&[i0, i1, i2], Lut3::nth_var(i).into()));
+            aig.add_output(o);
+        }
+
+        let pattern = vec![vec![0b1110, 0b1100, 0b1000]];
+
+        let expected: Vec<Vec<_>> = vec![vec![0b1110, 0b1100, 0b1000]];
 
         assert_eq!(simulate_multi(&aig, &pattern), expected);
     }
