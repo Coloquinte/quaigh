@@ -25,7 +25,7 @@ fn build_name_to_sig(
         let present = ret
             .insert(s[0].to_string(), Signal::from_var(i as u32))
             .is_some();
-        assert!(!present, "{} is defined twice", s[0].to_string())
+        assert!(!present, "{} is defined twice", s[0])
     }
 
     // ABC-style naming for constant signals

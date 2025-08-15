@@ -331,17 +331,17 @@ fn factor_gates<F: Fn(&Gate) -> bool, G: Fn(Signal, Signal) -> Gate>(
 /// The optimization is performed greedily by merging the most used pair of inputs at each step.
 /// There is no delay optimization yet.
 pub fn factor_nary(aig: &Network) -> Network {
-    let aig1 = factor_gates(aig, |g| g.is_and(), |a, b| Gate::and(a, b));
-    let aig2 = factor_gates(&aig1, |g| g.is_xor(), |a, b| Gate::xor(a, b));
-    aig2
+    let aig1 = factor_gates(aig, |g| g.is_and(), Gate::and);
+
+    factor_gates(&aig1, |g| g.is_xor(), Gate::xor)
 }
 
 /// Share logic between N-ary gates
 ///
 /// Reorganizes logic into N-input gates, then creates trees of 2-input gates that share as much logic as possible
 pub fn share_logic(aig: &mut Network, flattening_limit: usize) {
-    *aig = flatten_nary(&aig, flattening_limit);
-    *aig = factor_nary(&aig);
+    *aig = flatten_nary(aig, flattening_limit);
+    *aig = factor_nary(aig);
 }
 
 #[cfg(test)]

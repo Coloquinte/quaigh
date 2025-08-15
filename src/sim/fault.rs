@@ -45,7 +45,7 @@ impl Fault {
     pub fn all_unique(aig: &Network) -> Vec<Fault> {
         let mut ret = Fault::all(aig);
         let redundant = Fault::redundant_faults(aig);
-        ret.retain(|f| !redundant.binary_search(f).is_ok());
+        ret.retain(|f| redundant.binary_search(f).is_err());
         ret
     }
 

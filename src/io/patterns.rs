@@ -25,54 +25,51 @@ pub fn read_patterns<R: Read>(r: R) -> Result<Vec<Vec<Vec<bool>>>, String> {
     let mut ret = Vec::new();
     let mut pattern_ind: usize = 1;
     let mut line_ind = 0;
-    for l in BufReader::new(r).lines() {
-        if let Ok(s) = l {
-            line_ind += 1;
-            let t = s.trim();
-            if t.is_empty() || t.starts_with('*') {
-                continue;
-            }
-            let sp = t.split(':').collect::<Vec<_>>();
-            if sp.len() >= 3 || sp.is_empty() {
-                return Err(
-                    "Expected line of the form INDEX: TIMESTEP_1 TIMESTEP_2 ... TIMESTEP_N"
-                        .to_owned(),
+    for s in BufReader::new(r).lines().flatten() {
+        line_ind += 1;
+        let t = s.trim();
+        if t.is_empty() || t.starts_with('*') {
+            continue;
+        }
+        let sp = t.split(':').collect::<Vec<_>>();
+        if sp.len() >= 3 || sp.is_empty() {
+            return Err(
+                "Expected line of the form INDEX: TIMESTEP_1 TIMESTEP_2 ... TIMESTEP_N".to_owned(),
+            );
+        }
+        if sp.len() == 2 {
+            let parse_ind = sp[0].trim().parse::<usize>();
+            if parse_ind.is_err() || parse_ind.unwrap() != pattern_ind {
+                println!(
+                    "Index {} on a line does not match expected {}",
+                    sp[0], pattern_ind
                 );
             }
-            if sp.len() == 2 {
-                let parse_ind = sp[0].trim().parse::<usize>();
-                if parse_ind.is_err() || parse_ind.unwrap() != pattern_ind {
-                    println!(
-                        "Index {} on a line does not match expected {}",
-                        sp[0], pattern_ind
-                    );
+        }
+        let patterns = if sp.len() == 2 {
+            sp[1].split_whitespace()
+        } else {
+            sp[0].split_whitespace()
+        };
+        let mut invalid = false;
+        let mut seq_ret = Vec::new();
+        for p in patterns {
+            let mut comb_ret = Vec::new();
+            for c in p.chars() {
+                if c == '0' {
+                    comb_ret.push(false);
+                } else if c == '1' {
+                    comb_ret.push(true);
+                } else if !invalid {
+                    invalid = true;
+                    println!("Ignoring line {line_ind} with invalid characters");
                 }
             }
-            let patterns = if sp.len() == 2 {
-                sp[1].split_whitespace()
-            } else {
-                sp[0].split_whitespace()
-            };
-            let mut invalid = false;
-            let mut seq_ret = Vec::new();
-            for p in patterns {
-                let mut comb_ret = Vec::new();
-                for c in p.chars() {
-                    if c == '0' {
-                        comb_ret.push(false);
-                    } else if c == '1' {
-                        comb_ret.push(true);
-                    } else if !invalid {
-                        invalid = true;
-                        println!("Ignoring line {line_ind} with invalid characters");
-                    }
-                }
-                seq_ret.push(comb_ret);
-            }
-            if !invalid {
-                ret.push(seq_ret);
-                pattern_ind += 1;
-            }
+            seq_ret.push(comb_ret);
+        }
+        if !invalid {
+            ret.push(seq_ret);
+            pattern_ind += 1;
         }
     }
     Ok(ret)
