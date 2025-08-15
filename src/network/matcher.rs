@@ -24,7 +24,7 @@ pub struct Matcher<'a> {
 
 impl<'a> Matcher<'a> {
     /// Build the pattern matcher from a pattern
-    pub fn from_pattern(pattern: &Network) -> Matcher {
+    pub fn from_pattern(pattern: &Network) -> Matcher<'_> {
         let matches = vec![Signal::placeholder(); pattern.nb_inputs() + pattern.nb_nodes()];
         assert!(pattern.nb_outputs() == 1);
         assert!(!pattern.output(0).is_inverted());

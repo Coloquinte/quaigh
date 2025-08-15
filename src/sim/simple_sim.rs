@@ -44,7 +44,7 @@ impl<'a> SimpleSimulator<'a> {
     }
 
     /// Run the simulation
-    pub fn run(&mut self, input_values: &Vec<Vec<u64>>) -> Vec<Vec<u64>> {
+    pub fn run(&mut self, input_values: &[Vec<u64>]) -> Vec<Vec<u64>> {
         self.check();
         self.reset();
         let mut ret = Vec::new();
@@ -62,8 +62,8 @@ impl<'a> SimpleSimulator<'a> {
     /// Run the simulation with a list of stuck-at-fault errors
     pub fn run_with_faults(
         &mut self,
-        input_values: &Vec<Vec<u64>>,
-        faults: &Vec<Fault>,
+        input_values: &[Vec<u64>],
+        faults: &[Fault],
     ) -> Vec<Vec<u64>> {
         self.check();
         self.reset();
@@ -214,7 +214,7 @@ impl<'a> SimpleSimulator<'a> {
     }
 
     /// Run the combinatorial part of the design with a list of stuck-at-fault errors
-    pub fn run_comb_with_faults(&mut self, faults: &Vec<Fault>) {
+    pub fn run_comb_with_faults(&mut self, faults: &[Fault]) {
         assert!(!Fault::has_duplicate_gate(faults));
         for i in 0..self.aig.nb_nodes() {
             self.node_values[i] = self.run_gate(i);

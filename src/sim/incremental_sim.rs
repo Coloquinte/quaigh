@@ -53,7 +53,7 @@ impl<'a> IncrementalSimulator<'a> {
     }
 
     /// Run the simulation from a fault
-    pub fn run_initial(&mut self, input_values: &Vec<u64>) {
+    pub fn run_initial(&mut self, input_values: &[u64]) {
         self.sim.reset();
         self.sim.copy_inputs(input_values);
         self.sim.run_comb();

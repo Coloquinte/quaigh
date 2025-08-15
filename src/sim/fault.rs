@@ -103,7 +103,7 @@ impl Fault {
     }
 
     /// Return true if there are two faults with the same gate in the vector
-    pub fn has_duplicate_gate(faults: &Vec<Fault>) -> bool {
+    pub fn has_duplicate_gate(faults: &[Fault]) -> bool {
         let mut gates = Vec::new();
         for f in faults {
             match f {
