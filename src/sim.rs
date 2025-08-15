@@ -10,7 +10,7 @@ use crate::Network;
 pub use fault::Fault;
 
 /// Simple conversion to 64b format
-fn bool_to_multi(values: &Vec<Vec<bool>>) -> Vec<Vec<u64>> {
+fn bool_to_multi(values: &[Vec<bool>]) -> Vec<Vec<u64>> {
     let mut ret = Vec::<Vec<u64>>::new();
     for v in values {
         ret.push(v.iter().map(|b| if *b { !0 } else { 0 }).collect());
@@ -19,7 +19,7 @@ fn bool_to_multi(values: &Vec<Vec<bool>>) -> Vec<Vec<u64>> {
 }
 
 /// Simple conversion from 64b format
-fn multi_to_bool(values: &Vec<Vec<u64>>) -> Vec<Vec<bool>> {
+fn multi_to_bool(values: &[Vec<u64>]) -> Vec<Vec<bool>> {
     let mut ret = Vec::new();
     for v in values {
         ret.push(v.iter().map(|b| *b != 0).collect());
@@ -28,16 +28,16 @@ fn multi_to_bool(values: &Vec<Vec<u64>>) -> Vec<Vec<bool>> {
 }
 
 /// Simulate a network over multiple timesteps; return the output values
-pub fn simulate(a: &Network, input_values: &Vec<Vec<bool>>) -> Vec<Vec<bool>> {
+pub fn simulate(a: &Network, input_values: &[Vec<bool>]) -> Vec<Vec<bool>> {
     let multi_input = bool_to_multi(input_values);
     let multi_ret = simulate_multi(a, &multi_input);
     multi_to_bool(&multi_ret)
 }
 
 /// Simulate a combinatorial network; return the output values
-pub fn simulate_comb(a: &Network, input_values: &Vec<bool>) -> Vec<bool> {
+pub fn simulate_comb(a: &Network, input_values: &[bool]) -> Vec<bool> {
     assert!(a.is_comb());
-    let input = vec![input_values.clone()];
+    let input = vec![input_values.to_vec()];
     let output = simulate(a, &input);
     output[0].clone()
 }
@@ -45,8 +45,8 @@ pub fn simulate_comb(a: &Network, input_values: &Vec<bool>) -> Vec<bool> {
 /// Simulate a network over multiple timesteps, with faults injected; return the output values
 pub fn simulate_with_faults(
     a: &Network,
-    input_values: &Vec<Vec<bool>>,
-    faults: &Vec<Fault>,
+    input_values: &[Vec<bool>],
+    faults: &[Fault],
 ) -> Vec<Vec<bool>> {
     let multi_input = bool_to_multi(input_values);
     let multi_ret = simulate_multi_with_faults(a, &multi_input, faults);
@@ -56,17 +56,17 @@ pub fn simulate_with_faults(
 /// Simulate a combinatorial network, with faults injected; return the output values
 pub fn simulate_comb_with_faults(
     a: &Network,
-    input_values: &Vec<bool>,
-    faults: &Vec<Fault>,
+    input_values: &[bool],
+    faults: &[Fault],
 ) -> Vec<bool> {
     assert!(a.is_comb());
-    let input = vec![input_values.clone()];
+    let input = vec![input_values.to_vec()];
     let output = simulate_with_faults(a, &input, faults);
     output[0].clone()
 }
 
 /// Simulate a network over multiple timesteps with 64b inputs; return the output values
-pub(crate) fn simulate_multi(a: &Network, input_values: &Vec<Vec<u64>>) -> Vec<Vec<u64>> {
+pub(crate) fn simulate_multi(a: &Network, input_values: &[Vec<u64>]) -> Vec<Vec<u64>> {
     use simple_sim::SimpleSimulator;
     let mut sim = SimpleSimulator::from_aig(a);
     sim.run(input_values)
@@ -75,8 +75,8 @@ pub(crate) fn simulate_multi(a: &Network, input_values: &Vec<Vec<u64>>) -> Vec<V
 /// Simulate a network over multiple timesteps with 64b inputs; return the output values
 pub(crate) fn simulate_multi_with_faults(
     a: &Network,
-    input_values: &Vec<Vec<u64>>,
-    faults: &Vec<Fault>,
+    input_values: &[Vec<u64>],
+    faults: &[Fault],
 ) -> Vec<Vec<u64>> {
     use simple_sim::SimpleSimulator;
     let mut sim = SimpleSimulator::from_aig(a);
@@ -84,11 +84,7 @@ pub(crate) fn simulate_multi_with_faults(
 }
 
 /// Analyze which of a set of pattern detect a given fault
-pub(crate) fn detects_faults_multi(
-    aig: &Network,
-    pattern: &Vec<u64>,
-    faults: &Vec<Fault>,
-) -> Vec<u64> {
+pub(crate) fn detects_faults_multi(aig: &Network, pattern: &[u64], faults: &[Fault]) -> Vec<u64> {
     assert!(aig.is_comb());
     assert!(aig.is_topo_sorted());
     let mut incr_sim = IncrementalSimulator::from_aig(aig);
@@ -101,8 +97,8 @@ pub(crate) fn detects_faults_multi(
 }
 
 /// Analyze whether a pattern detects a given fault
-pub(crate) fn detects_faults(aig: &Network, pattern: &Vec<bool>, faults: &Vec<Fault>) -> Vec<bool> {
-    let multi_pattern = pattern
+pub(crate) fn detects_faults(aig: &Network, pattern: &[bool], faults: &[Fault]) -> Vec<bool> {
+    let multi_pattern: Vec<_> = pattern
         .iter()
         .map(|b| if *b { !0u64 } else { 0u64 })
         .collect();

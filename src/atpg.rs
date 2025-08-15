@@ -77,7 +77,7 @@ fn find_pattern_detecting_fault(aig: &Network, fault: Fault) -> Option<Vec<bool>
     diff.cleanup();
     let ret = prove(&diff);
     if let Some(pattern) = &ret {
-        assert_eq!(detects_faults(aig, pattern, &vec![fault]), vec![true]);
+        assert_eq!(detects_faults(aig, pattern, &[fault]), vec![true]);
     }
     ret
 }
@@ -96,7 +96,7 @@ pub fn generate_random_seq_patterns(
         for _ in 0..nb_timesteps {
             let mut r2 = Vec::new();
             for _ in 0..nb_inputs {
-                r2.push(rng.gen());
+                r2.push(rng.random());
             }
             r1.push(r2);
         }
@@ -139,7 +139,7 @@ impl<'a> TestPatternGenerator<'a> {
     }
 
     /// Initialize the generator from a network and a seed
-    pub fn from(aig: &'a Network, faults: Vec<Fault>, seed: u64) -> TestPatternGenerator {
+    pub fn from(aig: &'a Network, faults: Vec<Fault>, seed: u64) -> TestPatternGenerator<'a> {
         assert!(aig.is_topo_sorted());
         let nb_faults = faults.len();
         TestPatternGenerator {
@@ -194,7 +194,7 @@ impl<'a> TestPatternGenerator<'a> {
             let mut val = if b { !0 } else { 0 };
             let mut change = !0;
             for _ in 0..num_rounds {
-                change &= self.rng.gen::<u64>();
+                change &= self.rng.random::<u64>();
             }
             val ^= change;
             val &= !1; // Ensure that the first pattern is the original one
@@ -219,7 +219,7 @@ impl<'a> TestPatternGenerator<'a> {
     /// Generate a random pattern and add it to the current set
     pub fn add_random_patterns(&mut self, check_already_detected: bool) {
         let pattern = (0..self.aig.nb_inputs())
-            .map(|_| self.rng.gen::<u64>())
+            .map(|_| self.rng.random::<u64>())
             .collect();
         self.add_patterns(pattern, check_already_detected);
     }
