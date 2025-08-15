@@ -14,12 +14,12 @@ homepage = "https://github.com/Coloquinte/quaigh"
 categories = ["mathematics", "algorithms"]
 
 [dependencies]
-rustsat-kissat = "0.1"
-rustsat = "0.4"
-volute = "1.1.3"
-clap = { version = "4.4", features = ["derive"] }
-rand = { version = "0.8.5", features = ["small_rng"] }
-itertools = "0.12.0"
+rustsat-kissat = "0.7"
+rustsat = "0.7"
+volute = "1.2"
+clap = { version = "4.5", features = ["derive"] }
+rand = { version = "0.9", features = ["small_rng"] }
+itertools = "0.14"
 fxhash = "0.2.1"
-kdam = { version = "0.5", features = ["template"] }
+kdam = { version = "0.6", features = ["template"] }
 
