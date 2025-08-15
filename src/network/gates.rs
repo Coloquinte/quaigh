@@ -215,32 +215,32 @@ impl Gate {
 
     /// Returns whether the gate is combinatorial
     pub fn is_comb(&self) -> bool {
-        return !matches!(self, Gate::Dff(_));
+        !matches!(self, Gate::Dff(_))
     }
 
     /// Returns whether the gate is an And of any arity
     pub fn is_and(&self) -> bool {
-        return matches!(
+        matches!(
             self,
             Gate::Binary(_, BinaryType::And)
                 | Gate::Ternary(_, TernaryType::And)
                 | Gate::Nary(_, NaryType::And)
-        );
+        )
     }
 
     /// Returns whether the gate is a Xor of any arity
     pub fn is_xor(&self) -> bool {
-        return matches!(
+        matches!(
             self,
             Gate::Binary(_, BinaryType::Xor)
                 | Gate::Ternary(_, TernaryType::Xor)
                 | Gate::Nary(_, NaryType::Xor)
-        );
+        )
     }
 
     /// Returns whether the gate is an And, Or, Nand or Nor of any arity
     pub fn is_and_like(&self) -> bool {
-        return matches!(
+        matches!(
             self,
             Gate::Binary(_, BinaryType::And)
                 | Gate::Ternary(_, TernaryType::And)
@@ -248,23 +248,23 @@ impl Gate {
                 | Gate::Nary(_, NaryType::Nand)
                 | Gate::Nary(_, NaryType::Or)
                 | Gate::Nary(_, NaryType::Nor)
-        );
+        )
     }
 
     /// Returns whether the gate is a Xor, Xnor of any arity
     pub fn is_xor_like(&self) -> bool {
-        return matches!(
+        matches!(
             self,
             Gate::Binary(_, BinaryType::Xor)
                 | Gate::Ternary(_, TernaryType::Xor)
                 | Gate::Nary(_, NaryType::Xor)
                 | Gate::Nary(_, NaryType::Xnor)
-        );
+        )
     }
 
     /// Returns whether the gate is a Buf
     pub fn is_buf_like(&self) -> bool {
-        return matches!(self, Gate::Buf(_));
+        matches!(self, Gate::Buf(_))
     }
 
     /// Apply a remapping of the signals to the gate
@@ -274,10 +274,10 @@ impl Gate {
             Binary([a, b], tp) => Binary([t(a), t(b)], *tp),
             Ternary([a, b, c], tp) => Ternary([t(a), t(b), t(c)], *tp),
             Dff([a, b, c]) => Dff([t(a), t(b), t(c)]),
-            Nary(v, tp) => Nary(v.iter().map(|s| t(s)).collect(), *tp),
+            Nary(v, tp) => Nary(v.iter().map(&t).collect(), *tp),
             Buf(s) => Buf(t(s)),
             Lut(lut) => Lut(Box::new(LutGate {
-                inputs: lut.inputs.iter().map(|s| t(s)).collect(),
+                inputs: lut.inputs.iter().map(t).collect(),
                 lut: lut.lut.clone(),
             })),
         }

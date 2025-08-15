@@ -42,7 +42,7 @@ fn build_name_to_sig(statements: &Vec<Statement>) -> Result<HashMap<String, Sign
                 break;
             }
             Statement::Inputs(inputs) => {
-                for (_, name) in inputs.iter().enumerate() {
+                for name in inputs.iter() {
                     let s = Signal::from_input(input_index as u32);
                     input_index += 1;
                     let present = ret.insert(name.clone(), s).is_some();
@@ -154,11 +154,11 @@ fn build_network(
                 ));
             }
             for (c, s) in zip(cube_inputs, inputs) {
-                if *c == '0' as u8 {
+                if *c == b'0' {
                     deps.push(!s);
-                } else if *c == '1' as u8 {
+                } else if *c == b'1' {
                     deps.push(*s);
-                } else if *c != '-' as u8 {
+                } else if *c != b'-' {
                     return Err(format!("Invalid cube: {}", s));
                 }
             }
@@ -169,21 +169,19 @@ fn build_network(
             };
             polarities.push(pol);
             let g = if pol {
-                if deps.len() == 0 {
+                if deps.is_empty() {
                     Gate::Buf(Signal::one())
                 } else if deps.len() == 1 {
                     Gate::Buf(deps[0])
                 } else {
                     Gate::andn(&deps)
                 }
+            } else if deps.is_empty() {
+                Gate::Buf(Signal::zero())
+            } else if deps.len() == 1 {
+                Gate::Buf(!deps[0])
             } else {
-                if deps.len() == 0 {
-                    Gate::Buf(Signal::zero())
-                } else if deps.len() == 1 {
-                    Gate::Buf(!deps[0])
-                } else {
-                    Gate::Nary(deps.into(), NaryType::Nand)
-                }
+                Gate::Nary(deps.into(), NaryType::Nand)
             };
             cube_gates.push(g);
         }

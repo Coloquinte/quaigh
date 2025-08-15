@@ -77,7 +77,7 @@ fn find_pattern_detecting_fault(aig: &Network, fault: Fault) -> Option<Vec<bool>
     diff.cleanup();
     let ret = prove(&diff);
     if let Some(pattern) = &ret {
-        assert_eq!(detects_faults(aig, &pattern, &vec![fault]), vec![true]);
+        assert_eq!(detects_faults(aig, pattern, &vec![fault]), vec![true]);
     }
     ret
 }
@@ -144,7 +144,7 @@ impl<'a> TestPatternGenerator<'a> {
         let nb_faults = faults.len();
         TestPatternGenerator {
             aig,
-            faults: faults,
+            faults,
             patterns: Vec::new(),
             pattern_detections: Vec::new(),
             detection: vec![false; nb_faults],
@@ -247,7 +247,7 @@ impl<'a> TestPatternGenerator<'a> {
         progress
             .set_bar_format("{desc}{percentage:3.0}%|{animation}| [{elapsed}<{remaining}{postfix}]")
             .unwrap();
-        progress.set_postfix(format!("patterns=-"));
+        progress.set_postfix("patterns=-".to_string());
         let mut remaining_to_detect = self.nb_detected();
         let mut it = 0;
 
