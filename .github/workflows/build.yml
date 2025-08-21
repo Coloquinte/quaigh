@@ -50,6 +50,30 @@ jobs:
         run: |
           cargo install cargo-rdme
           cargo rdme --check
+  update-nix:
+    name: Update Nix data
+    strategy:
+      matrix:
+        system:
+          [
+            { gha: ubuntu-latest, nix: "x86_64-linux" },
+          ]
+    runs-on: ${{ matrix.system.gha }}
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - run: nix develop github:cargo2nix/cargo2nix#bootstrap
+      - run: nix flake lock --update-input cargo2nix
+      - run: nix run github:cargo2nix/cargo2nix -- --overwrite
+      - name: Upload nix data
+        uses: actions/upload-artifact@v4
+        with:
+          name: NixData
+          path: |
+            Cargo.nix 
+            flake.lock
   nix:
     name: Test/Nix (${{ matrix.system.nix }})
     strategy:
