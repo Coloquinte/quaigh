@@ -65,7 +65,7 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
       - run: nix develop github:cargo2nix/cargo2nix/release-0.12#bootstrap
-      - run: nix run github:cargo2nix/cargo2nix -- --overwrite
+      - run: nix run github:cargo2nix/cargo2nix/release-0.12 -- --overwrite
       - name: Upload nix data
         uses: actions/upload-artifact@v4
         with:
