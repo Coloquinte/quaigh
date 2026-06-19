@@ -56,7 +56,13 @@ pub struct NetworkStats {
 impl NetworkStats {
     /// Total number of gates, including Dff
     pub fn nb_gates(&self) -> usize {
-        self.nb_and + self.nb_xor + self.nb_mux + self.nb_maj + self.nb_buf + self.nb_dff
+        self.nb_and
+            + self.nb_xor
+            + self.nb_lut
+            + self.nb_mux
+            + self.nb_maj
+            + self.nb_buf
+            + self.nb_dff
     }
 
     /// Record a new and
@@ -96,10 +102,10 @@ impl fmt::Display for NetworkStats {
         if self.nb_dff != 0 {
             writeln!(f, "  Dff: {}", self.nb_dff)?;
             if self.nb_dffe != 0 {
-                writeln!(f, "      enable: {}", self.nb_dff)?;
+                writeln!(f, "      enable: {}", self.nb_dffe)?;
             }
             if self.nb_dffr != 0 {
-                writeln!(f, "      reset: {}", self.nb_dff)?;
+                writeln!(f, "      reset: {}", self.nb_dffr)?;
             }
         }
         if self.nb_and != 0 {
@@ -243,4 +249,110 @@ pub fn gate_is_output(aig: &Network) -> Vec<bool> {
         }
     }
     ret
+}
+
+/// Compute the combinational logic level of every node
+///
+/// Primary inputs, constants and flip-flop outputs are level 0; each combinatorial
+/// gate is one level above its highest input. Buffers and inverters do not add a level.
+/// The network must be topologically sorted.
+pub fn levels(aig: &Network) -> Vec<u32> {
+    let mut lvl = vec![0u32; aig.nb_nodes()];
+    for i in 0..aig.nb_nodes() {
+        let g = aig.gate(i);
+        if !g.is_comb() {
+            // A flip-flop output is a sequential source at level 0
+            continue;
+        }
+        let mut m = 0;
+        for v in g.vars() {
+            m = m.max(lvl[v as usize]);
+        }
+        lvl[i] = if g.is_buf_like() { m } else { m + 1 };
+    }
+    lvl
+}
+
+/// Compute the combinational depth of the network: the largest logic level over all outputs
+///
+/// The network must be topologically sorted.
+pub fn depth(aig: &Network) -> usize {
+    let lvl = levels(aig);
+    let mut d = 0;
+    for i in 0..aig.nb_outputs() {
+        let s = aig.output(i);
+        if s.is_var() {
+            d = d.max(lvl[s.var() as usize]);
+        }
+    }
+    d as usize
+}
+
+#[cfg(test)]
+mod tests {
+    use volute::Lut3;
+
+    use super::{depth, stats};
+    use crate::{Gate, Network, Signal};
+
+    #[test]
+    fn test_dff_enable_reset_counts() {
+        let mut aig = Network::new();
+        let d = aig.add_input();
+        let en = aig.add_input();
+        let res = aig.add_input();
+        // plain dff, dff with enable, dff with enable and reset
+        let q0 = aig.dff(d, Signal::one(), Signal::zero());
+        let q1 = aig.dff(d, en, Signal::zero());
+        let q2 = aig.dff(d, en, res);
+        aig.add_output(q0);
+        aig.add_output(q1);
+        aig.add_output(q2);
+
+        let st = stats(&aig);
+        assert_eq!(st.nb_dff, 3);
+        assert_eq!(st.nb_dffe, 2);
+        assert_eq!(st.nb_dffr, 1);
+
+        // The Display must report the dedicated counts, not nb_dff
+        let shown = format!("{st}");
+        assert!(shown.contains("enable: 2"), "{shown}");
+        assert!(shown.contains("reset: 1"), "{shown}");
+    }
+
+    #[test]
+    fn test_lut_counts_as_gate() {
+        let mut aig = Network::new();
+        let i0 = aig.add_input();
+        let i1 = aig.add_input();
+        let i2 = aig.add_input();
+        let o = aig.add(Gate::lut(&[i0, i1, i2], Lut3::nth_var(0).into()));
+        aig.add_output(o);
+
+        let st = stats(&aig);
+        assert_eq!(st.nb_lut, 1);
+        assert_eq!(st.nb_gates(), 1);
+    }
+
+    #[test]
+    fn test_depth() {
+        let mut aig = Network::new();
+        // A right-leaning And chain of 8 inputs has depth 7
+        let mut sigs = Vec::new();
+        for _ in 0..8 {
+            sigs.push(aig.add_input());
+        }
+        let mut acc = sigs[0];
+        for s in &sigs[1..] {
+            acc = aig.and(acc, *s);
+        }
+        aig.add_output(acc);
+        assert_eq!(depth(&aig), 7);
+
+        // A network whose only output is a primary input has depth 0
+        let mut io = Network::new();
+        let i = io.add_input();
+        io.add_output(i);
+        assert_eq!(depth(&io), 0);
+    }
 }

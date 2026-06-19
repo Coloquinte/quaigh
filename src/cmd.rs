@@ -154,6 +154,18 @@ pub struct OptArgs {
     /// Seed for randomized algorithms
     #[arg(long)]
     seed: Option<u64>,
+
+    /// Balance And/Xor trees to reduce logic depth (delay-oriented)
+    #[arg(long, default_value_t = false)]
+    balance: bool,
+
+    /// Lower the network to a 2-input And-Inverter Graph (AIG)
+    #[arg(long, default_value_t = false)]
+    aig: bool,
+
+    /// Lower the network to a Majority-Inverter Graph (MIG)
+    #[arg(long, default_value_t = false)]
+    mig: bool,
 }
 
 impl OptArgs {
@@ -170,6 +182,15 @@ impl OptArgs {
             optim::infer_dffe(&mut aig);
             optim::share_logic(&mut aig, 64);
         }
+        if self.balance {
+            aig = optim::balance(&aig);
+        }
+        if self.aig {
+            aig = optim::to_aig(&aig);
+        }
+        if self.mig {
+            aig = optim::to_mig(&aig);
+        }
         write_network_file(&self.output, &aig);
     }
 }
@@ -183,9 +204,12 @@ pub struct ShowArgs {
 
 impl ShowArgs {
     pub fn run(&self) {
-        use crate::network::stats::stats;
+        use crate::network::stats::{depth, stats};
+        use crate::optim::cuts::count_cuts;
         let aig = read_network_file(&self.file);
-        println!("Network stats:\n{}\n\n", stats(&aig));
+        println!("Network stats:\n{}", stats(&aig));
+        println!("  Combinational depth: {}", depth(&aig));
+        println!("  4-feasible cuts: {}\n\n", count_cuts(&aig, 4));
     }
 }
 

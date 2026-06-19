@@ -345,10 +345,10 @@ pub fn write_blif<W: Write>(w: &mut W, aig: &Network) {
                 // ABC extension to blif
                 write!(w, ".flop D={} Q=x{} init=0", sig_to_string(d), i).unwrap();
                 if *en != Signal::one() {
-                    write!(w, " E={}", en).unwrap();
+                    write!(w, " E={}", sig_to_string(en)).unwrap();
                 }
                 if *res != Signal::zero() {
-                    write!(w, " R={}", en).unwrap();
+                    write!(w, " R={}", sig_to_string(res)).unwrap();
                 }
                 writeln!(w).unwrap();
             } else {
@@ -494,5 +494,38 @@ mod test {
         let mut buf = BufWriter::new(Vec::new());
         super::write_blif(&mut buf, &aig);
         String::from_utf8(buf.into_inner().unwrap()).unwrap();
+    }
+
+    /// A Dff with both enable and reset must emit distinct E= and R= signals.
+    /// Regression: the writer used to emit the enable signal for R= as well.
+    #[test]
+    fn test_write_flop_enable_reset() {
+        use std::io::BufWriter;
+
+        use crate::Network;
+
+        let mut aig = Network::new();
+        let d = aig.add_input();
+        let en = aig.add_input();
+        let res = aig.add_input();
+        let q = aig.dff(d, en, res);
+        aig.add_output(q);
+
+        let mut buf = BufWriter::new(Vec::new());
+        super::write_blif(&mut buf, &aig);
+        let s = String::from_utf8(buf.into_inner().unwrap()).unwrap();
+
+        let flop_line = s
+            .lines()
+            .find(|l| l.contains(".flop"))
+            .expect("expected a .flop line for a Dff with enable and reset");
+        assert!(
+            flop_line.contains("E=i1"),
+            "enable should be i1: {flop_line}"
+        );
+        assert!(
+            flop_line.contains("R=i2"),
+            "reset should be i2, not the enable: {flop_line}"
+        );
     }
 }
