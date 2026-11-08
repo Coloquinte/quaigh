@@ -119,7 +119,7 @@ impl EquivArgs {
                 for v in err {
                     print!("\t");
                     for b in v {
-                        print!("{}", if b { "0" } else { "1" });
+                        print!("{}", if b { "1" } else { "0" });
                     }
                     println!();
                 }
